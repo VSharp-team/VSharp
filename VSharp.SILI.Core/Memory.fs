@@ -1057,6 +1057,7 @@ module internal Memory =
         commonReadStructUnsafe reporter fields structType startByte endByte (neg startByte) false sightType
 
     and private getAffectedFields reporter readField isStatic (blockType : Type) startByte endByte =
+        // TODO: incorrect in case of static field
         let blockSize = Reflection.blockSize blockType
         let inBlock =
             isValueType blockType

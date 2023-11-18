@@ -33,6 +33,7 @@ module internal Pointers =
             let baseAddress, structOffset = addressToBaseAndOffset address
             baseAddress, getFieldOffset field |> add structOffset
         | StaticField(symbolicType, field) ->
+            // TODO: use specific 'getFieldOffset'
             StaticLocation symbolicType, getFieldOffset field
         // NOTE: only vector case
         | ArrayIndex(heapAddress, [index], (elementType, _, true as arrayType)) ->

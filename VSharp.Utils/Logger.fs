@@ -36,8 +36,7 @@ module Logger =
     let public currentLogLevel tag =
         if enabledTags.ContainsKey tag then
             enabledTags[tag]
-        else
-            Quiet
+        else Quiet
 
     let LevelToString = function
         | 0 -> "Quiet"

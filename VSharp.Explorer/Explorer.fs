@@ -509,9 +509,9 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
                 let emptyState = Memory.EmptyState()
                 (Option.defaultValue method (x.TrySubstituteTypeParameters emptyState method), emptyState)
             let isolated =
-                isolated
-                |> Seq.map trySubstituteTypeParameters
-                |> Seq.map (fun (m, s) -> Application.getMethod m, s) |> Seq.toList
+                List.ofSeq isolated
+                |> List.map trySubstituteTypeParameters
+                |> List.map (fun (m, s) -> Application.getMethod m, s)
             let entryPoints =
                 entryPoints
                 |> Seq.map (fun (m, a) ->
@@ -536,7 +536,9 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
                     for ex in explorationTask.Exception.InnerExceptions do
                     reporter.ReportCrash ex
 
-        with e -> reporter.ReportCrash e
+        with
+        | :? AggregateException as e -> reporter.ReportCrash e.InnerException
+        | e -> reporter.ReportCrash e
 
     member x.Statistics with get() = statistics
 

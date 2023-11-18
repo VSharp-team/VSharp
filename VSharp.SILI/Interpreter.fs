@@ -521,9 +521,9 @@ type ILInterpreter() as this =
                 methodInfo.Invoke(null, parameters)
             with
             | :? TargetInvocationException as targetException ->
-                Logger.error $"InternalCall got TargetInvocationException {targetException.Message}"
-                let actualException = targetException.GetBaseException()
-                Logger.error $"TargetInvocationException.GetBaseException {actualException.Message}"
+                let actualException = targetException.InnerException
+                Logger.error $"InternalCall got TargetInvocationException {actualException.Message}"
+                Logger.error $"StackTrace: {actualException.StackTrace}"
                 raise actualException
             | e ->
                 Logger.error $"InternalCall got exception {e.Message}"
@@ -770,7 +770,7 @@ type ILInterpreter() as this =
                         push resultTerm cilState
                     | _ when returnType <> typeof<Void> ->
                         // Case when method returns something
-                        let typ = TypeUtils.mostConcreteType resultType method.ReturnType
+                        let typ = TypeUtils.mostConcreteType resultType returnType
                         let resultTerm = Memory.ObjectToTerm state result typ
                         push resultTerm cilState
                     | _ when thisIsStruct && method.IsConstructor ->
