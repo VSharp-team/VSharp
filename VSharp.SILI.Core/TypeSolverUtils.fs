@@ -24,6 +24,58 @@ type symbolicType =
     | ConcreteType of Type
     | MockType of ITypeMock
 
+type private substitution = pdict<Type, symbolicType>
+
+type specialConstraints = {
+    isReferenceType : bool
+    isNotNullableValueType : bool
+    hasDefaultConstructor : bool
+}
+with
+    static member FromParameter (parameter : Type) =
+        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
+        let specialConstraints = parameter.GenericParameterAttributes &&& GenericParameterAttributes.SpecialConstraintMask
+        let isReferenceType = specialConstraints &&& GenericParameterAttributes.ReferenceTypeConstraint = GenericParameterAttributes.ReferenceTypeConstraint
+        let isNotNullableValueType = specialConstraints &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
+        let hasDefaultConstructor = specialConstraints &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.DefaultConstructorConstraint
+        {
+            isReferenceType = isReferenceType
+            isNotNullableValueType = isNotNullableValueType
+            hasDefaultConstructor = hasDefaultConstructor
+        }
+
+module private CommonUtils =
+
+    let satisfiesSpecialConstraints (parameter : Type) (t : Type) =
+        let sc = specialConstraints.FromParameter parameter
+        // Byref-like structures can not be generic argument
+        (not t.IsByRefLike)
+        && (not sc.isReferenceType || not t.IsValueType)
+        && (not sc.isNotNullableValueType || (t.IsValueType && Nullable.GetUnderlyingType t = null))
+        && (not sc.hasDefaultConstructor || t.IsValueType || not t.IsAbstract && t.GetConstructor(Type.EmptyTypes) <> null)
+
+    // 'typeParameters' must contain either not generic type or generic parameter
+    let decodeTypeSubst (subst : substitution) typeParameters =
+        let getSubst (typ : Type) =
+            if typ.IsGenericParameter then PersistentDict.find subst typ
+            else
+                assert(not typ.ContainsGenericParameters)
+                ConcreteType typ
+        Array.map getSubst typeParameters
+
+    let isAssignableTo (t : Type) (u : Type) =
+        if t.ContainsGenericParameters || u.ContainsGenericParameters then
+            if not t.IsInterface && u.IsInterface then
+                TypeUtils.typeImplementsInterface t u
+            else
+                TypeUtils.getSupertypes t
+                |> List.map TypeUtils.getTypeDef
+                |> List.contains (TypeUtils.getTypeDef u)
+        else
+            t.IsAssignableTo(u)
+
+    let isAssignableFrom t u = isAssignableTo u t
+
 // TODO: use set instead of list? #type
 type typeConstraints =
     {
@@ -67,14 +119,14 @@ with
 
     member x.IsContradicting() =
         let nonComparable (t : Type) (u : Type) =
-            u.IsClass && t.IsClass && (not <| u.IsAssignableTo t) && (not <| u.IsAssignableFrom t)
-            || t.IsSealed && u.IsInterface && not (t.IsAssignableTo u)
+            u.IsClass && t.IsClass && not (CommonUtils.isAssignableTo u t) && not (CommonUtils.isAssignableFrom u t)
+            || t.IsSealed && u.IsInterface && not (CommonUtils.isAssignableTo t u)
         // X <: u and u <: t and X </: t
-        x.supertypes |> List.exists (fun u -> x.notSupertypes |> List.exists u.IsAssignableTo)
+        x.supertypes |> List.exists (fun u -> x.notSupertypes |> List.exists (CommonUtils.isAssignableTo u))
         || // u <: X and t <: u and t </: X
-        x.subtypes |> List.exists (fun u -> x.notSubtypes |> List.exists u.IsAssignableFrom)
+        x.subtypes |> List.exists (fun u -> x.notSubtypes |> List.exists (CommonUtils.isAssignableFrom u))
         || // u <: X and X <: t and u </: t
-        x.subtypes |> List.exists (fun u -> x.supertypes |> List.exists (u.IsAssignableTo >> not))
+        x.subtypes |> List.exists (fun u -> x.supertypes |> List.exists ((CommonUtils.isAssignableTo u) >> not))
         || // No multiple inheritance -- X <: u and X <: t and u </: t and t </: u and t, u are classes
         x.supertypes |> List.exists (fun u -> x.supertypes |> List.exists (nonComparable u))
         || // u </: X and X <: u when u is sealed
@@ -109,6 +161,40 @@ with
             notSubtypes = x.notSubtypes
             notSupertypes = x.notSupertypes
         }
+
+type typeParameterConstraints(parameter : Type, constraints : typeConstraints) =
+    do assert parameter.IsGenericParameter
+    let specialConstraints = specialConstraints.FromParameter parameter
+
+    let isValueType (t : Type) =
+        t.IsValueType
+        || t = typeof<ValueType>
+
+    let isValueTypeOrInterface (t : Type) =
+        isValueType t
+        || t.IsInterface
+
+    member x.Merge(other: typeConstraints) =
+        constraints.Merge other
+
+    member x.IsContradicting() =
+        let isNotNullableValueTypeContradiction =
+            specialConstraints.isNotNullableValueType
+            && (constraints.supertypes |> List.exists (isValueTypeOrInterface >> not)
+                || constraints.subtypes |> List.exists (isValueType >> not))
+        let isReferenceTypeContradiction =
+            specialConstraints.isReferenceType
+            && constraints.supertypes |> List.exists isValueType
+
+        isNotNullableValueTypeContradiction
+        || isReferenceTypeContradiction
+        || constraints.IsContradicting()
+
+    member x.Constraints with get() = constraints
+
+    member x.Copy() =
+        let constraints = constraints.Copy()
+        typeParameterConstraints(parameter, constraints)
 
 type typesConstraints private (newAddresses, constraints) =
 
@@ -179,31 +265,6 @@ type typesConstraints private (newAddresses, constraints) =
         constraints[address].Copy()
 
     member x.Count with get() = constraints.Count
-
-type private substitution = pdict<Type, symbolicType>
-
-module private CommonUtils =
-
-    let satisfiesSpecialConstraints (parameter : Type) (t : Type) =
-        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let specialConstraints = parameter.GenericParameterAttributes &&& GenericParameterAttributes.SpecialConstraintMask
-        let isReferenceType = specialConstraints &&& GenericParameterAttributes.ReferenceTypeConstraint = GenericParameterAttributes.ReferenceTypeConstraint
-        let isNotNullableValueType = specialConstraints &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
-        let hasDefaultConstructor = specialConstraints &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.DefaultConstructorConstraint
-        // Byref-like structures can not be generic argument
-        (not t.IsByRefLike)
-        && (not isReferenceType || not t.IsValueType)
-        && (not isNotNullableValueType || (t.IsValueType && Nullable.GetUnderlyingType t = null))
-        && (not hasDefaultConstructor || t.IsValueType || not t.IsAbstract && t.GetConstructor(Type.EmptyTypes) <> null)
-
-    // 'typeParameters' must contain either not generic type or generic parameter
-    let decodeTypeSubst (subst : substitution) typeParameters =
-        let getSubst (typ : Type) =
-            if typ.IsGenericParameter then PersistentDict.find subst typ
-            else
-                assert(not typ.ContainsGenericParameters)
-                ConcreteType typ
-        Array.map getSubst typeParameters
 
 module internal GroundUtils =
 
@@ -329,13 +390,13 @@ type parameterSubstitutions private (
     parameters,
     layers,
     maxDepths: Dictionary<Type, int>,
-    parameterConstraints: Dictionary<Type, typeConstraints>,
+    parameterConstraints: Dictionary<Type, typeParameterConstraints>,
     depth,
     getCandidates,
     makeGenericCandidate: Type -> int -> genericCandidate option,
     childDepth) =
 
-    let satisfiesConstraints subst (constraints : typeConstraints) (parameter : Type) (candidate: candidate) =
+    let satisfiesConstraints subst (constraints : typeConstraints) (parameter : Type) (candidate : candidate) =
         let substitute subst t = GenericUtils.substitute t subst
 
         if CommonUtils.satisfiesSpecialConstraints parameter candidate.TypeDef then
@@ -348,11 +409,7 @@ type parameterSubstitutions private (
                     && (parameter.GetGenericParameterConstraints() |> Array.forall isSupertype)
                 if satisfies then Some c else None
             | GenericCandidate genericCandidate ->
-                // TODO: This forces propagate of parameter constraints every time #types #bug
-                // TODO: move this to genericCandidate .ctor #SLAVA
                 let constraints = constraints.Copy()
-                for c in parameter.GetGenericParameterConstraints() do
-                    substitute subst c |> constraints.AddSuperType
                 genericCandidate.AddConstraints constraints |> Option.map GenericCandidate
         else None
 
@@ -392,7 +449,8 @@ type parameterSubstitutions private (
     let processLayer (substs : GenericUtils.parameterSubstitution seq) layer =
         let paramCandidates subst param =
             let candidates : candidates = makeGeneric param |> getCandidates
-            let filtered : candidates = candidates.Filter (satisfiesConstraints subst parameterConstraints[param] param) (fun _ -> None)
+            let filtered : candidates =
+                candidates.Filter (satisfiesConstraints subst parameterConstraints[param].Constraints param) (fun _ -> None)
             filtered.ConcreteTypes
         seq {
             for subst in substs do
@@ -413,9 +471,10 @@ type parameterSubstitutions private (
         let layers, maxDepths, isCycled = GenericUtils.makeLayers parameterTypes
         if isCycled || depth <= 0 then None
         else
-            let parameterConstraints = Dictionary<Type, typeConstraints>()
+            let parameterConstraints = Dictionary<Type, typeParameterConstraints>()
             for t in parameterTypes do
-                parameterConstraints.Add(t, typeConstraints.Empty)
+                let constraints = t.GetGenericParameterConstraints() |> Array.toList |> typeConstraints.FromSuperTypes
+                parameterConstraints.Add(t, typeParameterConstraints(t, constraints))
             parameterSubstitutions(
                 parameterTypes,
                 layers,
@@ -428,13 +487,17 @@ type parameterSubstitutions private (
             |> Some
 
     member x.AddConstraints (newConstraints: Dictionary<Type, typeConstraints>) =
-        let newParameterConstraints = Dictionary<Type, typeConstraints>()
+        let newParameterConstraints = Dictionary<Type, typeParameterConstraints>()
+        let mutable isContradicting = false
         for KeyValue(param, constraints) in parameterConstraints do
             let constraints = constraints.Copy()
             constraints.Merge newConstraints[param] |> ignore
+            if constraints.IsContradicting() then
+                isContradicting <- true
             newParameterConstraints.Add(param, constraints)
 
-        updateConstraints newParameterConstraints
+        if isContradicting then None
+        else updateConstraints newParameterConstraints |> Some
 
     member val Substitutions = args
 
@@ -673,7 +736,8 @@ and genericCandidate private (
                 isSupertypeValid [||] supertypesDefs typedef
 
         let newIsEmptied =
-            List.forall (isSupertypeValid interfacesDefs supertypesDefs) constraints.supertypes |> not
+            selfConstraints.IsContradicting()
+            || List.forall (isSupertypeValid interfacesDefs supertypesDefs) constraints.supertypes |> not
             || List.forall isSubtypeValid constraints.subtypes |> not
 
         if newIsEmptied then None
@@ -686,8 +750,10 @@ and genericCandidate private (
                     let constraints = constraints[i]
                     constraints.Merge notConstraints[i] |> ignore
                     parameterConstraints.Add(parameters[i], constraints)
-                let newParameterSubstitutions = parameterSubstitutions.AddConstraints parameterConstraints
-                genericCandidate(typedef, depth, newParameterSubstitutions, selfConstraints) |> Some
+                match parameterSubstitutions.AddConstraints parameterConstraints with
+                | Some newParameterSubstitutions ->
+                    genericCandidate(typedef, depth, newParameterSubstitutions, selfConstraints) |> Some
+                | None -> None
             | None -> None
 
     member val Typedef = typedef

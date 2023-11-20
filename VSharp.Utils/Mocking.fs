@@ -150,7 +150,7 @@ module Mocking =
         member private x.AddInterfaceMethods (t : System.Type) =
             assert t.IsInterface
             let interfaceMethods =
-                TypeUtils.getBaseInterfaces t
+                TypeUtils.getAllInterfaces t
                 |> Seq.cons t
                 |> Seq.distinct
                 |> Seq.collect (fun i -> i.GetMethods())
