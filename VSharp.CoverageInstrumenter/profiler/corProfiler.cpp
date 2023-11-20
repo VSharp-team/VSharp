@@ -500,6 +500,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionLeave()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterEnter(FunctionID functionId)
 {
+    if (isFinished || !threadTracker->isCurrentThreadTracked()) return S_OK;
     LOG(tout << "EXCEPTION Search filter enter");
     threadTracker->filterEnter();
     UNUSED(functionId);
@@ -508,6 +509,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterEnter(FunctionID fun
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterLeave()
 {
+    if (isFinished || !threadTracker->isCurrentThreadTracked()) return S_OK;
     LOG(tout << "EXCEPTION Search filter leave");
     threadTracker->filterLeave();
     return S_OK;
