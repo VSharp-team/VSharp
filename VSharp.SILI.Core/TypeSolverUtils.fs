@@ -492,7 +492,6 @@ type parameterSubstitutions private (
         for KeyValue(param, constraints) in parameterConstraints do
             let constraints = constraints.Copy()
             constraints.Merge newConstraints[param] |> ignore
-            // TODO: Check contradiction with special constraints
             if constraints.IsContradicting() then
                 isContradicting <- true
             newParameterConstraints.Add(param, constraints)
@@ -737,10 +736,11 @@ and genericCandidate private (
                 isSupertypeValid [||] supertypesDefs typedef
 
         let newIsEmptied =
-            List.forall (isSupertypeValid interfacesDefs supertypesDefs) constraints.supertypes |> not
+            selfConstraints.IsContradicting()
+            || List.forall (isSupertypeValid interfacesDefs supertypesDefs) constraints.supertypes |> not
             || List.forall isSubtypeValid constraints.subtypes |> not
 
-        if newIsEmptied || selfConstraints.IsContradicting() then None
+        if newIsEmptied then None
         else
             let notConstraints = propagateNotConstraints constraints
             match propagateConstraints constraints with
