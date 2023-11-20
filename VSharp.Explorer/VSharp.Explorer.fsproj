@@ -5,7 +5,7 @@
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <RootNamespace>VSharp.SVM</RootNamespace>
+        <RootNamespace>VSharp.Explorer</RootNamespace>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
