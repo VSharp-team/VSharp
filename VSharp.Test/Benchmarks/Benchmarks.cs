@@ -24,7 +24,7 @@ internal static class Benchmarks
         var info = new ProcessStartInfo
         {
             WorkingDirectory = testsDir.FullName,
-            FileName = "dotnet",
+            FileName = DotnetExecutablePath.ExecutablePath,
             Arguments = "build"
         };
         var process = new Process();
@@ -94,7 +94,7 @@ internal static class Benchmarks
         );
 
         var fuzzerOptions = new FuzzerOptions(
-            isolation: fuzzerIsolation.Process, 
+            isolation: fuzzerIsolation.Process,
             coverageZone: coverageZone.MethodZone
         );
 

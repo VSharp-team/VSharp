@@ -34,6 +34,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.Fuzzer", "VSharp.Fuz
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.Explorer", "VSharp.Explorer\VSharp.Explorer.fsproj", "{9455C456-51A6-4CA3-B33A-4F168CBADADA}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.FuzzerTestRunner", "VSharp.FuzzerTestRunner\VSharp.FuzzerTestRunner.fsproj", "{8608D406-BA1E-4633-84FF-44A5604FBCA0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -143,5 +145,11 @@ Global
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.DebugTailRec|Any CPU.ActiveCfg = DebugTailRec|Any CPU
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.DebugTailRec|Any CPU.Build.0 = DebugTailRec|Any CPU
+		{8608D406-BA1E-4633-84FF-44A5604FBCA0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8608D406-BA1E-4633-84FF-44A5604FBCA0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8608D406-BA1E-4633-84FF-44A5604FBCA0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8608D406-BA1E-4633-84FF-44A5604FBCA0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8608D406-BA1E-4633-84FF-44A5604FBCA0}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{8608D406-BA1E-4633-84FF-44A5604FBCA0}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal

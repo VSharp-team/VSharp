@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using VSharp.CSharpUtils;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
@@ -13,9 +14,8 @@ public static class Renderer
 
     private static void RunDotnet(ProcessStartInfo startInfo)
     {
-        startInfo.FileName = "dotnet";
+        startInfo.FileName = DotnetExecutablePath.ExecutablePath;
         startInfo.RedirectStandardError = true;
-
         var pi = Process.Start(startInfo);
         pi?.WaitForExit();
     }

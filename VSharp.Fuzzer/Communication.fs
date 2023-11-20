@@ -43,7 +43,7 @@ module Contracts =
 
     [<DataContract; CLIMutable>]
     type ExecutionData = {
-        [<DataMember(Order = 1)>] moduleName: string 
+        [<DataMember(Order = 1)>] moduleName: string
         [<DataMember(Order = 2)>] methodId: int
         [<DataMember(Order = 3)>] threadId: int
         [<DataMember(Order = 4)>] fuzzerSeed: int
@@ -57,7 +57,7 @@ module Contracts =
 
     [<DataContract; CLIMutable>]
     type FuzzingData = {
-        [<DataMember(Order = 1)>] moduleName: string 
+        [<DataMember(Order = 1)>] moduleName: string
         [<DataMember(Order = 2)>] methodId: int
     }
 
@@ -82,6 +82,7 @@ module private Grpc =
     let runGrpcServer<'service when 'service: not struct> port (service: 'service) token =
         WebHost
            .CreateDefaultBuilder()
+           .UseSetting(WebHostDefaults.SuppressStatusMessagesKey, "True")
            .ConfigureKestrel(fun options ->
                 options.ListenLocalhost(port, fun listenOptions ->
                     listenOptions.Protocols <- HttpProtocols.Http2
@@ -155,7 +156,7 @@ let private masterProcessPort = 10043
 let connectFuzzerService () = Grpc.runGrpcClient<Contracts.IFuzzerService> fuzzerPort
 let connectMasterProcessService () = Grpc.runGrpcClient<Contracts.IMasterProcessService> masterProcessPort
 
-let private waitTimeout = 1000000
+let private waitTimeout = 30000
 let private waitServiceForReady wait =
     let tokenSource = new CancellationTokenSource()
     let mutable callOptions = CallOptions().WithWaitForReady(true).WithCancellationToken(tokenSource.Token)

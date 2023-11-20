@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using VSharp.CSharpUtils;
 
 namespace VSharp.CoverageRunner
 {
@@ -81,7 +82,7 @@ namespace VSharp.CoverageRunner
                         ["COVERAGE_INSTRUMENT_MAIN_ONLY"] = "1"
                     },
                 WorkingDirectory = workingDirectory.FullName,
-                FileName = "dotnet",
+                FileName = DotnetExecutablePath.ExecutablePath,
                 Arguments = args
             };
 

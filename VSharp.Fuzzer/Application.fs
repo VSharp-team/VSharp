@@ -34,7 +34,10 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
                 try
                     failIfNull assembly "onFuzz called before assembly initialization"
 
-                    let methodBase = Reflection.resolveMethodBaseFromAssembly assembly moduleName methodToken
+                    let methodBase =
+                        Reflection.resolveMethodBaseFromAssembly assembly moduleName methodToken
+                        |> AssemblyManager.NormalizeMethod
+
                     traceFuzzing $"Resolved MethodBase {methodToken}"
 
                     let method = Application.getMethod methodBase

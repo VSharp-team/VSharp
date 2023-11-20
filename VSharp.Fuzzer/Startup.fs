@@ -2,6 +2,9 @@ module VSharp.Fuzzer.Startup
 
 open System
 open VSharp
+open VSharp.CSharpUtils
+open VSharp.CoverageTool
+open VSharp.Utils.EnvironmentUtils
 open VSharp.Fuzzer.Utils
 
 type internal FuzzerOptions = {
@@ -57,36 +60,12 @@ let internal waitDebuggerAttached () =
     if value = enabled then
         while not Diagnostics.Debugger.IsAttached do ()
 
-let internal isCoverageToolAttached () =
-    fromEnv "CORECLR_PROFILER" = coreclrProfiler
-    && fromEnv "CORECLR_ENABLE_PROFILING" = enabled
-    && fromEnv "CORECLR_PROFILER_PATH" = coreclrProfilerPath
-
 
 let internal startFuzzer options developerOptions =
     let info = Diagnostics.ProcessStartInfo()
     info.WorkingDirectory <- IO.Directory.GetCurrentDirectory()
-    info.FileName <- "dotnet"
+    info.FileName <- DotnetExecutablePath.ExecutablePath
     info.Arguments <- "VSharp.Fuzzer.dll"
-
-    info.EnvironmentVariables["CORECLR_PROFILER"] <- coreclrProfiler
-    info.EnvironmentVariables["CORECLR_ENABLE_PROFILING"] <- enabled
-    info.EnvironmentVariables["CORECLR_PROFILER_PATH"] <- coreclrProfilerPath
-
-    if developerOptions.waitDebuggerAttachedFuzzer then
-        info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_FUZZER"] <- enabled
-    if developerOptions.waitDebuggerAttachedCoverageTool then
-        info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_COVERAGE_TOOL"] <- enabled
-    if developerOptions.waitDebuggerAttachedOnAssertCoverageTool then
-        info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_ON_ASSERT_COVERAGE_TOOL"] <- enabled
-
-    match developerOptions.sanitizersMode with
-    | Disabled -> ()
-    | Enabled path ->
-        match getPlatform () with
-        | Windows -> Prelude.__notImplemented__ ()
-        | Linux -> info.EnvironmentVariables["LD_PRELOAD"] <- path
-        | MacOs -> info.EnvironmentVariables["DYLD_INSERT_LIBRARIES"] <- path
 
     info.EnvironmentVariables["LOG_PATH"] <- System.IO.Directory.GetCurrentDirectory()
     info.EnvironmentVariables["INITIAL_SEED"] <- options.initialSeed |> string
@@ -118,6 +97,9 @@ let internal startFuzzer options developerOptions =
         || developerOptions.waitDebuggerAttachedCoverageTool
         || developerOptions.waitDebuggerAttachedOnAssertCoverageTool then
         Logger.warning $"One of \"Wait debugger\" options is enabled, you may attach to process by pid {proc.Id}"
+
+    if proc.HasExited then
+        failwith "Cannot start fuzzer process"
 
     Logger.traceCommunication "Fuzzer process started"
     proc

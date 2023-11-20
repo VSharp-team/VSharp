@@ -70,7 +70,7 @@ type internal Fuzzer(
             Returned returned
         with
         | :? TargetInvocationException as e ->
-            Thrown e
+            Thrown e.InnerException
 
     let fuzzOnce method (generationDatas: GenerationData[]) (results: InvocationResult[]) i threadId =
         fun () ->
@@ -139,8 +139,7 @@ type internal Fuzzer(
 
                 let mainMethod =
                     methods
-                    |> Seq.find (fun x -> int x.Value.methodToken = method.MetadataToken )
-
+                    |> Seq.find (fun x -> int x.Value.methodToken = method.MetadataToken)
 
                 let filteredLocations =
                     coverageReport.rawCoverageLocations
@@ -166,7 +165,7 @@ type internal Fuzzer(
                         Task.Run(fun () ->
                             test.Serialize(testPath)
                             infoFuzzing $"Generated test: {testPath}"
-                        ).ForgetUntilExecutionRequested() // TODO: Maybe just serialize after finished?
+                        ).ForgetUntilExecutionRequested()
                         infoFuzzing "Test will be generated"
                     | None ->
                         infoFuzzing "Failed to create test"
@@ -184,7 +183,7 @@ type internal Fuzzer(
             let rawCoverage = coverageTool.GetRawHistory()
             traceFuzzing "Coverage received"
             let coverages = CoverageDeserializer.getRawReports rawCoverage
-            traceFuzzing "Coverage deserialized"
+            traceFuzzing $"Coverage reports[{coverages.reports.Length}] deserialized"
             assert (coverages.reports.Length = batchSize)
             let coverages = {
                 methods = coverages.methods
@@ -205,7 +204,7 @@ type internal Fuzzer(
                     abortedCount <- abortedCount + 1
                     traceFuzzing "Aborted"
                 | _ ->
-                    traceFuzzing "Invoked"
+                    traceFuzzing $"Invoked"
                     assert(not <| Utils.isNull invocationResult)
                     // TODO: send batches
                     do! onCollected coverages.methods coverage generationData invocationResult
