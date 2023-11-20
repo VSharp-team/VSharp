@@ -12,6 +12,7 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
+using VSharp.Core;
 using VSharp.CSharpUtils;
 using VSharp.Explorer;
 using VSharp.TestRenderer;
@@ -291,7 +292,7 @@ namespace VSharp.Test
                 context.CurrentResult.SetResult(ResultState.Skipped);
                 return context.CurrentResult;
             }
-            
+
             private bool RenderTests(
                 TestExecutionContext context,
                 TestStatistics statistics,
@@ -320,6 +321,14 @@ namespace VSharp.Test
                 }
 
                 return true;
+            }
+
+            // For fixing Rider bug,
+            // evaluating state in "Debugger -> Thread & Variables" throws System.ArgumentException
+            private void EnforceLoadCore()
+            {
+                var x = API.Memory.EmptyState();
+                Logger.writeLine($"Enforcing load VSharp.Core {x}");
             }
 
             private void CheckCoverage(
@@ -362,6 +371,7 @@ namespace VSharp.Test
 
             private TestResult Explore(TestExecutionContext context)
             {
+                EnforceLoadCore();
                 if (_hasExternMocking && !ExternMocker.ExtMocksSupported)
                     return IgnoreTest(context);
 
@@ -434,7 +444,7 @@ namespace VSharp.Test
                     );
 
                     var fuzzerOptions = new FuzzerOptions(
-                        fuzzerIsolation.Process, 
+                        fuzzerIsolation.Process,
                         _coverageZone
                     );
 
@@ -453,7 +463,7 @@ namespace VSharp.Test
 
                     using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
                     explorer.StartExploration(
-                        new [] { exploredMethodInfo }, 
+                        new [] { exploredMethodInfo },
                         new Tuple<MethodBase, string[]>[] {}
                     );
 
