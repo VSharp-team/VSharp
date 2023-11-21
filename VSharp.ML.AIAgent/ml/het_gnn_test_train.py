@@ -1,14 +1,10 @@
 import os.path
 import pickle
-
-from typing import Dict
+from random import shuffle
 
 import torch
-from torch_geometric.data import HeteroData
-
-from random import shuffle
-from torch_geometric.loader import DataLoader
 import torch.nn.functional as F
+from torch_geometric.loader import DataLoader
 
 BALANCE_DATASET = False
 
@@ -17,7 +13,7 @@ def get_module_name(clazz):
     return clazz.__module__.split(".")[-2]
 
 
-class PredictStateVectorHetGNN:
+class HetGNNTestTrain:
     """predicts ExpectedStateNumber using Heterogeneous GNN"""
 
     def __init__(self, model_class, hidden):
@@ -114,14 +110,6 @@ class PredictStateVectorHetGNN:
                 total_loss += loss
                 number_of_states_total += 1
         return total_loss / number_of_states_total  # correct / len(loader.dataset)
-
-    @staticmethod
-    def predict_state(model, data: HeteroData, state_map: Dict[int, int]) -> int:
-        """Gets state id from model and heterogeneous graph
-        data.state_map - maps real state id to state index"""
-        state_map = {v: k for k, v in state_map.items()}  # inversion for prediction
-        out = model(data.x_dict, data.edge_index_dict)
-        return state_map[int(out["state_vertex"].argmax(dim=0)[0])]
 
     def save_simple(self, model, dir, epochs):
         dir = os.path.join(

@@ -1,11 +1,11 @@
 import json
 
 import torch.nn
+from predict import predict_state_with_dict
 
 from common.game import GameState
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.protocols import Predictor
-from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 
 
 class NNWrapper(Predictor):
@@ -26,9 +26,7 @@ class NNWrapper(Predictor):
         )
         assert self._model is not None
 
-        next_step_id = PredictStateVectorHetGNN.predict_state_with_dict(
-            self._model, hetero_input, state_map
-        )
+        next_step_id = predict_state_with_dict(self._model, hetero_input, state_map)
         del hetero_input
         return next_step_id
 

@@ -1,6 +1,6 @@
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.models.TAGSageSimple.model import StateModelEncoder
-from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
+from ml.het_gnn_test_train import HetGNNTestTrain
 
 
 def get_data_hetero_vector():
@@ -10,5 +10,5 @@ def get_data_hetero_vector():
 
 if __name__ == "__main__":
     # get_data_hetero_vector()
-    pr = PredictStateVectorHetGNN(StateModelEncoder, 32)
+    pr = HetGNNTestTrain(StateModelEncoder, 32)
     pr.train_and_save("../dataset", 20, "./ml/models/")

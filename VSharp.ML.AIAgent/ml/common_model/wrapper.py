@@ -1,12 +1,13 @@
-import torch
 import copy
 import logging
 
+import torch
+from predict import predict_state_single_out, predict_state_with_dict
+
 from common.game import GameState
+from ml.common_model.utils import back_prop
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.protocols import Predictor
-from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
-from ml.common_model.utils import back_prop
 
 
 class CommonModelWrapper(Predictor):
@@ -51,9 +52,7 @@ class CommonModelWrapper(Predictor):
         )
         assert self._model is not None
 
-        next_step_id = PredictStateVectorHetGNN.predict_state_with_dict(
-            self._model, hetero_input, state_map
-        )
+        next_step_id = predict_state_with_dict(self._model, hetero_input, state_map)
 
         del hetero_input
         return next_step_id
@@ -83,7 +82,7 @@ class BestModelsWrapper(Predictor):
         )
         assert self._model is not None
 
-        next_step_id = PredictStateVectorHetGNN.predict_state_single_out(
+        next_step_id = predict_state_single_out(
             self.best_models[map_name][0], hetero_input, state_map
         )
 
