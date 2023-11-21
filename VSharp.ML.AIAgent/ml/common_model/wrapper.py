@@ -20,7 +20,6 @@ class CommonModelWrapper(Predictor):
         self._model = model
         self.model_copy = model
         self._name = "1"
-        # self.name = sum(torch.cat([p.view(-1) for p in self.model.parameters()], dim=0))
 
     def name(self):
         return "Common model"
@@ -56,16 +55,7 @@ class BestModelsWrapper(Predictor):
         self._model = model
 
     def name(self):
-        return "Common model"
-
-    def update(self, map_name, map_result, dataset):
-        map_result = (
-            map_result.actual_coverage_percent,
-            -map_result.tests_count,
-            map_result.errors_count,
-            -map_result.steps_count,
-        )
-        dataset.save_map_data(map_name)
+        return "Best model"
 
     def model(self):
         return self._model
