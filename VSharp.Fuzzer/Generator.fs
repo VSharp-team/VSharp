@@ -85,7 +85,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
     let builtinNumericTypes = [
         typeof<int8>; typeof<int16>; typeof<int32>; typeof<int64>
         typeof<uint8>; typeof<uint16>; typeof<uint32>; typeof<uint64>
-        typeof<float>; typeof<double>
+        typeof<float32>; typeof<double>
         typeof<byte>
     ]
 
@@ -110,8 +110,8 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
             | _ when t = typeof<float32> -> BitConverter.ToSingle >> box
             | _ when t = typeof<double> -> BitConverter.ToDouble >> box
             | _ -> failwith $"Unexpected type in generateBuiltinNumeric {t}"
-            
-        let buffer = Array.create<byte> size 0uy
+
+        let buffer = Array.zeroCreate<byte> size
         rnd.NextBytes(buffer)
         convert buffer
 

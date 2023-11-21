@@ -436,7 +436,9 @@ type private FuzzerExplorer(explorationOptions: ExplorationOptions, statistics: 
                         onCancelled
                     )
                     do! interactor.StartFuzzing ()
-                with e -> Logger.error $"Fuzzer unhandled exception: {e.Message}"
+                with e ->
+                    Logger.error $"Fuzzer unhandled exception: {e}"
+                    raise e
             }
 
 
@@ -507,6 +509,7 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
     member x.StartExploration (isolated : MethodBase seq) (entryPoints : (MethodBase * string[]) seq) : unit =
 
         try
+            Logger.error "StartExploration: start"
             let trySubstituteTypeParameters method =
                 let emptyState = Memory.EmptyState()
                 (Option.defaultValue method (x.TrySubstituteTypeParameters emptyState method), emptyState)

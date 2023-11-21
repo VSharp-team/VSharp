@@ -100,9 +100,18 @@ type Interactor (
 
 
     let handleExit () =
-        let unhandledExceptionPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}exception.info"
+        let unhandledExceptionPath = $"{outputPath}{Path.DirectorySeparatorChar}exception.info"
         if File.Exists(unhandledExceptionPath) then
+            traceCommunication "exception.info found, restoring test"
             testRestorer.RestoreTest unhandledExceptionPath
+            File.Delete unhandledExceptionPath
+        else
+            errorCommunication "Fuzzing failed without exception dump"
+            (*
+                In case of StackOverflowException fuzzer can't write exception.info,
+                but will exited with code 0
+            *)
+            assert (fuzzerProcess.ExitCode = 0)
 
     let setupFuzzer targetAssemblyPath =
         task {
@@ -115,13 +124,16 @@ type Interactor (
     let fuzzNextMethod () =
         task {
             try
-                traceCommunication "fuzzNextMethod"
+                traceCommunication "Fuzz next method"
                 if isAllMethodsWereSent () |> not then
                     let method = queued.Dequeue()
+                    traceCommunication $"Method: {method.Name}"
                     do! fuzzerService.Fuzz {
                         moduleName = method.Module.FullyQualifiedName
                         methodId = method.MetadataToken
                     }
+                else
+                    traceCommunication "All methods were sent"
             with :? TaskCanceledException -> onCancelled ()
         }
 
@@ -183,7 +195,6 @@ type Interactor (
 
         let restartFuzzing () =
             task {
-                handleExit ()
                 failedFuzzedMethodsCount <- failedFuzzedMethodsCount + 1
                 if isFuzzingFinished () then
                     logLoop "Fuzzing finished, no need to restart fuzzer"
@@ -208,13 +219,14 @@ type Interactor (
 
         task {
             try
-                logLoop $"Start fuzzing {methodsCount} methods"
+                logLoop $"Start fuzzing {queued.Count} methods"
                 do! startFuzzing ()
                 while isFuzzingFinished () |> not do
                     let timeFromLastResponse = DateTime.Now - lastFuzzedMethodTime
                     do! Task.Delay(100)
                     if fuzzerProcess.HasExited then
                         logLoop "Fuzzing not finished but fuzzer exited, restarting"
+                        handleExit ()
                         do! restartFuzzing ()
                     elif timeFromLastResponse > fuzzerExternalTimelimitPerMethod then
                         logLoop "Fuzzer external timeout per method achieved, restarting"
@@ -231,8 +243,8 @@ type Interactor (
                     onCancelled ()
                 | :? System.Net.Http.HttpRequestException
                 | :? Grpc.Core.RpcException as ex ->
-                    logLoop "GRPC Exception, restarting"
-                    logLoop $"{ex.ToString()}"
+                    logLoop $"GRPC Exception, restarting {ex}"
+                    handleExit () // Fuzzer may not exit
                     do! restartFuzzing ()
         }
 
