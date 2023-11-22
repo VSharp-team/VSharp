@@ -19,7 +19,13 @@ type internal TypeSolver() =
 
     let mockMethod (freshMock: Mocking.Type) (generate: System.Type -> obj) (method: Mocking.Method) =
         let implementation = Array.init defaultClausesCount (fun _ -> generate method.BaseMethod.ReturnType)
-        freshMock.AddMethod(method.BaseMethod, implementation)
+        let outParams = method.BaseMethod.GetParameters() |> Array.filter (fun p -> p.IsOut)
+        let outImplementations =
+            if Array.isEmpty outParams then Array.empty
+            else
+                let types = outParams |> Array.map (fun p -> p.ParameterType.GetElementType())
+                Array.init defaultClausesCount (fun _ -> Array.map generate types)
+        freshMock.AddMethod(method.BaseMethod, implementation, outImplementations)
 
     let encodeMock (mock: ITypeMock) (generate: System.Type -> obj) =
         Logger.traceTypeSolving $"Encode mock {mock.Name}"
