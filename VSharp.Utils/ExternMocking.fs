@@ -53,6 +53,13 @@ module ExtMocking =
         let callingConvention = baseMethod.CallingConvention
         let arguments = baseMethod.GetParameters() |> Array.map (fun (p : ParameterInfo) -> p.ParameterType)
 
+        do
+            let hasOutParameter =
+                baseMethod.GetParameters()
+                |> Array.exists (fun x -> x.IsOut)
+
+            if hasOutParameter then internalfail "Extern mocking with out parameters not implemented"
+
         member x.SetClauses (clauses : obj[]) =
             clauses |> Array.iteri (fun i o -> returnValues[i] <- o)
 

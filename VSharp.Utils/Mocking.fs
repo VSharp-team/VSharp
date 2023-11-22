@@ -5,7 +5,6 @@ open System.Collections.Generic
 open System.Diagnostics.CodeAnalysis
 open System.Reflection
 open System.Reflection.Emit
-open System.Reflection.Metadata
 open Microsoft.FSharp.Collections
 
 module Mocking =
