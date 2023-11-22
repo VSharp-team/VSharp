@@ -49,6 +49,7 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
             args = args
             t = retType
         }
+        constIndex <- constIndex + 1
         Memory.makeSymbolicValue src (toString src) retType
 
     interface IMethodMock with
@@ -64,7 +65,6 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
                 if not <| p.IsOut then values
                 else
                     let newVal = x.GenSymbolicVal this (typeOfRef arg) []
-                    constIndex <- constIndex + 1
                     Memory.write Memory.emptyReporter state arg newVal |> ignore
                     newVal :: values
 
@@ -72,14 +72,11 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
                 let outParams = List.fold2 genOutParam List.empty methodParams args
                 outResults.Add(outParams)
 
-            let resTerm =
-                if method.ReturnType = typeof<Void> then None
-                else
-                    let result = x.GenSymbolicVal this method.ReturnType args
-                    constIndex <- constIndex + 1
-                    callResults.Add result
-                    Some result
-            resTerm
+            if method.ReturnType = typeof<Void> then None
+            else
+                let result = x.GenSymbolicVal this method.ReturnType args
+                callResults.Add result
+                Some result
 
         override x.GetImplementationClauses() = callResults.ToArray()
 
