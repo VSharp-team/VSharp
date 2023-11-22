@@ -153,13 +153,6 @@ module internal InstructionsSet =
         push x cilState
         push x cilState
 
-    let isCallIp (ip : ip) =
-        match ip with
-        | Instruction(offset, m) ->
-            let opCode = parseInstruction m offset
-            isDemandingCallOpCode opCode
-        | _ -> false
-
     let ret (m : Method) (cilState : cilState) =
         let resultTyp = m.ReturnType
         if resultTyp <> typeof<Void> then

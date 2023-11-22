@@ -145,7 +145,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         with :? InsufficientInformationException as e ->
             cilState.iie <- Some e
             reportStateIncomplete cilState
-    
+
     let reportStateInternalFail (state : cilState) (e : Exception) =
         match e with
         | :? InsufficientInformationException as e ->
@@ -409,7 +409,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
 
 
 type private FuzzerExplorer(explorationOptions: ExplorationOptions, statistics: SVMStatistics) =
-    
+
     interface IExplorer with
 
         member x.Reset _ = ()
@@ -419,7 +419,7 @@ type private FuzzerExplorer(explorationOptions: ExplorationOptions, statistics: 
             let outputDir = explorationOptions.outputDirectory.FullName
             let cancellationTokenSource = new CancellationTokenSource()
             cancellationTokenSource.CancelAfter(explorationOptions.timeout)
-            let methodsBase = isolated |> List.map (fun (m, _) -> (m :> IMethod).MethodBase) 
+            let methodsBase = isolated |> List.map (fun (m, _) -> (m :> IMethod).MethodBase)
             task {
                 try
                     let targetAssemblyPath = (Seq.head methodsBase).Module.Assembly.Location
@@ -517,7 +517,7 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
                     let m, s = trySubstituteTypeParameters m
                     (Application.getMethod m, a, s))
                 |> Seq.toList
-            
+
             (List.map fst isolated)
             @ (List.map (fun (x, _, _) -> x) entryPoints)
             |> x.Reset
@@ -529,7 +529,7 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
             let finished = Task.WaitAll(explorationTasks, options.timeout)
 
             if not finished then Logger.warning "Exploration cancelled"
-            
+
             for explorationTask in explorationTasks do
                 if explorationTask.IsFaulted then
                     for ex in explorationTask.Exception.InnerExceptions do
