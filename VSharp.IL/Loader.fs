@@ -228,9 +228,11 @@ module Loader =
             "System.String System.Environment.get_SystemDirectory()"
             "System.Void System.Diagnostics.StackTrace..ctor(this)"
             "System.String System.BadImageFormatException.get_Message(this)"
+            "System.String System.Environment.GetFolderPath(System.Environment+SpecialFolder)"
+            "System.String System.AppContext.GetBaseDirectoryCore()"
+            "System.String System.IO.Path.GetFullPath(System.String)"
             "System.Boolean System.OperatingSystem.IsOSPlatform(System.String)"
             "System.Collections.IDictionary System.Environment.GetEnvironmentVariables()"
-            "System.String System.Environment.GetFolderPath(System.Environment+SpecialFolder)"
 
             // Text
             "System.Int32 System.Text.UTF8Encoding.GetBytes(this, System.String, System.Int32, System.Int32, System.Byte[], System.Int32)"
