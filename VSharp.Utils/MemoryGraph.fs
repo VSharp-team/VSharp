@@ -164,6 +164,7 @@ type typeMockRepr = {
     interfaces : typeRepr array
     baseMethods : methodRepr array
     methodImplementations : obj array array
+    outImplementations : obj array array array
 }
 with
     static member NullRepr =
@@ -173,6 +174,7 @@ with
             interfaces = [||]
             baseMethods = [||]
             methodImplementations = [||]
+            outImplementations = [||]
         }
 
     static member Encode (t : Mocking.Type) (encode : obj -> obj) =
@@ -185,13 +187,16 @@ with
                 t.MethodMocks |> Seq.map (fun m -> methodRepr.Encode m.BaseMethod) |> Array.ofSeq
             methodImplementations =
                 t.MethodMocks |> Seq.map (fun m -> m.ReturnValues |> Array.map encode) |> Array.ofSeq
+            outImplementations =
+                t.MethodMocks |> Seq.map (fun m -> m.OutValues |> Array.map (Array.map encode)) |> Seq.toArray
+                
         }
 
     member x.Decode() =
         let baseClass = x.baseClass.Decode()
         let interfaces = x.interfaces |> Array.map (fun i -> i.Decode())
         let baseMethods = x.baseMethods |> Array.map (fun m -> m.Decode())
-        Mocking.Type.Deserialize x.name baseClass interfaces baseMethods x.methodImplementations
+        Mocking.Type.Deserialize x.name baseClass interfaces baseMethods x.methodImplementations x.outImplementations
 
 [<CLIMutable>]
 [<Serializable>]

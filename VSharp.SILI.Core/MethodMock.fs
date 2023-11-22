@@ -10,30 +10,47 @@ open VSharp.Core
 type functionResultConstantSource =
     {
         mock : MethodMock
-        callIndex : int
+        constIndex : int
         this : term option
         args : term list
+        t : Type
     }
 with
     interface INonComposableSymbolicConstantSource with
-        override x.TypeOfLocation = x.mock.Method.ReturnType
+        override x.TypeOfLocation = x.t
         override x.SubTerms = []
         override x.Time = VectorTime.zero
     override x.ToString() =
         let args = x.args |> List.map toString |> join ", "
-        $"{x.mock.Method.Name}({args}):{x.callIndex}"
+        $"{x.mock.Method.Name}({args}):{x.constIndex}"
 
 and MethodMock(method : IMethod, mockingType : MockingType) =
-    let mutable callIndex = 0
+    let mutable constIndex = 0
     let callResults = ResizeArray<term>()
+    let outResults = ResizeArray<term list>()
+    let methodParams = method.Parameters |> Array.toList
+    let hasOutParams = List.exists (fun (p : ParameterInfo) -> p.IsOut) methodParams
 
     member x.Method : IMethod = method
 
-    member private x.SetIndex idx = callIndex <- idx
+    member private x.SetIndex idx = constIndex <- idx
 
-    member private x.SetClauses clauses =
+    member private x.SetCallResults rets (outs : ResizeArray<term list>) =
         callResults.Clear()
-        callResults.AddRange clauses
+        outResults.Clear()
+        callResults.AddRange rets
+        outResults.AddRange outs
+
+    member private x.GenSymbolicVal this retType args =
+        let src : functionResultConstantSource = {
+            mock = x
+            constIndex = constIndex
+            this = this
+            args = args
+            t = retType
+        }
+        constIndex <- constIndex + 1
+        Memory.makeSymbolicValue src (toString src) retType
 
     interface IMethodMock with
         override x.BaseMethod =
@@ -43,27 +60,33 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
 
         override x.MockingType = mockingType
 
-        override x.Call this args =
-            let returnType = method.ReturnType
-            if returnType = typeof<Void> then
-                internalfailf "Mocked procedures cannot be called"
-            let src : functionResultConstantSource = {
-                mock = x
-                callIndex = callIndex
-                this = this
-                args = args
-            }
-            let result = Memory.makeSymbolicValue src (toString src) returnType
-            callIndex <- callIndex + 1
-            callResults.Add result
-            result
+        override x.Call state this args =
+            let genOutParam (values : term list) (p : ParameterInfo) (arg : term) =
+                if not <| p.IsOut then values
+                else
+                    let newVal = x.GenSymbolicVal this (typeOfRef arg) []
+                    Memory.write Memory.emptyReporter state arg newVal |> ignore
+                    newVal :: values
+
+            if hasOutParams then
+                let outParams = List.fold2 genOutParam List.empty methodParams args
+                outResults.Add(outParams)
+
+            if method.ReturnType = typeof<Void> then None
+            else
+                let result = x.GenSymbolicVal this method.ReturnType args
+                callResults.Add result
+                Some result
 
         override x.GetImplementationClauses() = callResults.ToArray()
 
+        override x.GetOutClauses() =
+            outResults.ToArray() |> Array.map List.toArray
+
         override x.Copy() =
             let result = MethodMock(method, mockingType)
-            result.SetIndex callIndex
-            result.SetClauses callResults
+            result.SetIndex constIndex
+            result.SetCallResults callResults outResults
             result
 
 module internal MethodMocking =
@@ -73,8 +96,9 @@ module internal MethodMocking =
         interface IMethodMock with
             override x.BaseMethod = empty()
             override x.MockingType = empty()
-            override x.Call _ _ = empty()
+            override x.Call _ _ _ = empty()
             override x.GetImplementationClauses() = empty()
+            override x.GetOutClauses() = empty()
             override x.Copy() = empty()
 
     let private mockMethod state method mockingType =
@@ -88,7 +112,4 @@ module internal MethodMocking =
 
     let mockAndCall state method this args mockingType =
         let mock = mockMethod state method mockingType
-        // mocked procedures' calls are ignored
-        if method.ReturnType <> typeof<Void> then
-            mock.Call this args |> Some
-        else None
+        mock.Call state this args

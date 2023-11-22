@@ -259,7 +259,7 @@ module TestGenerator =
             let encodeMock = encodeTypeMock model state indices mockCache implementations test
             obj2test state eval arr2Obj indices encodeMock test address typ
 
-    and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (implementations : IDictionary<MethodInfo, term[]>) (test : UnitTest) mock : Mocking.Type =
+    and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (implementations : IDictionary<MethodInfo, term[] * term[][]>) (test : UnitTest) mock : Mocking.Type =
         let mockedType = ref Mocking.Type.Empty
         if mockCache.TryGetValue(mock, mockedType) then mockedType.Value
         else
@@ -270,12 +270,15 @@ module TestGenerator =
                 freshMock.AddSuperType t
                 for methodMock in implementations do
                     let method = methodMock.Key
-                    let values = methodMock.Value
+                    let values = fst methodMock.Value
+                    let outParams = snd methodMock.Value
                     let methodType = method.ReflectedType
                     let mockedBaseInterface() =
                         methodType.IsInterface && Array.contains methodType (TypeUtils.getAllInterfaces t)
                     if methodType = t || mockedBaseInterface() then
-                        freshMock.AddMethod(method, Array.map eval values)
+                        let retImplementations = Array.map eval values
+                        let outImplementations = Array.map (Array.map eval) outParams
+                        freshMock.AddMethod(method, retImplementations, outImplementations)
             freshMock
 
     let encodeExternMock (model : model) state indices mockCache implementations test (methodMock : IMethodMock) =
@@ -284,17 +287,18 @@ module TestGenerator =
         let extMock = extMockRepr.Encode test.GetPatchId methodMock.BaseMethod clauses
         test.AddExternMock extMock
 
-    let private modelState2test (test : UnitTest) suite indices mockCache (m : Method) model modelState (state : state) =
+    let private modelState2test (test : UnitTest) suite indices mockCache (m : Method) (model : model) modelState (state : state) =
         match SolveGenericMethodParameters state.typeStorage m with
         | None -> None
         | Some(classParams, methodParams) ->
-            let implementations = Dictionary<MethodInfo, term[]>()
+            let implementations = Dictionary<MethodInfo, term[] * term[][]>()
             for entry in state.methodMocks do
                 let mock = entry.Value
                 match mock.MockingType with
                 | Default ->
                     let values = mock.GetImplementationClauses()
-                    implementations.Add(mock.BaseMethod, values)
+                    let outValues = mock.GetOutClauses()
+                    implementations.Add(mock.BaseMethod, (values, outValues))
                 | Extern ->
                     encodeExternMock model state indices mockCache implementations test mock
 
