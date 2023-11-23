@@ -157,6 +157,13 @@ module IpOperations =
         | SearchingForHandler(Some [], [], [], []) -> Some()
         | _ -> None
 
+    let isCallIp (ip : ip) =
+        match ip with
+        | InstructionEndingIp(offset, m) ->
+            let opCode = parseInstruction m offset
+            isDemandingCallOpCode opCode
+        | _ -> false
+
 module Level =
     // TODO: implement level
     let zero : level = PersistentDict.empty

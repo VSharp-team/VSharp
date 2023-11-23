@@ -145,9 +145,19 @@ type public SVMStatistics(entryMethods : Method seq) =
     member x.TrackStepForward (s : cilState) ip =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
-        let setCoveredIfNeed (currentLoc : codeLocation) =
-            if currentLoc.offset = currentLoc.BasicBlock.FinalOffset then
-                addLocationToHistory s currentLoc
+
+        let setCoveredIfNeed (loc : codeLocation) =
+            if loc.offset = loc.BasicBlock.FinalOffset then
+                addLocationToHistory s loc
+
+        match s.ipStack with
+            // Successfully exiting method, now its call can be considered covered
+            | Exit _ :: callerIp :: _ ->
+                match ip2codeLocation callerIp with
+                | Some callerLoc -> setCoveredIfNeed callerLoc
+                | None -> __unreachable__()
+            | _ -> ()
+
         let currentLoc = ip2codeLocation ip
         match currentLoc with
         | Some currentLoc when isHeadOfBasicBlock currentLoc ->
@@ -176,8 +186,13 @@ type public SVMStatistics(entryMethods : Method seq) =
             if currentMethod.InCoverageZone && not isCovered then
                 visitedBlocksNotCoveredByTests.TryAdd(s, Set.empty) |> ignore
                 Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
-            setCoveredIfNeed currentLoc
-        | Some currentLoc -> setCoveredIfNeed currentLoc
+            (*
+                Call instructions are considered covered only after return
+                (because call can throw exception)
+            *)
+            if not <| isCallIp ip then setCoveredIfNeed currentLoc
+        | Some currentLoc ->
+            if not <| isCallIp ip then setCoveredIfNeed currentLoc
         | None -> ()
 
     member x.IsCovered (loc : codeLocation) =
@@ -213,7 +228,7 @@ type public SVMStatistics(entryMethods : Method seq) =
                 blocksCoveredByTests[method] <- coveredBlocks
             if method.InCoverageZone then
                 Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
-            hasNewCoverage <- hasNewCoverage || isNewBlock && method.InCoverageZone 
+            hasNewCoverage <- hasNewCoverage || isNewBlock && method.InCoverageZone
         hasNewCoverage
 
     member x.IsBasicBlockCoveredByTest (blockStart : codeLocation) =
