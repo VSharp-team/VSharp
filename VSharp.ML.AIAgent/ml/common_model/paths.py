@@ -7,6 +7,7 @@ best_models_dict_path = os.path.join("report", "updated_best_models_dicts")
 dataset_root_path = os.path.join("report", "dataset")
 dataset_map_results_file_name = os.path.join("report", "dataset_state.csv")
 training_data_path = os.path.join("report", "run_tables")
+pretrained_models_path = os.path.join("ml", "models")
 
 path_to_models_for_parallel_architecture = os.path.join(
     "ml", "pretrained_models", "models_for_parallel_architecture"

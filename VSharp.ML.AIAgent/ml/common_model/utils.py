@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import torch
+import numpy as np
 
 from config import GeneralConfig
 from ml.common_model.paths import (
@@ -12,8 +13,8 @@ from ml.common_model.paths import (
     models_path,
     common_models_path,
 )
-from ml.models import SAGEConvModel
 from ml.utils import load_model
+from ml.models.TAGSageTeacher.model_modified import StateModelEncoderLastLayer
 
 
 def euclidean_dist(y_pred, y_true):
@@ -67,7 +68,7 @@ def csv2best_models():
                     best_model_name + ".pth",
                 )
                 ref_model = load_model(
-                    Path(path_to_model), model=GeneralConfig.EXPORT_MODEL_INIT()
+                    Path(path_to_model), model=StateModelEncoderLastLayer(32, 8)
                 )
 
                 ref_model.to(GeneralConfig.DEVICE)
@@ -122,7 +123,7 @@ def load_best_models_dict(path):
             if row[1] != best_models[row[0]][2]:
                 path_to_model = os.path.join(common_models_path, row[1])
                 ref_model = load_model(
-                    Path(path_to_model), model=GeneralConfig.EXPORT_MODEL_INIT()
+                    Path(path_to_model), model=StateModelEncoderLastLayer(32, 8)
                 )
                 ref_model.load_state_dict(torch.load(path_to_model))
                 ref_model.to(GeneralConfig.DEVICE)
@@ -139,3 +140,11 @@ def load_dataset_state_dict(path):
         for row in csv_reader:
             dataset_state_dict[row[0]] = ast.literal_eval(row[1])
     return dataset_state_dict
+
+
+def get_model(path_to_weights: Path, model: torch.nn.Module):
+    weights = torch.load(path_to_weights)
+    weights["lin_last.weight"] = torch.tensor(np.random.random([1, 8]))
+    weights["lin_last.bias"] = torch.tensor(np.random.random([1]))
+    model.load_state_dict(weights)
+    return model

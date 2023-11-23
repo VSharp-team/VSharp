@@ -2,14 +2,12 @@ import copy
 import logging
 
 import torch
-from predict import predict_state_single_out, predict_state_with_dict
-
 from common.game import GameState
 from ml.common_model.utils import back_prop
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.protocols import Predictor
 
-from predict import predict_state_with_dict
+from ml.predict import predict_state_with_dict
 
 
 class CommonModelWrapper(Predictor):
@@ -48,24 +46,20 @@ class CommonModelWrapper(Predictor):
 class BestModelsWrapper(Predictor):
     def __init__(
         self,
-        model: torch.nn.Module,
         best_models: dict,
     ) -> None:
         self.best_models = best_models
-        self._model = model
 
     def name(self):
         return "Best model"
 
     def model(self):
-        return self._model
+        return None
 
     def predict(self, input: GameState, map_name):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input
         )
-        assert self._model is not None
-
         next_step_id, nn_output = predict_state_with_dict(
             self.best_models[map_name][0], hetero_input, state_map
         )

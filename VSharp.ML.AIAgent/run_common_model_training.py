@@ -11,6 +11,7 @@ import random
 
 import torch
 import torch.nn as nn
+import numpy as np
 
 from config import GeneralConfig
 from connection.broker_conn.socket_manager import game_server_socket_manager
@@ -20,6 +21,7 @@ from learning.play_game import play_game
 from ml.common_model.models import CommonModel
 from ml.common_model.utils import (
     csv2best_models,
+    get_model,
     euclidean_dist,
     save_best_models2csv,
     load_best_models_dict,
@@ -34,6 +36,7 @@ from ml.common_model.paths import (
     dataset_root_path,
     dataset_map_results_file_name,
     training_data_path,
+    pretrained_models_path,
 )
 from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model, convert_to_export
@@ -41,8 +44,9 @@ import numpy as np
 from ml.common_model.dataset import FullDataset
 from torch_geometric.loader import DataLoader
 import tqdm
-from ml.model_modified import StateModelEncoderExport, StateModelEncoderExportONNX
 import pandas as pd
+from ml.models.TAGSageSimple.model import StateModelEncoder
+from ml.models.TAGSageSimple.model_modified import StateModelEncoderLastLayer
 
 
 LOG_PATH = Path("./ml_app.log")
@@ -97,7 +101,7 @@ class TrainConfig:
     batch_size: int
 
 
-def train(train_config: TrainConfig, model: torch.nn.Module, generate_dataset: bool):
+def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDataset):
     for name, param in model.named_parameters():
         if "lin_last" not in name:
             param.requires_grad = False
@@ -105,7 +109,6 @@ def train(train_config: TrainConfig, model: torch.nn.Module, generate_dataset: b
     model.to(GeneralConfig.DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
     criterion = nn.KLDivLoss()
-    best_models_dict = csv2best_models()
 
     timestamp = datetime.now().timestamp()
     run_name = f"{datetime.fromtimestamp(timestamp)}_{train_config.batch_size}_Adam_{train_config.lr}_KLDL"
@@ -118,7 +121,6 @@ def train(train_config: TrainConfig, model: torch.nn.Module, generate_dataset: b
     create_file(LOG_PATH)
 
     cmwrapper = CommonModelWrapper(model)
-    dataset = FullDataset(dataset_root_path, dataset_map_results_file_name)
 
     with game_server_socket_manager() as ws:
         all_maps = get_maps(websocket=ws, type=MapsType.TRAIN)
@@ -128,21 +130,6 @@ def train(train_config: TrainConfig, model: torch.nn.Module, generate_dataset: b
             (maps[i], FullDataset("", ""), cmwrapper)
             for i in range(GeneralConfig.SERVER_COUNT)
         ]
-
-    if generate_dataset:
-        # creating new dataset
-        play_game(
-            with_predictor=BestModelsWrapper(model, best_models_dict),
-            max_steps=GeneralConfig.MAX_STEPS,
-            maps=all_maps,
-            maps_type=MapsType.TRAIN,
-            with_dataset=dataset,
-        )
-        dataset.save()
-        generate_dataset = False
-    else:
-        # loading existing dataset
-        dataset.load()
 
     multiprocessing.set_start_method("spawn", force=True)
 
@@ -160,16 +147,20 @@ def train(train_config: TrainConfig, model: torch.nn.Module, generate_dataset: b
             optimizer.zero_grad()
 
             out = model(
-                batch["game_vertex"].x,
-                batch["state_vertex"].x,
-                batch[("game_vertex", "to", "game_vertex")].edge_index,
-                batch[("game_vertex", "history", "state_vertex")].edge_index,
-                batch[("game_vertex", "history", "state_vertex")].edge_attr,
-                batch[("game_vertex", "in", "state_vertex")].edge_index,
-                batch[("state_vertex", "parent_of", "state_vertex")].edge_index,
-                batch[("game_vertex", "to", "game_vertex")].edge_type,
-            )["state_vertex"]
-            y_true = batch.y_true["state_vertex"]
+                game_x=batch["game_vertex"].x,
+                state_x=batch["state_vertex"].x,
+                edge_index_v_v=batch["game_vertex_to_game_vertex"].edge_index,
+                edge_type_v_v=batch["game_vertex_to_game_vertex"].edge_type,
+                edge_index_history_v_s=batch[
+                    "game_vertex_history_state_vertex"
+                ].edge_index,
+                edge_attr_history_v_s=batch[
+                    "game_vertex_history_state_vertex"
+                ].edge_attr,
+                edge_index_in_v_s=batch["game_vertex_in_state_vertex"].edge_index,
+                edge_index_s_s=batch["state_vertex_parent_of_state_vertex"].edge_index,
+            )
+            y_true = batch.y_true
             loss = criterion(out, y_true)
             if loss != 0:
                 loss.backward()
@@ -210,25 +201,48 @@ def train(train_config: TrainConfig, model: torch.nn.Module, generate_dataset: b
 
         path_to_model = os.path.join(common_models_path, run_name, str(epoch + 1))
         torch.save(model.state_dict(), Path(path_to_model))
-        path_to_best_models_dict = os.path.join(
-            best_models_dict_path, str(epoch + 1) + ".csv"
-        )
-        save_best_models2csv(best_models_dict, path_to_best_models_dict)
         del data_list
         del data_loader
 
     return all_average_results
 
 
+def get_dataset(generate_dataset: bool):
+    dataset = FullDataset(dataset_root_path, dataset_map_results_file_name)
+
+    with game_server_socket_manager() as ws:
+        all_maps = get_maps(websocket=ws, type=MapsType.TRAIN)
+    if generate_dataset:
+        # creating new dataset
+        best_models_dict = csv2best_models()
+        play_game(
+            with_predictor=BestModelsWrapper(best_models_dict),
+            max_steps=GeneralConfig.MAX_STEPS,
+            maps=all_maps,
+            maps_type=MapsType.TRAIN,
+            with_dataset=dataset,
+        )
+        dataset.save()
+        generate_dataset = False
+    else:
+        # loading existing dataset
+        dataset.load()
+    return dataset
+
+
 def main():
     print(GeneralConfig.DEVICE)
-    path_to_model = os.path.join(
-        "ml",
-        "pretrained_models",
-        "GNN_state_pred_het_dict_RCGN_Sage_64_100e_with_last_layer",
+    path_to_weights = os.path.join(
+        pretrained_models_path,
+        "TAGSageSimple",
+        "32ch",
+        "20e",
+        "GNN_state_pred_het_dict",
     )
+
     best_result = {"average_coverage": 0, "config": dict(), "epoch": 0}
     generate_dataset = True
+    dataset = get_dataset(generate_dataset)
 
     while True:
         config = TrainConfig(
@@ -244,12 +258,12 @@ def main():
         )
         print(data_frame)
 
-        model = StateModelEncoderExportONNX(hidden_channels=64, out_channels=8)
-        model.load_state_dict(torch.load(path_to_model))
-
-        results = train(
-            train_config=config, model=model, generate_dataset=generate_dataset
+        model = get_model(
+            Path(path_to_weights),
+            StateModelEncoderLastLayer(hidden_channels=32, out_channels=8),
         )
+
+        results = train(train_config=config, model=model, dataset=dataset)
         generate_dataset = True
         max_value = max(results)
         max_ind = results.index(max_value)
