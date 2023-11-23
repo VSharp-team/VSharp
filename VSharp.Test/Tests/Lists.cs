@@ -137,7 +137,7 @@ namespace IntegrationTests
             return c.Rank;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public int ReadByFuncResult(string[] str, Func<int> d)
         {
             str[0] = "abc";
@@ -936,6 +936,17 @@ namespace IntegrationTests
             if (!Equals(a[0], b))
                 return -1;
             return 0;
+        }
+
+        [TestSvm(100)]
+        public static int ListTest(decimal d1, decimal d2)
+        {
+            var l = new List<object>();
+            l.Add(d1);
+            var i = l.LastIndexOf(d2);
+            if (i >= 0)
+                return i;
+            return -1;
         }
 
         [Ignore("implement splitting")]
