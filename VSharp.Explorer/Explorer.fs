@@ -1,9 +1,7 @@
 namespace VSharp.Explorer
 
 open System
-open System.IO
 open System.Reflection
-open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
 open FSharpx.Collections
@@ -30,17 +28,20 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
 
     let options = explorationOptions.svmOptions
 
+    let hasTimeout = explorationOptions.timeout.TotalMilliseconds > 0
+
     let solverTimeout =
         if options.solverTimeout > 0 then options.solverTimeout * 1000
         // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
         // stops exactly in timeout. To guarantee that we need to pass timeout
         // based on remaining time to solver dynamically.
-        else explorationOptions.timeout.Milliseconds / 2
-
-    let hasTimeout = explorationOptions.timeout.Milliseconds > 0
+        elif hasTimeout then
+            int explorationOptions.timeout.TotalMilliseconds / 2
+        else
+            -1
 
     let branchReleaseTimeout =
-        let doubleTimeout = double explorationOptions.timeout.Milliseconds
+        let doubleTimeout = double explorationOptions.timeout.TotalMilliseconds
         if not hasTimeout then Double.PositiveInfinity
         elif not options.releaseBranches then doubleTimeout
         else doubleTimeout * 80.0 / 100.0
@@ -183,7 +184,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
     let reportFatalError = wrapOnError true
     let reportCrash = reporter.ReportCrash
 
-    let isTimeoutReached() = hasTimeout && statistics.CurrentExplorationTime.TotalMilliseconds >= explorationOptions.timeout.Milliseconds
+    let isTimeoutReached() = hasTimeout && statistics.CurrentExplorationTime.TotalMilliseconds >= explorationOptions.timeout.TotalMilliseconds
     let shouldReleaseBranches() = options.releaseBranches && statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout
     let isStepsLimitReached() = hasStepsLimit && statistics.StepsCount >= options.stepsLimit
 
@@ -439,7 +440,7 @@ type private FuzzerExplorer(explorationOptions: ExplorationOptions, statistics: 
 
 type public Explorer(options : ExplorationOptions, reporter: IReporter) =
 
-    let statistics = new SVMStatistics(Seq.empty)
+    let statistics = new SVMStatistics(Seq.empty, true)
 
     let explorers =
         let createFuzzer () =
