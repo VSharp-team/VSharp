@@ -453,6 +453,7 @@ namespace VSharp.Test
                         ExplorationMode.Sili => Explorer.explorationModeOptions.NewSVM(_options),
                         ExplorationMode.Interleaving => Explorer.explorationModeOptions.NewCombined(_options, fuzzerOptions),
                         ExplorationMode.Fuzzer => Explorer.explorationModeOptions.NewFuzzing(fuzzerOptions),
+                        _ => throw new ArgumentOutOfRangeException($"StartExploration: unexpected exploration mode {_explorationMode}")
                     };
 
                     var explorationOptions = new ExplorationOptions(
@@ -464,7 +465,7 @@ namespace VSharp.Test
                     using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
                     explorer.StartExploration(
                         new [] { exploredMethodInfo },
-                        new Tuple<MethodBase, string[]>[] {}
+                        global::System.Array.Empty<Tuple<MethodBase, string[]>>()
                     );
 
                     if (siliEnabled && unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)

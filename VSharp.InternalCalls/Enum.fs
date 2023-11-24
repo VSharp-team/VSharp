@@ -16,7 +16,7 @@ module internal Enum =
         if enumType.Equals(typeof<Enum>) then
             __insufficientInformation__ $"InternalGetCorElementType: type of enum {enum} is unknown"
         else
-            assert(enumType.IsEnum)
+            assert enumType.IsEnum
             let underlyingType = enumType.GetEnumUnderlyingType()
             let value =
                 match underlyingType with

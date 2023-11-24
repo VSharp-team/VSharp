@@ -361,14 +361,10 @@ internal class CodeRenderer
             return RenderSimpleTypeName(elemType);
         }
 
-        _referenceManager.AddAssembly(type.Assembly);
-
         if (type.IsGenericParameter)
             return IdentifierName(type.ToString());
 
-        var typeNamespace = type.Namespace;
-        if (typeNamespace != null)
-            _referenceManager.AddUsing(typeNamespace);
+        ReferenceType(type);
 
         if (HasMockInfo(type.Name))
             return GetMockInfo(type.Name).MockName;
@@ -389,6 +385,20 @@ internal class CodeRenderer
         return RenderTypeNameRec(type).Item1;
     }
 
+    private void ReferenceAssembly(Assembly assembly)
+    {
+        _referenceManager.AddAssembly(assembly);
+    }
+
+    private void ReferenceType(Type type)
+    {
+        ReferenceAssembly(type.Assembly);
+
+        var typeNamespace = type.Namespace;
+        if (typeNamespace != null)
+            _referenceManager.AddUsing(typeNamespace);
+    }
+
     private (NameSyntax, int) RenderTypeNameRec(Type type, TypeSyntax[]? typeArgs = null)
     {
         Debug.Assert(type != null);
@@ -406,11 +416,7 @@ internal class CodeRenderer
         if (type.IsGenericParameter || !isNested && (typeArgs == null || !type.IsGenericType))
             return (RenderSimpleTypeName(type), 0);
 
-        _referenceManager.AddAssembly(type.Assembly);
-
-        var typeNamespace = type.Namespace;
-        if (typeNamespace != null)
-            _referenceManager.AddUsing(typeNamespace);
+        ReferenceType(type);
 
         if (type.IsGenericType)
         {
@@ -456,7 +462,7 @@ internal class CodeRenderer
 
     public ExpressionSyntax RenderMethod(MethodBase method)
     {
-        _referenceManager.AddAssembly(method.Module.Assembly);
+        ReferenceAssembly(method.Module.Assembly);
         var type = method.DeclaringType;
         SimpleNameSyntax methodName = RenderMethodName(method);
 
@@ -992,6 +998,9 @@ internal class CodeRenderer
             var init = System.Array.Empty<ExpressionSyntax>();
             return RenderObjectCreation(RenderType(method.DeclaringType), functionArgs, init);
         }
+
+        // Adding reference for method's return type assembly
+        ReferenceAssembly(((MethodInfo)method).ReturnType.Assembly);
 
         if (!method.IsPublic || thisType != null && !TypeUtils.isPublic(thisType) ||
             thisArg == null && method.DeclaringType != null && !TypeUtils.isPublic(method.DeclaringType))

@@ -33,3 +33,6 @@ module internal PlatformHelper =
 
     [<Implements("System.Boolean System.Runtime.Intrinsics.Vector128.get_IsHardwareAccelerated()")>]
     val vector128IsHardwareAccelerated : state -> term list -> term
+
+    [<Implements("System.Boolean System.Net.Quic.QuicListener.get_IsSupported()")>]
+    val quicListenerIsSupported : state -> term list -> term

@@ -163,6 +163,9 @@ module internal CallStack =
     let stackTrace (stack : callStack) =
         stack.frames |> List.choose (fun frame -> frame.func)
 
+    let entryFunction (stack : callStack) =
+        stackTrace stack |> List.last
+
     let stackTraceString (stack : callStack) =
         stack.frames
         |> Stack.map (fun f ->

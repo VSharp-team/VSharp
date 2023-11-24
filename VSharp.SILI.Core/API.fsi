@@ -307,6 +307,7 @@ module API =
         val CallStackContainsFunction : state -> IMethod -> bool
         val CallStackSize : state -> int
         val GetCurrentExploringFunction : state -> IMethod
+        val EntryFunction : state -> IMethod
 
         val BoxValueType : state -> term -> term
 

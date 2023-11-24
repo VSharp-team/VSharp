@@ -578,6 +578,7 @@ module API =
         let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
+        let EntryFunction state = CallStack.entryFunction state.stack
 
         let BoxValueType state term = Memory.allocateBoxedLocation state term
 

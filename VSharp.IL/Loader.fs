@@ -108,6 +108,8 @@ module Loader =
             "System.Int32 System.Numerics.Vector`1[T].get_Count()"
             "System.Boolean System.Numerics.Vector`1[T].op_Inequality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
             "System.Boolean System.Numerics.Vector`1[T].op_Equality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseOr(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseAnd(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
         |]
         let runtimeHelpers = [|
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
@@ -161,6 +163,12 @@ module Loader =
             "System.String System.RuntimeType.get_FullName(this)"
             "System.Boolean System.RuntimeTypeHandle.ContainsGenericVariables(System.RuntimeType)"
             "System.Boolean System.RuntimeType.get_ContainsGenericParameters(this)"
+            "System.Boolean System.RuntimeType.IsSubclassOf(this, System.Type)"
+            "System.Boolean System.RuntimeType.get_IsActualEnum(this)"
+            "System.Boolean System.Enum.IsDefined(System.Type, System.Object)"
+            "System.Boolean System.Type.get_IsPublic(this)"
+            "System.Reflection.MemberTypes System.RuntimeType.get_MemberType(this)"
+            "System.Int32 System.RuntimeType.get_MetadataToken(this)"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
@@ -197,6 +205,7 @@ module Loader =
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
 
             // Diagnostics
+            "System.Byte[] System.Diagnostics.Tracing.Statics.MetadataForString(System.String, System.Int32, System.Int32, System.Int32)"
 //            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
 //            "System.Void System.Diagnostics.StackTrace.GetStackFramesInternal(System.Diagnostics.StackFrameHelper, System.Int32, System.Boolean, System.Exception)"
 
@@ -205,6 +214,8 @@ module Loader =
 
             // Delegates
             "System.IntPtr System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(System.Delegate)"
+            "System.Reflection.MethodInfo System.Delegate.get_Method(this)"
+            "System.Reflection.MethodInfo System.Reflection.RuntimeReflectionExtensions.GetMethodInfo(System.Delegate)"
 
             // Environment
             "System.Int32 System.Environment.get_TickCount()"
@@ -217,6 +228,14 @@ module Loader =
             "System.String System.Environment.get_SystemDirectory()"
             "System.Void System.Diagnostics.StackTrace..ctor(this)"
             "System.String System.BadImageFormatException.get_Message(this)"
+            "System.String System.Environment.GetFolderPath(System.Environment+SpecialFolder)"
+            "System.String System.AppContext.GetBaseDirectoryCore()"
+            "System.String System.IO.Path.GetFullPath(System.String)"
+            "System.Boolean System.OperatingSystem.IsOSPlatform(System.String)"
+            "System.Collections.IDictionary System.Environment.GetEnvironmentVariables()"
+
+            // Text
+            "System.Int32 System.Text.UTF8Encoding.GetBytes(this, System.String, System.Int32, System.Int32, System.Byte[], System.Int32)"
 
             // Exceptions
             "System.String System.Exception.get_Source(this)"
@@ -227,12 +246,30 @@ module Loader =
             "System.Reflection.AssemblyName System.Reflection.RuntimeAssembly.GetName(this, System.Boolean)"
             "System.Byte[] System.Reflection.AssemblyName.GetPublicKeyToken(this)"
             "System.Reflection.Assembly System.Reflection.Assembly.Load(System.Reflection.AssemblyName)"
+            "System.Reflection.Assembly System.Reflection.Assembly.GetEntryAssembly()"
+            "System.Runtime.Loader.AssemblyLoadContext System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(System.Reflection.Assembly)"
+            "System.Boolean System.Reflection.RuntimeAssembly.get_IsDynamic(this)"
+            "System.Boolean System.Reflection.Metadata.MetadataUpdater.IsApplyUpdateSupported()"
+            "System.Reflection.MethodInfo System.Type.GetMethod(this, System.String, System.Reflection.BindingFlags)"
+            "System.Reflection.FieldInfo System.Type.GetField(this, System.String)"
+
+            // DependencyInjection
+            "Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceProviderEngine Microsoft.Extensions.DependencyInjection.ServiceProvider.GetEngine(this)"
+            "System.Void Microsoft.Extensions.DependencyInjection.ServiceProvider..ctor(this, System.Collections.Generic.ICollection`1[Microsoft.Extensions.DependencyInjection.ServiceDescriptor], Microsoft.Extensions.DependencyInjection.ServiceProviderOptions)"
+            "Microsoft.Extensions.DependencyInjection.ServiceProvider Microsoft.Extensions.DependencyInjection.ServiceCollectionContainerBuilderExtensions.BuildServiceProvider(Microsoft.Extensions.DependencyInjection.IServiceCollection, Microsoft.Extensions.DependencyInjection.ServiceProviderOptions)"
+            "Microsoft.Extensions.DependencyInjection.ServiceProvider Microsoft.Extensions.DependencyInjection.ServiceCollectionContainerBuilderExtensions.BuildServiceProvider(Microsoft.Extensions.DependencyInjection.IServiceCollection)"
+            "System.Void Microsoft.Extensions.DependencyInjection.ServiceLookup.CompiledServiceProviderEngine..ctor(this, Microsoft.Extensions.DependencyInjection.ServiceProvider)"
+            "System.Void Microsoft.Extensions.DependencyInjection.ServiceLookup.DynamicServiceProviderEngine..ctor(this, Microsoft.Extensions.DependencyInjection.ServiceProvider)"
+            "System.Object Microsoft.Extensions.DependencyInjection.ServiceProvider.GetService(this, System.Type)"
+            "Microsoft.Extensions.DependencyInjection.IServiceScope Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.CreateScope(System.IServiceProvider)"
 
             // Activator
             "T System.Activator.CreateInstance()"
 
             // Guid
             "System.Guid System.Guid.NewGuid()"
+            "System.Void System.Guid..ctor(this, System.String)"
+            "System.Guid System.Diagnostics.Tracing.EventSource.GetGuid(System.Type)"
 
             // CultureInfo
             "System.Globalization.CultureInfo System.Globalization.CultureInfo.get_CurrentCulture()"
@@ -243,6 +280,7 @@ module Loader =
             "System.Globalization.CultureInfo System.Globalization.CultureInfo.GetCultureInfo(System.String)"
             "System.Globalization.CultureData System.Globalization.CultureData.GetCultureData(System.String, System.Boolean)"
             "System.String System.Globalization.CultureInfo.GetUserDefaultLocaleName()"
+            "System.String System.Globalization.CultureData.GetLocaleInfoEx(System.String, System.UInt32)"
 
             // ResourceManager
             "System.Void System.Resources.ResourceManager..ctor(this, System.String, System.Reflection.Assembly)"
@@ -254,6 +292,7 @@ module Loader =
             // Random
             "System.Void System.Random..ctor(this)"
             "System.UInt64 System.Marvin.GenerateSeed()"
+            "System.UInt32 System.HashCode.GenerateGlobalSeed()"
 
             // Time
             // TODO: this should be extern mocks
@@ -263,6 +302,19 @@ module Loader =
 
             // FileSystem
             "System.String System.IO.FileSystemInfo.get_LinkTarget(this)"
+            "System.String System.Environment.get_CurrentDirectory()"
+            // TODO: should be extern mocked
+            "System.Boolean System.IO.Directory.Exists(System.String)"
+
+            // EventSource
+            "System.String System.Diagnostics.Tracing.EventSource.GetName(System.Type)"
+            "System.Void Microsoft.Extensions.Logging.EventSource.LoggingEventSource..ctor(this)"
+            "System.Void System.Diagnostics.DiagnosticSourceEventSource..ctor(this)"
+            "System.Void System.Diagnostics.Tracing.NativeRuntimeEventSource..ctor(this)"
+            "System.Void System.Diagnostics.Tracing.EventSource..ctor(this, System.Guid, System.String)"
+            "System.Void System.Diagnostics.Tracing.EventSource.Initialize(this, System.Guid, System.String, System.String[])"
+            "System.Void System.Diagnostics.Tracing.EventSource..ctor(this, System.String)"
+            "System.Void Microsoft.EntityFrameworkCore.Infrastructure.EntityFrameworkEventSource..ctor(this)"
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
@@ -280,6 +332,44 @@ module Loader =
 
             // Arithmetics
             "System.Double System.Math.Pow(System.Double, System.Double)"
+
+            // ASP.NET Core
+            // Configuration builder
+            "System.Void Microsoft.Extensions.Configuration.ConfigurationManager+ConfigurationSources.Add(this, Microsoft.Extensions.Configuration.IConfigurationSource)"
+
+            // ConfigurationManager
+            "System.Void Microsoft.Extensions.Configuration.ConfigurationManager.ReloadSources(this)"
+
+            // EntityFramework
+            "System.Void Microsoft.EntityFrameworkCore.DbContext..ctor(this)"
+            "Microsoft.EntityFrameworkCore.Internal.IDbContextDependencies Microsoft.EntityFrameworkCore.DbContext.get_DbContextDependencies(this)"
+            "Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry`1[TEntity] Microsoft.EntityFrameworkCore.DbContext.Add(this, TEntity)"
+            "Microsoft.EntityFrameworkCore.ChangeTracking.Internal.InternalEntityEntry Microsoft.EntityFrameworkCore.ChangeTracking.Internal.StateManager.GetOrCreateEntry(this, System.Object)"
+            "System.Void Microsoft.EntityFrameworkCore.DbContext.Dispose(this)"
+
+            // Collections
+            // Enumerable
+            "TSource System.Linq.Enumerable.Single(System.Collections.Generic.IEnumerable`1[TSource], System.Func`2[TSource,System.Boolean])"
+            // "TSource System.Linq.Enumerable.Max(System.Collections.Generic.IEnumerable`1[TSource]))"
+
+            // String
+            "System.String System.String.ToUpperInvariant(this)"
+
+            // Array
+            "System.UIntPtr System.Array.get_NativeLength(this)"
+            "System.Object System.Array.InternalGetValue(this, System.IntPtr)"
+
+            // Unsafe
+            // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"
+            // "T System.Runtime.CompilerServices.Unsafe.As(System.Object)"
+            // "T& Internal.Runtime.CompilerServices.Unsafe.AsRef(T&)"
+            // "T& System.Runtime.CompilerServices.Unsafe.AsRef(T&)"
+            // "T& Internal.Runtime.CompilerServices.Unsafe.AsRef(System.Void*)"
+            // "T& System.Runtime.CompilerServices.Unsafe.AsRef(System.Void*)"
+            // "TTo& Internal.Runtime.CompilerServices.Unsafe.As(TFrom&)"
+            // "TTo& System.Runtime.CompilerServices.Unsafe.As(TFrom&)"
+            // "System.Boolean Internal.Runtime.CompilerServices.Unsafe.IsNullRef(T&)"
+            // "System.Boolean System.Runtime.CompilerServices.Unsafe.IsNullRef(T&)"
         ]
 
     let internal isInvokeInternalCall (fullMethodName : string) =

@@ -364,8 +364,8 @@ module TestGenerator =
                 test.Expected <- term2obj model state indices mockCache implementations test retVal
             Some test
 
-    let private model2test (test : UnitTest) suite indices mockCache (m : Method) model (state : state) =
-        assert(state.exceptionsRegister.Size = 1)
+    let private model2test (test : UnitTest) (suite : testSuite) indices mockCache (m : Method) model (state : state) =
+        assert(suite.IsFatalError || state.exceptionsRegister.Size = 1)
         let suitableState state =
             if m.HasParameterOnStack then Memory.CallStackSize state = 2
             else Memory.CallStackSize state = 1

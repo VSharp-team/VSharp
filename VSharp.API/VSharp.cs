@@ -1,12 +1,10 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Explorer;
@@ -122,7 +120,7 @@ namespace VSharp
             public void ReportException(UnitTest unitTest) => _unitTests.GenerateError(unitTest);
             public void ReportIIE(InsufficientInformationException iie) {}
 
-            public void ReportInternalFail(Method method, Exception exn)
+            public void ReportInternalFail(Method? method, Exception exn)
             {
                 if (_isQuiet) return;
 
@@ -140,15 +138,12 @@ namespace VSharp
                     messageBuilder.AppendLine($"Explored method: {method.DeclaringType}.{method.Name}");
                 }
 
-                messageBuilder.Append($"Exception: {exn.GetType()} {exn.Message}");
+                messageBuilder.AppendLine($"Exception: {exn.GetType()} {exn.Message}");
 
-                var trace = new StackTrace(exn, true);
-                var frame = trace.GetFrame(0);
-
-                if (frame is not null)
+                var trace = exn.StackTrace;
+                if (trace is not null)
                 {
-                    messageBuilder.AppendLine();
-                    messageBuilder.Append($"At: {frame.GetFileName()}, {frame.GetFileLineNumber()}");
+                    messageBuilder.AppendLine(trace);
                 }
 
                 Logger.printLogString(Logger.Error, messageBuilder.ToString());
@@ -168,7 +163,7 @@ namespace VSharp
             string[]? mainArguments = null)
         {
             Logger.changeVerbosityTuple(Logger.defaultTag, options.Verbosity.ToLoggerLevel());
-            
+
             var unitTests = new UnitTests(options.OutputDirectory);
             var baseSearchMode = options.SearchStrategy.ToSiliMode();
             // TODO: customize search strategies via console options
@@ -202,6 +197,7 @@ namespace VSharp
                 ExplorationMode.Fuzzing => Explorer.explorationModeOptions.NewFuzzing(fuzzerOptions),
                 ExplorationMode.Sili => Explorer.explorationModeOptions.NewSVM(siliOptions),
                 ExplorationMode.Interleaving => Explorer.explorationModeOptions.NewCombined(siliOptions, fuzzerOptions),
+                _ => throw new ArgumentOutOfRangeException($"StartExploration: unexpected exploration mode {options.ExplorationMode}")
             };
 
             var explorationOptions = new ExplorationOptions(

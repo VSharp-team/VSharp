@@ -25,6 +25,15 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         let physicalAddress = {object = obj}
         virtToPhys[address] <- physicalAddress
 
+    member private x.CastIfNeed value containerType =
+        if box value <> null then
+            let valueType = value.GetType()
+            if valueType <> containerType && TypeUtils.canConvert valueType containerType then
+                // This is done mostly because of signed to unsigned conversions (Example: int16 -> char)
+                TypeUtils.convert value containerType
+            else value
+        else value
+
 // ------------------------------- Copying -------------------------------
 
     interface IConcreteMemory with
@@ -129,27 +138,23 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.WriteClassField address (field : fieldId) value =
             let object = x.ReadObject address
             let fieldInfo = Reflection.getFieldInfo field
+            let fieldType = fieldInfo.FieldType
+            let value = x.CastIfNeed value fieldType
             fieldInfo.SetValue(object, value)
 
         override x.WriteArrayIndex address (indices : int list) value =
-            let castElement value elemType =
-                let valueType = value.GetType()
-                if valueType <> elemType && TypeUtils.canConvert valueType elemType then
-                    // This is done mostly because of signed to unsigned conversions (Example: int16 -> char)
-                    TypeUtils.convert value elemType
-                else value
             match x.ReadObject address with
             | :? Array as array ->
                 let elemType = array.GetType().GetElementType()
                 let castedValue =
-                    if value <> null then castElement value elemType
+                    if value <> null then x.CastIfNeed value elemType
                     else value
                 array.SetValue(castedValue, Array.ofList indices)
             // TODO: strings must be immutable! This is used by copying, so copy string another way #hack
             | :? String as string when List.length indices = 1 ->
                 let charArray = string.ToCharArray()
                 assert(value <> null)
-                let castedValue = castElement value typeof<char>
+                let castedValue = x.CastIfNeed value typeof<char>
                 charArray.SetValue(castedValue, List.head indices)
                 let newString = String(charArray)
                 x.WriteObject address newString
