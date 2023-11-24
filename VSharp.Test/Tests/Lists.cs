@@ -949,6 +949,15 @@ namespace IntegrationTests
             return -1;
         }
 
+        [TestSvm(100)]
+        public static int ListTest1(List<object> l, object e)
+        {
+            var i = l.LastIndexOf(e);
+            if (i >= 0)
+                return i;
+            return -1;
+        }
+
         [Ignore("implement splitting")]
         public static int HashtableTest(int a)
         {
