@@ -219,6 +219,7 @@ module API =
         let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
         let (|TypeSubtypeTypeSource|_|) src = TypeCasting.(|TypeSubtypeTypeSource|_|) src
         let (|RefSubtypeTypeSource|_|) src = TypeCasting.(|RefSubtypeTypeSource|_|) src
+        let (|RefEqTypeSource|_|) src = TypeCasting.(|RefEqTypeSource|_|) src
         let (|TypeSubtypeRefSource|_|) src = TypeCasting.(|TypeSubtypeRefSource|_|) src
         let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
         let (|GetHashCodeSource|_|) s = Memory.(|GetHashCodeSource|_|) s
@@ -278,7 +279,7 @@ module API =
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
         let RefIsType state ref typ = TypeCasting.refIsType state ref typ
-        let RefIsAssignableToType state ref typ = TypeCasting.refIsAssignableToType state ref typ
+        let RefEqType state ref typ = TypeCasting.refEqType state ref typ
         let RefIsRef state ref1 ref2 = TypeCasting.refIsRef state ref1 ref2
 
         let IsCast state term targetType = TypeCasting.canCast state term targetType

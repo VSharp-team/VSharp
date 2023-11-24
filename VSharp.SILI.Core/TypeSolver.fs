@@ -38,8 +38,10 @@ module TypeStorage =
 
     // TODO: move this to SolverInteraction and parse all pc at once
     let addTypeConstraints (typesConstraints : typesConstraints) conditions =
+        let equalityConstraints = Dictionary<term, HashSet<Type>>()
         let supertypeConstraints = Dictionary<term, HashSet<Type>>()
         let subtypeConstraints = Dictionary<term, HashSet<Type>>()
+        let inequalityConstraints = Dictionary<term, HashSet<Type>>()
         let notSupertypeConstraints = Dictionary<term, HashSet<Type>>()
         let notSubtypeConstraints = Dictionary<term, HashSet<Type>>()
         let addresses = ResizeArray<term>()
@@ -60,6 +62,8 @@ module TypeStorage =
             match term.term with
             | Constant(_, TypeCasting.TypeSubtypeTypeSource _, _) ->
                 internalfail "TypeSolver is not fully implemented"
+            | Constant(_, TypeCasting.RefEqTypeSource(address, typ), _) ->
+                add equalityConstraints address typ |> next
             | Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _) ->
                 add supertypeConstraints address typ |> next
             | Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _) ->
@@ -70,6 +74,8 @@ module TypeStorage =
                 internalfail "TypeSolver is not fully implemented"
             | Negation({term = Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _)}) ->
                 add notSupertypeConstraints address typ |> next
+            | Negation({term = Constant(_, TypeCasting.RefEqTypeSource(address, typ), _)}) ->
+                add inequalityConstraints address typ |> next
             | Negation({term = Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _)}) ->
                 add notSubtypeConstraints address typ |> next
             | Negation({term = Constant(_, TypeCasting.RefSubtypeRefSource _, _)}) ->
@@ -89,8 +95,10 @@ module TypeStorage =
         for address in addresses do
             let typeConstraints =
                 typeConstraints.Create
+                    (toList equalityConstraints address)
                     (toList supertypeConstraints address)
                     (toList subtypeConstraints address)
+                    (toList inequalityConstraints address)
                     (toList notSupertypeConstraints address)
                     (toList notSubtypeConstraints address)
             typesConstraints.Add address typeConstraints
@@ -221,6 +229,15 @@ module TypeSolver =
         | GenericCandidate gc ->
             gc.AddConstraints constraints |> Option.map GenericCandidate
 
+    let private candidatesFromEquality equalityConstraints validate =
+        assert userAssembly.IsSome
+        let userAssembly = userAssembly.Value
+        assert(List.length equalityConstraints = 1)
+        let t = List.head equalityConstraints
+        assert(validate t |> Option.isSome)
+        let types = Candidate t |> List.singleton
+        candidates(types, None, userAssembly)
+
     let private typeCandidates getMock subst constraints (makeGenericCandidates : Type -> genericCandidate option) =
         assert userAssembly.IsSome
         match constraints.supertypes |> List.tryFind (fun t -> t.IsSealed) with
@@ -243,7 +260,9 @@ module TypeSolver =
                 | Some c -> chooseCandidate constraints subst c
                 | None -> None
 
+            let equal = constraints.equal
             match constraints.subtypes with
+            | _ when List.isEmpty equal |> not -> candidatesFromEquality equal validate
             | [] ->
                 let assemblies = getAssemblies()
                 enumerateNonAbstractTypes constraints.supertypes (getMock None) validate assemblies
@@ -289,23 +308,30 @@ module TypeSolver =
         genericCandidate.TryCreate typedef depth (makeParameterSubstitutions childDepth)
 
     let private refineMock getMock constraints (mock : ITypeMock) =
-        let constraintsSuperTypes = constraints.supertypes
-        let hasPrivateSuperType = List.exists (TypeUtils.isPublic >> not) constraintsSuperTypes
-        if hasPrivateSuperType then None
+        let supertypeConstraints = constraints.supertypes
+        let equalityConstraints = constraints.equal
+        let subtypeConstraints = constraints.subtypes
+        let hasPrivateSuperType = lazy (List.exists (TypeUtils.isPublic >> not) supertypeConstraints)
+        let hasEqualityConstraints = lazy (List.isEmpty equalityConstraints |> not)
+        let hasSubtypeConstraints = lazy (List.isEmpty subtypeConstraints |> not)
+        let canNotBeMocked = lazy (List.exists (canBeMocked >> not) supertypeConstraints)
+        let nonSuitable =
+            hasPrivateSuperType.Value
+            || hasEqualityConstraints.Value
+            || hasSubtypeConstraints.Value
+            || canNotBeMocked.Value
+        if nonSuitable then None
         else
             let mockSuperTypes = List.ofSeq mock.SuperTypes
             let supertypes =
-                if List.isEmpty constraintsSuperTypes then mockSuperTypes
-                else List.concat [mockSuperTypes; constraintsSuperTypes] |> List.distinct
+                if List.isEmpty supertypeConstraints then mockSuperTypes
+                else List.concat [mockSuperTypes; supertypeConstraints] |> List.distinct
             let numOfSuperTypes = List.length supertypes
             let numOfMockSuperTypes = List.length mockSuperTypes
             assert(numOfSuperTypes >= numOfMockSuperTypes)
             let changedSupertypes = numOfSuperTypes <> numOfMockSuperTypes
             let mockConstraints = {constraints with supertypes = supertypes}
-            let satisfies =
-                List.isEmpty constraints.subtypes
-                && (mockConstraints.IsContradicting() |> not)
-                && List.forall canBeMocked constraints.supertypes
+            let satisfies = mockConstraints.IsContradicting() |> not
             if satisfies && changedSupertypes then getMock (Some mock) supertypes |> Some
             elif satisfies then Some mock
             else None
@@ -387,8 +413,10 @@ module TypeSolver =
         else
             let decodeTypeSubst (subst : substitution) = CommonUtils.decodeTypeSubst subst typeParameters
             let collectVars acc constraints =
+                let acc = constraints.equal |> List.fold collectTypeVariables acc
                 let acc = constraints.supertypes |> List.fold collectTypeVariables acc
                 let acc = constraints.subtypes |> List.fold collectTypeVariables acc
+                let acc = constraints.notEqual |> List.fold collectTypeVariables acc
                 let acc = constraints.notSupertypes |> List.fold collectTypeVariables acc
                 constraints.notSubtypes |> List.fold collectTypeVariables acc
             let typeVars = Array.fold collectTypeVariables List.empty typeParameters
@@ -435,6 +463,7 @@ module TypeSolver =
     let private refineStorage getMock (typeStorage : typeStorage) typeGenericArguments methodGenericArguments =
         let mutable emptyCandidates = false
         let constraints = typeStorage.Constraints
+        assert constraints.IsValid()
         let addressesTypes = typeStorage.AddressesTypes
         let newAddresses = Dictionary<term, typeConstraints>()
 

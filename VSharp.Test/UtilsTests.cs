@@ -156,11 +156,12 @@ namespace UnitTests
                 IEnumerable<Type> notSupertypes,
                 IEnumerable<Type> notSubtypes)
             {
+                var empty = FSharpList<Type>.Empty;
                 var supertypesFs = ToFSharpList(supertypes);
                 var subtypesFs = ToFSharpList(subtypes);
                 var notSupertypesFs = ToFSharpList(notSupertypes);
                 var notSubtypesFs = ToFSharpList(notSubtypes);
-                return typeConstraints.Create(supertypesFs, subtypesFs, notSupertypesFs, notSubtypesFs);
+                return typeConstraints.Create(empty, supertypesFs, subtypesFs, empty, notSupertypesFs, notSubtypesFs);
             }
 
             private static typeConstraints ConstraintsFrom(IEnumerable<Type> supertypes, IEnumerable<Type> subtypes)

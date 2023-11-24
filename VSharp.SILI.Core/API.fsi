@@ -121,6 +121,7 @@ module API =
         val (|TypeInitializedSource|_|) : IStatedSymbolicConstantSource -> option<Type * symbolicTypeSet>
         val (|TypeSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<Type * Type>
         val (|RefSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<heapAddress * Type>
+        val (|RefEqTypeSource|_|) : ISymbolicConstantSource -> option<heapAddress * Type>
         val (|TypeSubtypeRefSource|_|) : ISymbolicConstantSource -> option<Type * heapAddress>
         val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
         val (|GetHashCodeSource|_|) : ISymbolicConstantSource -> option<term>
@@ -177,7 +178,7 @@ module API =
         val IsNullable : Type -> bool
         val TypeIsRef :  state -> Type -> term -> term
         val RefIsType : state -> term -> Type -> term
-        val RefIsAssignableToType : state -> term -> Type -> term
+        val RefEqType : state -> term -> Type -> term
         val RefIsRef : state -> term -> term -> term
         val IsCast : state -> term -> Type -> term
         val Cast : term -> Type -> term
