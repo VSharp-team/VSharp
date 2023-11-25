@@ -112,6 +112,7 @@ module Loader =
             "System.Boolean System.Numerics.Vector`1[T].op_Equality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseOr(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseAnd(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector.Equals(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
         |]
         let runtimeHelpers = [|
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
@@ -236,6 +237,7 @@ module Loader =
             "System.String System.IO.Path.GetFullPath(System.String)"
             "System.Boolean System.OperatingSystem.IsOSPlatform(System.String)"
             "System.Collections.IDictionary System.Environment.GetEnvironmentVariables()"
+            "System.IO.TextWriter System.Console.get_Out()"
 
             // Text
             "System.Int32 System.Text.UTF8Encoding.GetBytes(this, System.String, System.Int32, System.Int32, System.Byte[], System.Int32)"
