@@ -139,7 +139,9 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                 match TestGenerator.state2test suite entryMethod cilState.state with
                 | Some test ->
                     statistics.TrackFinished(cilState, isError)
-                    reporter.ReportFinished test
+                    match suite with
+                    | Test -> reporter.ReportFinished test
+                    | Error _ -> reporter.ReportException test
                     if isCoverageAchieved() then
                         isStopped <- true
                 | None -> ()
