@@ -264,7 +264,8 @@ public static class TestsRenderer
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
-        return method.Name;
+
+        return method.Name.Split('.').Last();
 
     }
 
