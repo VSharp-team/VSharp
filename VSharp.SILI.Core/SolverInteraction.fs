@@ -8,9 +8,6 @@ module public SolverInteraction =
 
     type unsatCore() = class end
 
-    type encodingContext =
-        { addressOrder : Map<concreteHeapAddress, int> }
-
     type satInfo = { mdl : model }
     type unsatInfo = { core : term[] }
 
@@ -20,8 +17,8 @@ module public SolverInteraction =
         | SmtUnknown of string
 
     type ISolver =
-        abstract CheckSat : encodingContext -> term -> smtResult
-        abstract Assert : encodingContext -> term -> unit
+        abstract CheckSat : term -> smtResult
+        abstract Assert : term -> unit
 
         abstract SetMaxBufferSize : int -> unit
 
@@ -38,20 +35,12 @@ module public SolverInteraction =
         | Some s -> s.SetMaxBufferSize size
         | None -> ()
 
-    let getEncodingContext (state : state) =
-        let addresses = PersistentDict.keys state.allocatedTypes
-        let sortedAddresses = Seq.sortWith VectorTime.compare addresses
-        let order = Seq.fold (fun (map, i) address -> Map.add address i map, i + 1) (Map.empty, 1) sortedAddresses |> fst
-        let orderWithNull = Map.add VectorTime.zero 0 order
-        { addressOrder = orderWithNull }
-
     let private checkSatWithCtx state context =
-        let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> Seq.append context |> conjunction
         match solver with
         | Some s ->
             onSolverStarted()
-            let result = s.CheckSat ctx formula
+            let result = s.CheckSat formula
             onSolverStopped()
             result
         | None -> SmtUnknown ""

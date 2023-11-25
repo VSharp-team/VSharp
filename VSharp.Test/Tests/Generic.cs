@@ -398,6 +398,7 @@ namespace IntegrationTests
             }
             return 1;
         }
+
         [TestSvm(100)]
         public static int Nested2(object o)
         {

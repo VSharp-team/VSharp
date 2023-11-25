@@ -167,7 +167,6 @@ module internal ReadOnlySpan =
         let spanType = readOnlySpanType().MakeGenericType(typeof<char>)
         let span = Memory.DefaultOf spanType
         let state = cilState.state
-        let refToFirst = Memory.ReferenceField state string Reflection.stringFirstCharField
         let length = Memory.StringLength state string
         let nullCase cilState k =
             let ref = NullRef typeof<char[]>
@@ -175,11 +174,12 @@ module internal ReadOnlySpan =
             push span cilState
             List.singleton cilState |> k
         let nonNullCase cilState k =
+            let refToFirst = Memory.ReferenceField state string Reflection.stringFirstCharField
             let span = InitSpanStruct cilState span refToFirst length
             push span cilState
             List.singleton cilState |> k
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsNullReference refToFirst, state))
+            (fun state k -> k (IsNullReference string, state))
             nullCase
             nonNullCase
             id

@@ -873,7 +873,7 @@ type ILInterpreter() as this =
                     ancestorMethod.ResolveOverrideInType candidateType :?> Method
                 if overridden.InCoverageZone || candidateType.IsAssignableTo targetType && targetType.Assembly = candidateType.Assembly then
                     StatedConditionalExecutionCIL cilState
-                        (fun cilState k -> k (API.Types.TypeIsRef cilState candidateType this, cilState))
+                        (fun state k -> k (API.Types.RefEqType state this candidateType, state))
                         (fun cilState k ->
                             let this = Types.Cast this overridden.ReflectedType
                             x.CommonCall overridden arguments (Some this) cilState k)
@@ -1259,7 +1259,7 @@ type ILInterpreter() as this =
             let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let condition =
                     if Types.IsValueType typeOfValue then True()
-                    else Types.RefIsAssignableToType cilState.state value baseType
+                    else Types.RefIsType cilState.state value baseType
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (condition, state))
                     uncheckedStElem

@@ -60,28 +60,52 @@ module internal TypeCasting =
             | _ -> None
         | _ -> None
 
+    [<StructuralEquality;NoComparison>]
+    type private symbolicTypeEqualSource =
+        { address : term; targetType : Type }
+        interface IStatedSymbolicConstantSource with
+            override x.SubTerms = List.singleton x.address
+            override x.Time = VectorTime.zero
+            override x.TypeOfLocation = typeof<bool>
+
+    let (|RefEqTypeSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicTypeEqualSource as s -> Some(s.address, s.targetType)
+        | _ -> None
+
     let private makeSubtypeBoolConst left right =
-        let subtypeName = sprintf "(%O <: %O)" left right
+        let subtypeName = $"({left} <: {right})"
         let source = {left = left; right = right}
         Constant subtypeName source typeof<bool>
 
-    let rec commonTypeIsType leftType rightType =
+    let private makeTypeEqBoolConst ref typ =
+        let name = $"(typeof<{ref}> = {typ})"
+        let source = {address = ref; targetType = typ}
+        Constant name source typeof<bool>
+
+    // left is subtype of right
+    let rec typeIsType leftType rightType =
         let boolConst left right = makeSubtypeBoolConst (ConcreteType left) (ConcreteType right)
         isConcreteSubtype leftType rightType makeBool boolConst
 
-    // left is subtype of right
-    let typeIsType = commonTypeIsType
-
-    let commonAddressIsType leftAddress leftType targetTyp =
+    let addressIsType leftAddress leftType targetType =
         let typeCheck address =
             let boolConst address =
                 match address.term with
                 | ConcreteHeapAddress _ -> False()
-                | _ -> makeSubtypeBoolConst (SymbolicType address) (ConcreteType targetTyp)
-            commonTypeIsType leftType targetTyp ||| boolConst address
+                | _ -> makeSubtypeBoolConst (SymbolicType address) (ConcreteType targetType)
+            typeIsType leftType targetType ||| boolConst address
         Merging.guardedApply typeCheck leftAddress
 
-    let addressIsType = commonAddressIsType
+    let addressEqType address addressType targetType =
+        let typeCheck address =
+            let boolConst address =
+                match address.term with
+                | ConcreteHeapAddress _ -> False()
+                | _ -> makeTypeEqBoolConst address targetType
+            if addressType = targetType then True()
+            else boolConst address
+        Merging.guardedApply typeCheck address
 
     let typeIsAddress leftType rightAddress rightType =
         let typeCheck rightAddress =
@@ -114,23 +138,33 @@ module internal TypeCasting =
             let rightType = address.TypeOfLocation
             typeIsType typ rightType
         | Union gvs -> Merging.guardedMap (typeIsRef state typ) gvs
-        | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
+        | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
-    let rec commonRefIsType state ref typ =
+    let rec refIsType state ref typ =
         match ref.term with
         | HeapRef(addr, sightType) ->
             let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
-            commonAddressIsType addr leftType typ
+            addressIsType addr leftType typ
         | Ref address ->
             let leftType = address.TypeOfLocation
             typeIsType leftType typ
         | Union gvs ->
-            let commonRefIsType term = commonRefIsType state term typ
-            Merging.guardedMap commonRefIsType gvs
-        | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
+            let refIsType term = refIsType state term typ
+            Merging.guardedMap refIsType gvs
+        | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
-    let refIsType = commonRefIsType
-    let refIsAssignableToType = commonRefIsType
+    let rec refEqType state ref typ =
+        match ref.term with
+        | HeapRef(addr, sightType) ->
+            let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
+            addressEqType addr leftType typ
+        | Ref address ->
+            let leftType = address.TypeOfLocation
+            makeBool (leftType = typ)
+        | Union gvs ->
+            let refEqType term = refEqType state term typ
+            Merging.guardedMap refEqType gvs
+        | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
     let rec refIsRef state leftRef rightRef =
         match leftRef.term, rightRef.term with
@@ -148,9 +182,9 @@ module internal TypeCasting =
             addressIsType leftAddr leftType rightType
         | Union gvs, _ ->
             let refIsRef term = refIsRef state term rightRef
-            Merging.guardedMap refIsRef gvs 
+            Merging.guardedMap refIsRef gvs
         | _, Union gvs -> Merging.guardedMap (refIsRef state leftRef) gvs
-        | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
+        | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
     type symbolicSubtypeSource with
         interface IStatedSymbolicConstantSource with
@@ -185,6 +219,22 @@ module internal TypeCasting =
                         | _ -> notMock()
                     | _ -> notMock()
                 | ConcreteType l, ConcreteType r -> typeIsType (fillType l) (fillType r)
+
+    type symbolicTypeEqualSource with
+        interface IStatedSymbolicConstantSource with
+            override x.Compose state =
+                let address = Memory.fillHoles state x.address
+                let notMock() =
+                    let targetType = Memory.substituteTypeVariables state x.targetType
+                    let addressType = Memory.typeOfHeapLocation state address
+                    addressEqType address addressType targetType
+                match address.term with
+                | ConcreteHeapAddress addr ->
+                    // None when addr is null
+                    match PersistentDict.tryFind state.allocatedTypes addr with
+                    | Some(MockType _) -> False()
+                    | _ -> notMock()
+                | _ -> notMock()
 
     let private doCast term targetType =
         match term.term, targetType with
