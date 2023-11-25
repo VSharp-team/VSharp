@@ -38,3 +38,9 @@ module internal InteropServices =
 
     [<Implements("System.IntPtr System.RuntimeTypeHandle.GetGCHandle(this, System.Runtime.InteropServices.GCHandleType)")>]
     val TypeHandleGetGCHandle : state -> term list -> term
+
+    [<Implements("System.Void System.Runtime.InteropServices.Marshal.SetLastPInvokeError(System.Int32)")>]
+    val SetLastPInvokeError : state -> term list -> term
+
+    [<Implements("System.Int32 System.Runtime.InteropServices.Marshal.GetLastPInvokeError()")>]
+    val GetLastPInvokeError : state -> term list -> term

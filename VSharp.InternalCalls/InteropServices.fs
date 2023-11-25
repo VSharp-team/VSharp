@@ -1,12 +1,22 @@
 namespace VSharp.System
 
 open System
+open System.Runtime.InteropServices
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
 open VSharp.Interpreter.IL.CilStateOperations
 
 module internal InteropServices =
+
+    let private marshalType = typeof<Marshal>
+
+    let private lastPInvokeErrorFieldId =
+        {
+            declaringType = marshalType
+            name = "__System.Runtime.InteropServices.Marshal.LastPInvokeError__"
+            typ = typeof<int>
+        }
 
     let GetArrayDataReference (state : state) (args : term list) =
         assert(List.length args = 2)
@@ -93,3 +103,12 @@ module internal InteropServices =
             let t = global.System.Type.GetTypeFromHandle rth
             Memory.ObjectToTerm state t typeof<Type>
         | None -> internalfail "TypeHandleGetGCHandle: symbolic runtime type handle"
+
+    let SetLastPInvokeError (state : state) (args : term list) =
+        assert(List.length args = 1)
+        Memory.WriteStaticField state marshalType lastPInvokeErrorFieldId args[0]
+        Nop()
+
+    let GetLastPInvokeError (state : state) (args : term list) =
+        assert(List.isEmpty args)
+        Memory.ReadStaticField state marshalType lastPInvokeErrorFieldId
