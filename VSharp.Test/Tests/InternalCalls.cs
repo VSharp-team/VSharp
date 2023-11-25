@@ -6,7 +6,7 @@ namespace IntegrationTests;
 [TestSvmFixture]
 public class InternalCalls
 {
-    [TestSvm]
+    [TestSvm(85)]
     public static int LastPInvokeErrorTest(int i)
     {
         if (i < 100)
