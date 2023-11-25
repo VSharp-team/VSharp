@@ -12,6 +12,7 @@ type Copier () =
         TypeUtils.systemRuntimeType
         typeof<Thread>
         typeof<System.Diagnostics.Tracing.EventSource>
+        typeof<System.Reflection.FieldInfo>
     ]
 
     let cannotBeCopied (typ : Type) =
