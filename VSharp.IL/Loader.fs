@@ -171,6 +171,7 @@ module Loader =
             "System.Boolean System.Type.get_IsPublic(this)"
             "System.Reflection.MemberTypes System.RuntimeType.get_MemberType(this)"
             "System.Int32 System.RuntimeType.get_MetadataToken(this)"
+            "System.Object System.Enum.InternalBoxEnum(System.RuntimeType, System.Int64)"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
