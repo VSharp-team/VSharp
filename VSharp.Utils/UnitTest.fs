@@ -240,8 +240,10 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
                     else decoded
                 let typeDefinitions = ti.memory.types |> Array.map getGenericTypeDefinition
                 let reflectedTypeIndex = Array.IndexOf(typeDefinitions, reflectedType)
-                assert(reflectedTypeIndex >= 0)
-                ti.memory.types[reflectedTypeIndex] <- typeRepr.Encode concreteReflectedType
+                assert(reflectedTypeIndex >= 0 || ti.typeMocks.Length > 0)
+                if reflectedTypeIndex >= 0 then
+                    // 'this' is not mock
+                    ti.memory.types[reflectedTypeIndex] <- typeRepr.Encode concreteReflectedType
 
             UnitTest(method, ti, mockStorage, createCompactRepr)
         with child ->
