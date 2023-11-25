@@ -99,7 +99,9 @@ module Loader =
         let string = [|"System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"|]
         let span = [|
             "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+            "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
             "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
+            "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
         |]
         let vector = [|
             "System.Void System.Numerics.Vector`1[T]..ctor(this, T)"
@@ -350,7 +352,7 @@ module Loader =
             // Collections
             // Enumerable
             "TSource System.Linq.Enumerable.Single(System.Collections.Generic.IEnumerable`1[TSource], System.Func`2[TSource,System.Boolean])"
-            // "TSource System.Linq.Enumerable.Max(System.Collections.Generic.IEnumerable`1[TSource]))"
+            "TSource System.Linq.Enumerable.Max(System.Collections.Generic.IEnumerable`1[TSource]))"
 
             // String
             "System.String System.String.ToUpperInvariant(this)"
@@ -358,6 +360,10 @@ module Loader =
             // Array
             "System.UIntPtr System.Array.get_NativeLength(this)"
             "System.Object System.Array.InternalGetValue(this, System.IntPtr)"
+
+            // Span
+            "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
+            "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
 
             // Unsafe
             // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"

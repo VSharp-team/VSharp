@@ -82,7 +82,7 @@ namespace IntegrationTests
             return str.Length;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int StringEquals(string str1, string str2)
         {
             if (str1.Equals(str2))
@@ -90,10 +90,18 @@ namespace IntegrationTests
             return -1;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int StringEquals1(string str1, string str2, StringComparison c)
         {
             if (str1.Equals(str2, c))
+                return 1;
+            return -1;
+        }
+
+        [TestSvm(100)]
+        public static int StringEquals2(string str1, string str2, StringComparison c)
+        {
+            if (MemoryExtensions.Equals(str1, str2, c))
                 return 1;
             return -1;
         }
