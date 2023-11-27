@@ -18,3 +18,13 @@ module internal Diagnostics =
                 ErrorReporter.ReportFatalError cilState "Debug.Assert failed"
                 k [])
             id
+
+    let Fail (_ : IInterpreter) cilState (args : term list) =
+        assert(List.length args = 1)
+        ErrorReporter.ReportFatalError cilState "System.Diagnostics.Debug.Fail called"
+        [cilState]
+
+    let FailWithDetailedMessage (_ : IInterpreter) cilState (args : term list) =
+        assert(List.length args = 2)
+        ErrorReporter.ReportFatalError cilState "System.Diagnostics.Debug.Fail called"
+        [cilState]

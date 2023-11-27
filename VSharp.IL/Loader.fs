@@ -113,6 +113,10 @@ module Loader =
             "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseOr(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseAnd(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector.Equals(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_BitwiseAnd(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_BitwiseOr(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector.ConditionalSelect(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].get_AllBitsSet()"
         |]
         let runtimeHelpers = [|
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
