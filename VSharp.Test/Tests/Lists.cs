@@ -1231,6 +1231,41 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    public class EnumerableTests<T> : IEnumerable<T>
+        where T : IComparable<T>
+    {
+        private List<T> _items;
+
+        public EnumerableTests(List<T> items)
+        {
+            _items = items;
+        }
+
+        IEnumerator<T> IEnumerable<T>.GetEnumerator()
+        {
+            return _items.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return _items.GetEnumerator();
+        }
+
+        [TestSvm(100, timeout:5)]
+        public T Max()
+        {
+            var max = this.First();
+            foreach (var elem in this)
+            {
+                if (elem.CompareTo(max) > 0)
+                    max = elem;
+            }
+
+            return max;
+        }
+    }
+
+    [TestSvmFixture]
     public static class StackTests
     {
         public sealed class ListNode
@@ -1914,7 +1949,7 @@ namespace IntegrationTests
         private readonly Content[] _arr = new Content[10];
 
 
-        [TestSvm]
+        [TestSvm(100)]
         public int GetValue(int index)
         {
             if (index < 0 || index > 10)
@@ -1922,7 +1957,7 @@ namespace IntegrationTests
             return _arr[index].X;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public void SetValue(int index, int value)
         {
             if (index < 0 || index > 10)
@@ -1942,7 +1977,7 @@ namespace IntegrationTests
         private readonly Content[,] _arr = new Content[1,1];
 
 
-        [TestSvm]
+        [TestSvm(100)]
         public int GetValue(int index1, int index2)
         {
             if (_arr[index1, index2].X == 100 && _arr[index2, index1].X != 100)

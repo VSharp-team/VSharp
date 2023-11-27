@@ -44,6 +44,7 @@ type cilState =
         /// </summary>
         id : uint
     }
+    override x.ToString() = System.String.Empty
 
     interface IGraphTrackableState with
         override this.CodeLocation = this.currentLoc
