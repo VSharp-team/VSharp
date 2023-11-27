@@ -36,21 +36,21 @@ type IConcreteMemory =
 // TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =
     | Unhandled of term * bool * string // Exception term * is runtime exception * stack trace
-    | Caught of term * string // Exception term * stack trace
+    | Caught of term * bool * string // Exception term * is runtime exception * stack trace
     | NoException
     with
     member x.GetError () =
         match x with
         | Unhandled(error, _, _) -> error
-        | Caught(error, _) -> error
+        | Caught(error, _, _) -> error
         | _ -> internalfail "no error"
     member x.TransformToCaught () =
         match x with
-        | Unhandled(e, _, s) -> Caught(e, s)
+        | Unhandled(e, isRuntime, s) -> Caught(e, isRuntime, s)
         | _ -> internalfail "unable TransformToCaught"
     member x.TransformToUnhandled () =
         match x with
-        | Caught(e, s) -> Unhandled(e, false, s)
+        | Caught(e, isRuntime, s) -> Unhandled(e, isRuntime, s)
         | Unhandled _ -> x
         | NoException -> internalfail "unable TransformToUnhandled"
     member x.IsUnhandledError =
@@ -60,17 +60,17 @@ type exceptionRegister =
     member x.ExceptionTerm =
         match x with
         | Unhandled (error, _, _)
-        | Caught(error, _) -> Some error
+        | Caught(error, _, _) -> Some error
         | _ -> None
     member x.StackTrace =
         match x with
         | Unhandled (_, _, s)
-        | Caught(_, s) -> Some s
+        | Caught(_, _, s) -> Some s
         | _ -> None
     static member map f x =
         match x with
         | Unhandled(e, isRuntime, s) -> Unhandled(f e, isRuntime, s)
-        | Caught(e, s) -> Caught(f e, s)
+        | Caught(e, isRuntime, s) -> Caught(f e, isRuntime, s)
         | NoException -> NoException
 
 type exceptionRegisterStack =
