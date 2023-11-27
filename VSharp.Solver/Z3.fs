@@ -829,7 +829,6 @@ module internal Z3 =
         member private x.EncodeSymbolicAddress (heapRefSource : ISymbolicConstantSource) path name =
             x.EncodeMemoryAccessConstant name heapRefSource path addressType
 
-        // TODO: [style] get rid of accumulators
         member private x.GetRegionConstant (name : string) sort (path : path) (regionSort : regionSort) =
             let constName = $"{name} of {regionSort}, {path}"
             let mkConst () = ctx.MkConst(constName, sort) :?> ArrayExpr
@@ -1143,7 +1142,6 @@ module internal Z3 =
                     else BitConverter.Int64BitsToDouble(Convert.ToInt64(numStringBE, 2))
             Concrete number t
 
-
         member public x.Decode t (expr : Expr) =
             match expr with
             | :? BitVecNum as bv when Types.IsNumeric t -> x.DecodeBv t bv
@@ -1329,8 +1327,7 @@ module internal Z3 =
 
                 let stores = Dictionary<address * path, term * regionSort>()
                 let defaultValues = Dictionary<regionSort, term ref>()
-                for KeyValue(typ, constant) in encodingCache.regionConstants do
-                    let region, path = typ
+                for KeyValue((region, path), constant) in encodingCache.regionConstants do
                     let arr = m.Eval(constant, false)
                     let typeOfRegion = region.TypeOfLocation
                     let typeOfLocation =

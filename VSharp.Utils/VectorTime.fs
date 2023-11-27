@@ -13,11 +13,11 @@ module VectorTime =
     let hash (time : vectorTime) =
         if time = zero then RuntimeHelpers.GetHashCode null
         else time.GetHashCode()
-        
+
     let extractFromSingleton (time: vectorTime) =
         assert(List.length time = 1)
         List.head time
-        
+
     let singleton t : vectorTime =
         [t]
 
@@ -36,7 +36,7 @@ module VectorTime =
     let lessOrEqual (t1 : vectorTime) (t2 : vectorTime) =
         let res = compare t1 t2
         res = -1 || res = 0
-        
+
     let greaterOrEqual (t1 : vectorTime) (t2 : vectorTime) =
         let res = compare t1 t2
         res = 1 || res = 0
