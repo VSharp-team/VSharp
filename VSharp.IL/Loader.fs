@@ -115,6 +115,7 @@ module Loader =
             "System.Numerics.Vector`1[T] System.Numerics.Vector.Equals(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_BitwiseAnd(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_BitwiseOr(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_ExclusiveOr(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector.ConditionalSelect(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].get_AllBitsSet()"
         |]
@@ -201,6 +202,7 @@ module Loader =
             "System.Void System.Threading.EventWaitHandle..ctor(this, System.Boolean, System.Threading.EventResetMode)"
             "System.Void System.Threading.ManualResetEvent..ctor(this, System.Boolean)"
             "System.Void System.Threading.Thread.Initialize(this)"
+            "System.Byte System.Threading.ThreadPool.InitializeConfigAndDetermineUsePortableThreadPool()"
 
             // Interop
             "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
@@ -242,6 +244,7 @@ module Loader =
             "System.Boolean System.OperatingSystem.IsOSPlatform(System.String)"
             "System.Collections.IDictionary System.Environment.GetEnvironmentVariables()"
             "System.IO.TextWriter System.Console.get_Out()"
+            "System.String System.IO.Path.GetTempPath()"
 
             // Text
             "System.Int32 System.Text.UTF8Encoding.GetBytes(this, System.String, System.Int32, System.Int32, System.Byte[], System.Int32)"

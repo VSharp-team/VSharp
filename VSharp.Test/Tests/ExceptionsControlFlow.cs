@@ -1,7 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.IO;
-using NUnit.Framework;
 using VSharp.Test;
 
 #pragma warning disable CS0162
@@ -76,7 +74,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm(87, strat: SearchStrategy.DFS)]
+        [TestSvm(100, strat: SearchStrategy.DFS)]
         public static int SimpleFilterBlock(int x, int y)
         {
             try
