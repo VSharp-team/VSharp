@@ -240,7 +240,7 @@ namespace IntegrationTests
             public Kind Kind;
         }
 
-        [Ignore("need to fix Enum.ToString")]
+        [TestSvm(100)]
         public static string StringFormat(ClassToString c)
         {
             return string.Format("{0}{1}{2}", c.Kind, c.X, c.Y);
