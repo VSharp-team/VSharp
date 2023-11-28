@@ -246,6 +246,38 @@ namespace IntegrationTests
             return string.Format("{0}{1}{2}", c.Kind, c.X, c.Y);
         }
 
+        [Ignore("takes too much time")]
+        public static Kind EnumTryParse(string s)
+        {
+            if (Enum.TryParse(typeof(Kind), s, out var res))
+                return (Kind)res;
+
+            throw new ArgumentException("invalid string");
+        }
+
+        [TestSvm(70)]
+        public static Kind EnumTryParse1(Kind e)
+        {
+            if (Enum.TryParse(typeof(Kind), e.ToString(), out var res))
+            {
+                var enumResult = (Kind) res;
+                if (enumResult != e)
+                    throw new ArgumentException("invalid enum");
+
+                return enumResult;
+            }
+
+            throw new ArgumentException("invalid string");
+        }
+        [TestSvm(75)]
+        public static Kind ConcreteEnumTryParse()
+        {
+            if (Enum.TryParse(typeof(Kind), "First", out var res))
+                return (Kind)res;
+
+            throw new ArgumentException("invalid string");
+        }
+
         [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage, randomSeed: 10)]
         public static string FormatUInt32(UInt32 x)
         {
