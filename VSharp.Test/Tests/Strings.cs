@@ -202,7 +202,7 @@ namespace IntegrationTests
             return 1;
         }
 
-        [Ignore("takes too much time")]
+        [TestSvm(100)]
         public static bool SymbolicStringToUpper(char c)
         {
             string s = c + "c";
