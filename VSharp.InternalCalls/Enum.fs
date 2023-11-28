@@ -88,3 +88,11 @@ module internal Enum =
         let t = Memory.TryTermToObject state typ |> Option.get :?> Type
         let enum = Types.Cast value t
         Memory.BoxValueType state enum
+
+    let HasFlag (state : state) (args : term list) =
+        assert(List.length args = 2)
+        let thisRef, valueRef = args[0], args[1]
+        let thisEnum = Memory.Read state thisRef
+        let valueEnum = Memory.Read state valueRef
+        let flags = PerformBinaryOperation OperationType.BitwiseAnd thisEnum valueEnum id
+        flags === valueEnum

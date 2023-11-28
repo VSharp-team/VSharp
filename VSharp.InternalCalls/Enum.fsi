@@ -13,3 +13,6 @@ module internal Enum =
 
     [<Implements("System.Object System.Enum.InternalBoxEnum(System.RuntimeType, System.Int64)")>]
     val InternalBoxEnum : state -> term list -> term
+
+    [<Implements("System.Boolean System.Enum.HasFlag(this, System.Enum)")>]
+    val HasFlag : state -> term list -> term

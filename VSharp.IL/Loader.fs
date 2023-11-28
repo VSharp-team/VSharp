@@ -227,6 +227,7 @@ module Loader =
 
             // Diagnostics
             "System.Byte[] System.Diagnostics.Tracing.Statics.MetadataForString(System.String, System.Int32, System.Int32, System.Int32)"
+            "System.Int64 System.Diagnostics.Stopwatch.QueryPerformanceCounter()"
 //            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
 //            "System.Void System.Diagnostics.StackTrace.GetStackFramesInternal(System.Diagnostics.StackFrameHelper, System.Int32, System.Boolean, System.Exception)"
 
@@ -396,6 +397,12 @@ module Loader =
             // ProfileOptimization
             "System.Void System.Runtime.ProfileOptimization.SetProfileRoot(System.String)"
             "System.Void System.Runtime.ProfileOptimization.StartProfile(System.String)"
+
+            // Enum
+            "System.Boolean System.Enum.HasFlag(this, System.Enum)"
+
+            // WeakReference
+            "T System.WeakReference`1[T].get_Target(this)"
 
             // Unsafe
             // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"
