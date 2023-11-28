@@ -1251,7 +1251,7 @@ module internal Z3 =
                     suitableAddresses.Add(address) |> ignore
                 let isSuitable (key : IHeapArrayKey) =
                     match key with
-                    | :? heapArrayKey as OneArrayIndexKey(address, _) -> suitableAddresses.Contains address
+                    | :? heapArrayKey as key -> suitableAddresses.Contains key.Address
                     | _ -> false
                 Memory.FillArrayRegion state arrayType constantValue isSuitable
             | ArrayLengthSort arrayType ->
