@@ -45,3 +45,6 @@ module internal String =
 
     [<Implements("System.Char System.String.get_Chars(this, System.Int32)")>]
     val GetChars : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Boolean System.Text.Unicode.Utf16Utility.AllCharsInUInt32AreAscii(System.UInt32)")>]
+    val AllCharsInUInt32AreAscii : state -> term list -> term

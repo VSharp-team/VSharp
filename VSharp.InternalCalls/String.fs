@@ -164,3 +164,6 @@ module internal String =
             List.singleton cilState |> k
         let arrayLength = Add length (MakeNumber 1)
         interpreter.AccessArray getChar cilState arrayLength index id
+
+    let AllCharsInUInt32AreAscii (_ : state) (_ : term list) =
+        MakeBool true

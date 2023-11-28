@@ -122,6 +122,23 @@ namespace IntegrationTests
             return 0;
         }
 
+        [TestSvm(100)]
+        public static string Substring3(string[] args, int i)
+        {
+            var str = args[i].Trim();
+            if (string.IsNullOrEmpty(str)) return string.Empty;
+
+            var first = str[0];
+            str = str.Substring(1);
+            if (first != '-' && first != '/')
+                return str;
+
+            str = str.Substring(1);
+            if (!string.IsNullOrEmpty(str) && str[0] == first && first == '-')
+                str = str.Substring(1);
+            return str;
+        }
+
         [TestSvm(88)]
         public static int ConcatStrings(string s)
         {
@@ -202,7 +219,7 @@ namespace IntegrationTests
             return 1;
         }
 
-        [Ignore("takes too much time")]
+        [TestSvm(100)]
         public static bool SymbolicStringToUpper(char c)
         {
             string s = c + "c";

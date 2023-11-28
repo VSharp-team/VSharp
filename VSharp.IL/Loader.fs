@@ -122,6 +122,7 @@ module Loader =
         let runtimeHelpers = [|
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.String)"
+             "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.EnumEquals(T, T)"
         |]
         let interlocked = [|
             "System.Int32 System.Threading.Interlocked.Or(System.Int32&, System.Int32)"
@@ -203,6 +204,7 @@ module Loader =
             "System.Void System.Threading.ManualResetEvent..ctor(this, System.Boolean)"
             "System.Void System.Threading.Thread.Initialize(this)"
             "System.Byte System.Threading.ThreadPool.InitializeConfigAndDetermineUsePortableThreadPool()"
+            "System.Void System.Threading.Thread.set_Name(this, System.String)"
 
             // Interop
             "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
@@ -245,6 +247,12 @@ module Loader =
             "System.Collections.IDictionary System.Environment.GetEnvironmentVariables()"
             "System.IO.TextWriter System.Console.get_Out()"
             "System.String System.IO.Path.GetTempPath()"
+            // TODO: move to symbolic internal calls, it's dangerous
+            "System.Void System.Environment.SetEnvironmentVariable(System.String, System.String)"
+            "System.Int64 System.Environment.get_TickCount64()"
+            "System.Void System.Threading.TimerQueueTimer..ctor(this, System.Threading.TimerCallback, System.Object, System.UInt32, System.UInt32, System.Boolean)"
+            "System.Void System.ConsolePal.EnsureInitializedCore()"
+            "System.Void System.Console.add_CancelKeyPress(System.ConsoleCancelEventHandler)"
 
             // Text
             "System.Int32 System.Text.UTF8Encoding.GetBytes(this, System.String, System.Int32, System.Int32, System.Byte[], System.Int32)"
@@ -374,6 +382,10 @@ module Loader =
             // Span
             "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
             "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+
+            // ProfileOptimization
+            "System.Void System.Runtime.ProfileOptimization.SetProfileRoot(System.String)"
+            "System.Void System.Runtime.ProfileOptimization.StartProfile(System.String)"
 
             // Unsafe
             // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"
