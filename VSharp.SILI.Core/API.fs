@@ -851,6 +851,7 @@ module API =
             state.boxedLocations <- PersistentDict.update state.boxedLocations typ defaultValue fill
 
         let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
+        let TryTermToObject (state : state) term = Memory.tryTermToObj state term
 
         let StateResult (state : state) =
             let callStackSize = CallStackSize state

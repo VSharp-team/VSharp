@@ -44,3 +44,9 @@ module internal InteropServices =
 
     [<Implements("System.Int32 System.Runtime.InteropServices.Marshal.GetLastPInvokeError()")>]
     val GetLastPInvokeError : state -> term list -> term
+
+    [<Implements("System.Void System.Runtime.InteropServices.Marshal.SetLastSystemError(System.Int32)")>]
+    val SetLastSystemError : state -> term list -> term
+
+    [<Implements("System.Int32 System.Runtime.InteropServices.Marshal.GetLastSystemError()")>]
+    val GetLastSystemError : state -> term list -> term

@@ -193,7 +193,7 @@ module Loader =
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultComparer(System.Type)"
             "System.Collections.Generic.EqualityComparer`1[T] System.Collections.Generic.EqualityComparer`1[T].get_Default()"
 
-            // Thread
+            // Threading
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
             "System.Int32 System.Threading.Thread.get_OptimalMaxSpinWaitsPerSpinIteration()"
             "System.Int32 System.Threading.Thread.GetCurrentProcessorId()"
@@ -205,6 +205,15 @@ module Loader =
             "System.Void System.Threading.Thread.Initialize(this)"
             "System.Byte System.Threading.ThreadPool.InitializeConfigAndDetermineUsePortableThreadPool()"
             "System.Void System.Threading.Thread.set_Name(this, System.String)"
+            "System.Void System.Threading.LowLevelMonitor.Initialize(this)"
+            "System.Void System.Threading.Semaphore.CreateSemaphoreCore(this, System.Int32, System.Int32, System.String, System.Boolean&)"
+            "System.Void System.Threading.Semaphore..ctor(this, System.Int32, System.Int32, System.String, System.Boolean&)"
+            "System.Void System.Threading.Semaphore..ctor(this, System.Int32, System.Int32, System.String)"
+            "System.Void System.Threading.Semaphore..ctor(this, System.Int32, System.Int32)"
+            "System.Void System.Threading.LowLevelLifoSemaphore.Create(this, System.Int32)"
+            "System.Void System.Threading.Thread.set_IsThreadPoolThread(this, System.Boolean)"
+            "System.Void System.Threading.Thread.set_IsBackground(this, System.Boolean)"
+            "System.Int32 System.Threading.Thread.GetCurrentProcessorNumber()"
 
             // Interop
             "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"

@@ -18,6 +18,13 @@ module internal InteropServices =
             typ = typeof<int>
         }
 
+    let private lastSystemErrorFieldId =
+        {
+            declaringType = marshalType
+            name = "__System.Runtime.InteropServices.Marshal.LastSystemError__"
+            typ = typeof<int>
+        }
+
     let GetArrayDataReference (state : state) (args : term list) =
         assert(List.length args = 2)
         let array = args[1]
@@ -106,9 +113,20 @@ module internal InteropServices =
 
     let SetLastPInvokeError (state : state) (args : term list) =
         assert(List.length args = 1)
-        Memory.WriteStaticField state marshalType lastPInvokeErrorFieldId args[0]
+        let error = args[0]
+        Memory.WriteStaticField state marshalType lastPInvokeErrorFieldId error
         Nop()
 
     let GetLastPInvokeError (state : state) (args : term list) =
         assert(List.isEmpty args)
         Memory.ReadStaticField state marshalType lastPInvokeErrorFieldId
+
+    let SetLastSystemError (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let error = args[0]
+        Memory.WriteStaticField state marshalType lastSystemErrorFieldId error
+        Nop()
+
+    let GetLastSystemError (state : state) (args : term list) =
+        assert(List.isEmpty args)
+        Memory.ReadStaticField state marshalType lastSystemErrorFieldId

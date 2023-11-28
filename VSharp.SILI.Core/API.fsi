@@ -375,6 +375,7 @@ module API =
         val FillBoxedRegion : state -> Type -> term -> (IHeapAddressKey -> bool) -> unit
 
         val ObjectToTerm : state -> obj -> Type -> term
+        val TryTermToObject : state -> term -> obj option
 
         val StateResult : state -> term
 
