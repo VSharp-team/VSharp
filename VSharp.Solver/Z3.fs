@@ -536,6 +536,7 @@ module internal Z3 =
             encodingCache.Get(t, getResult)
 
         member private x.AddEnumAssumptions typ (encodingResult : encodingResult) =
+            // TODO: support "Flags"
             assert typ.IsEnum
             let expr = encodingResult.expr
             let values = Enum.GetValues typ |> System.Linq.Enumerable.OfType<obj>
