@@ -1450,12 +1450,9 @@ module internal Memory =
         let address = ConcreteHeapAddress concreteAddress
         let concreteStringLength = string.Length
         let stringLength = makeNumber concreteStringLength
-        let tChar = typeof<char>
-        let address, arrayType = stringArrayInfo state address (Some stringLength)
-        let writeChars state i value =
-            writeArrayIndexSymbolic state address [Concrete i lengthType] arrayType (Concrete value tChar)
-        Seq.iteri (writeChars state) string
+        let address, _ = stringArrayInfo state address (Some stringLength)
         writeClassFieldSymbolic state address Reflection.stringLengthField stringLength
+        unmarshallArray state concreteAddress (string.ToCharArray())
 
     let unmarshall (state : state) concreteAddress =
         let cm = state.concreteMemory
