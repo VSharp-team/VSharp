@@ -788,6 +788,12 @@ module internal Z3 =
                     let sort = x.Type2Sort(t)
                     let converted = x.MkITE(expr, ctx.MkNumeral(1, sort), ctx.MkNumeral(0, sort))
                     {expr = converted; assumptions = arg.assumptions}
+                | Cast(Numeric t, Bool) ->
+                    let arg = x.EncodeTerm (List.head args)
+                    let expr = arg.expr :?> BitVecExpr
+                    let sort = x.Type2Sort(t)
+                    let converted = x.MkEq(expr, ctx.MkNumeral(0, sort)) |> x.MkNot
+                    {expr = converted; assumptions = arg.assumptions}
                 | Cast(fromType, toType) ->
                     internalfail $"EncodeExpression: encoding of term {term} from {fromType} to {toType} is not supported"
                 | Combine -> x.EncodeCombine args typ)
