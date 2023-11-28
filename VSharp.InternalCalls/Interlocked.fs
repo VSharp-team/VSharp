@@ -17,7 +17,7 @@ module internal Interlocked =
             k cilStates
         interpreter.NpeOrInvoke cilState location exchange id
 
-    let compareExchange (interpreter : IInterpreter) cilState location value compared =
+    let commonCompareExchange (interpreter : IInterpreter) cilState location value compared =
         let compareExchange cilState k =
             let currentValue = read cilState location
             let cilStates =
@@ -34,21 +34,12 @@ module internal Interlocked =
     let genericCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 4)
         let location, value, compared = args[1], args[2], args[3]
-        compareExchange interpreter cilState location value compared
+        commonCompareExchange interpreter cilState location value compared
 
-    let commonCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
+    let compareExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 3)
         let location, value, compared = args[0], args[1], args[2]
-        compareExchange interpreter cilState location value compared
-
-    let intCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
-        commonCompareExchange interpreter cilState args
-
-    let int64CompareExchange (interpreter : IInterpreter) cilState (args : term list) =
-        commonCompareExchange interpreter cilState args
-
-    let intPtrCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
-        commonCompareExchange interpreter cilState args
+        commonCompareExchange interpreter cilState location value compared
 
     let genericExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 3)
