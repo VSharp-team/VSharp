@@ -62,7 +62,7 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let emittedErrors = HashSet<ipStack * string * bool>()
-    let emittedExceptions = HashSet<string * string * bool>()
+    let emittedExceptions = HashSet<Type * string * string * bool>()
 
     let generatedTestInfos = List<generatedTestInfo>()
 
@@ -292,7 +292,9 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
 
     member x.IsNewError (s : cilState) (errorMessage : string) isFatal =
         match s.state.exceptionsRegister.Peek with
-        | Unhandled(_, _, stackTrace) -> emittedExceptions.Add(stackTrace, errorMessage, isFatal)
+        | Unhandled(term, _, stackTrace) ->
+            let exceptionType = MostConcreteTypeOfRef s.state term
+            emittedExceptions.Add(exceptionType, stackTrace, errorMessage, isFatal)
         | _ -> emittedErrors.Add(s.ipStack, errorMessage, isFatal)
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =

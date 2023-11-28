@@ -25,6 +25,9 @@ module internal Runtime_CompilerServices_RuntimeHelpers =
     [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.Equals(System.Object, System.Object)")>]
     val Equals : state -> term list -> term
 
+    [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.EnumEquals(T, T)")>]
+    val EnumEquals : state -> term list -> term
+
     [<Implements("System.Void System.Runtime.CompilerServices.RuntimeHelpers._RunClassConstructor(System.RuntimeType)")>]
     [<Implements("System.Void System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(System.Runtime.CompilerServices.QCallTypeHandle)")>]
     val RunStaticCtor : IInterpreter -> cilState -> term list -> cilState list

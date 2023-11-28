@@ -86,7 +86,7 @@ module internal Unsafe =
             List.singleton cilState |> k
         i.NpeOrInvoke cilState castedPtr readByPtr id
 
-    let WriteUnaligned (i : IInterpreter) (cilState : cilState) (args : term list) =
+    let WriteUnalignedGeneric (i : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 3)
         let typ, ref, value = args[0], args[1], args[2]
         let typ = Helpers.unwrapType typ
@@ -94,6 +94,13 @@ module internal Unsafe =
         let writeByPtr cilState k =
             write cilState castedPtr value |> k
         i.NpeOrInvoke cilState castedPtr writeByPtr id
+
+    let WriteUnaligned (i : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 2)
+        let ref, value = args[0], args[1]
+        let writeByPtr cilState k =
+            write cilState ref value |> k
+        i.NpeOrInvoke cilState ref writeByPtr id
 
     let SizeOf (_ : state) (args : term list) : term =
         assert(List.length args = 1)
