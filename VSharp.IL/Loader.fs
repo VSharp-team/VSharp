@@ -214,6 +214,7 @@ module Loader =
             "System.Void System.Threading.Thread.set_IsThreadPoolThread(this, System.Boolean)"
             "System.Void System.Threading.Thread.set_IsBackground(this, System.Boolean)"
             "System.Int32 System.Threading.Thread.GetCurrentProcessorNumber()"
+            "System.Boolean System.Threading.ProcessorIdCache.ProcessorNumberSpeedCheck()"
 
             // Interop
             "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
@@ -362,6 +363,7 @@ module Loader =
 
             // Arithmetics
             "System.Double System.Math.Pow(System.Double, System.Double)"
+            "System.Double System.Math.Min(System.Double, System.Double)"
 
             // ASP.NET Core
             // Configuration builder
