@@ -166,4 +166,5 @@ module internal String =
         interpreter.AccessArray getChar cilState arrayLength index id
 
     let AllCharsInUInt32AreAscii (_ : state) (_ : term list) =
+        // TODO: try to not internal call it
         MakeBool true

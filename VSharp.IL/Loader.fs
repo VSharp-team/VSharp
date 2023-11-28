@@ -374,6 +374,7 @@ module Loader =
 
             // String
             "System.String System.String.ToUpperInvariant(this)"
+            "System.Boolean System.Text.Unicode.Utf16Utility.AllCharsInUInt32AreAscii(System.UInt32)"
 
             // Array
             "System.UIntPtr System.Array.get_NativeLength(this)"

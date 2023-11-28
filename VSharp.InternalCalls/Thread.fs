@@ -54,3 +54,9 @@ module Thread =
     let Initialize (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 1)
         List.singleton cilState
+
+    let WaitOne (_ : state) (_ : term list) =
+        MakeBool true
+
+    let WaitOneNoCheck (_ : state) (_ : term list) =
+        MakeBool true
