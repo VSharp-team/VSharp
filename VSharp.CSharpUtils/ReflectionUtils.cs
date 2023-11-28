@@ -96,7 +96,8 @@ namespace VSharp.CSharpUtils
                 | BindingFlags.NonPublic | BindingFlags.Public;
 
             var methods = t.GetConstructors(flags).Concat<MethodBase>(t.GetMethods(flags));
-            return methods.Where(m => $"{t.FullName ?? t.Name}.{m.Name}".Contains(methodName) && m.DeclaredInType(t));
+            return methods.Where(m =>
+                !m.IsAbstract && $"{t.FullName ?? t.Name}.{m.Name}".Contains(methodName) && m.DeclaredInType(t));
         }
 
         public static MethodBase? ResolveMethod(this Assembly assembly, string methodName)
