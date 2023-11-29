@@ -306,15 +306,6 @@ module internal Memory =
             Some(mo, address, fromIndices, toIndices, picker, time)
         | _ -> None
 
-    let specializeWithKey constant (key : heapArrayKey) (writeKey : heapArrayKey) =
-        match constant.term with
-        | Constant(_, ArrayRangeReading(mo, srcAddress, srcFrom, srcTo, picker, time), typ) ->
-            let key = key.Specialize writeKey srcAddress srcFrom srcTo
-            let source : arrayReading = {picker = picker; key = key; memoryObject = mo; time = time}
-            let name = picker.mkName key
-            Constant name source typ
-        | _ -> constant
-
     // VectorIndexKey is used for length and lower bounds
     // We suppose, that lower bounds will always be default -- 0
     let (|VectorIndexReading|_|) (src : ISymbolicConstantSource) =
@@ -440,6 +431,31 @@ module internal Memory =
         | ByRef _ -> __insufficientInformation__ $"Can't instantiate symbolic value of ByRef type {typ}"
         | _ -> __insufficientInformation__ $"Not sure which value to instantiate, because it's unknown if {typ} is a reference or a value type"
 
+    let rec extractAddress reference =
+        match reference.term with
+        | HeapRef(address, _) -> address
+        | Ptr(HeapLocation(address, _), _, _) -> address
+        | Union gvs -> Merging.guardedMap extractAddress gvs
+        | _ -> internalfail $"Extracting heap address: expected heap reference or pointer, but got {reference}"
+
+    let rec extractPointerOffset ptr =
+        match ptr.term with
+        | Ptr(_, _, offset) -> offset
+        | Ref address -> Pointers.addressToBaseAndOffset address |> snd
+        | HeapRef _ -> makeNumber 0
+        | Union gvs -> Merging.guardedMap extractPointerOffset gvs
+        | _ -> internalfail $"Extracting pointer offset: expected reference or pointer, but got {ptr}"
+
+    let specializeWithKey constant (key : heapArrayKey) (writeKey : heapArrayKey) =
+        match constant.term with
+        | HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(mo, srcAddress, srcFrom, srcTo, picker, time)), typ)}, _)
+        | Constant(_, ArrayRangeReading(mo, srcAddress, srcFrom, srcTo, picker, time), typ) ->
+            let key = key.Specialize writeKey srcAddress srcFrom srcTo
+            let source : arrayReading = {picker = picker; key = key; memoryObject = mo; time = time}
+            let name = picker.mkName key
+            Constant name source typ
+        | _ -> constant
+
     let private makeSymbolicStackRead key typ time =
         let source = {key = key; time = time}
         let name = toString key
@@ -452,6 +468,7 @@ module internal Memory =
 
     let rec private makeArraySymbolicHeapRead state picker (key : heapArrayKey) time typ memoryObject (singleValue : updateTreeKey<heapArrayKey, term> option) =
         match singleValue with
+        | Some {key = key'; value = {term = HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(mo, srcA, srcF, srcT, p, _)), _)}, _)}}
         | Some {key = key'; value = {term = Constant(_, ArrayRangeReading(mo, srcA, srcF, srcT, p, _), _)}} when key'.Includes key ->
             let key = key.Specialize key' srcA srcF srcT
             let inst = makeArraySymbolicHeapRead state p key state.startingTime
@@ -657,21 +674,6 @@ module internal Memory =
         match PersistentDict.tryFind dict key with
         | Some value -> value
         | None -> MemoryRegion.empty typ
-
-    let rec extractAddress reference =
-        match reference.term with
-        | HeapRef(address, _) -> address
-        | Ptr(HeapLocation(address, _), _, _) -> address
-        | Union gvs -> Merging.guardedMap extractAddress gvs
-        | _ -> internalfail $"Extracting heap address: expected heap reference or pointer, but got {reference}"
-
-    let rec extractPointerOffset ptr =
-        match ptr.term with
-        | Ptr(_, _, offset) -> offset
-        | Ref address -> Pointers.addressToBaseAndOffset address |> snd
-        | HeapRef _ -> makeNumber 0
-        | Union gvs -> Merging.guardedMap extractPointerOffset gvs
-        | _ -> internalfail $"Extracting pointer offset: expected reference or pointer, but got {ptr}"
 
     let isConcreteHeapAddress = term >> function
         | ConcreteHeapAddress _ -> true
