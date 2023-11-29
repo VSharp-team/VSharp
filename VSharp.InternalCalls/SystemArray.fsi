@@ -37,7 +37,10 @@ module internal SystemArray =
     val CommonInitializeArray : IInterpreter -> cilState -> term list -> cilState list
 
     [<Implements("System.Void System.Array.Clear(System.Array, System.Int32, System.Int32)")>]
-    val Clear : IInterpreter -> cilState -> term list -> cilState list
+    val ClearWithIndexLength : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Void System.Array.Clear(System.Array)")>]
+    val ClearWhole : IInterpreter -> cilState -> term list -> cilState list
 
     [<Implements("System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)")>]
     val CopyArrayExtendedForm1 : IInterpreter -> cilState -> term list -> cilState list
