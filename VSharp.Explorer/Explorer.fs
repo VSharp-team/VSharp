@@ -35,10 +35,8 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
         // stops exactly in timeout. To guarantee that we need to pass timeout
         // based on remaining time to solver dynamically.
-        elif hasTimeout then
-            int explorationOptions.timeout.TotalMilliseconds / 2
-        else
-            -1
+        elif hasTimeout then int explorationOptions.timeout.TotalMilliseconds / 2
+        else -1
 
     let branchReleaseTimeout =
         let doubleTimeout = double explorationOptions.timeout.TotalMilliseconds

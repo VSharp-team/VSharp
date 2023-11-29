@@ -79,7 +79,8 @@ namespace IntegrationTests
                 return string.Format("c == Color.Blue, c.ToString() == {0}", c);
             return string.Format("c != Color.Blue, c.ToString() == {0}", c);
         }
-        [Ignore("GetType() is not implemented")]
+
+        [Ignore("fix rendering type")]
         public static Type GetEnumType(Color c)
         {
             return c.GetType();
@@ -89,6 +90,36 @@ namespace IntegrationTests
         public static int NonZeroEnumTest(NonZeroEnum e)
         {
             return (int) e;
+        }
+
+        [Flags] public enum DinnerItems {
+            None = 0,
+            Entree = 1,
+            Appetizer = 2,
+            Side = 4,
+            Dessert = 8,
+            Beverage = 16,
+            BarBeverage = 32
+        }
+
+        [Ignore("support flags")]
+        public static int EnumHasFlag(DinnerItems e)
+        {
+            if (e.HasFlag(DinnerItems.None))
+                return 1;
+            if (e.HasFlag(DinnerItems.Entree))
+                return 2;
+            if (e.HasFlag(DinnerItems.Appetizer))
+                return 3;
+            if (e.HasFlag(DinnerItems.Side))
+                return 4;
+            if (e.HasFlag(DinnerItems.Dessert))
+                return 5;
+            if (e.HasFlag(DinnerItems.Beverage))
+                return 6;
+            if (e.HasFlag(DinnerItems.BarBeverage))
+                return 7;
+            return 0;
         }
     }
 }

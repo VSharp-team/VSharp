@@ -193,7 +193,7 @@ module Loader =
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultComparer(System.Type)"
             "System.Collections.Generic.EqualityComparer`1[T] System.Collections.Generic.EqualityComparer`1[T].get_Default()"
 
-            // Thread
+            // Threading
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
             "System.Int32 System.Threading.Thread.get_OptimalMaxSpinWaitsPerSpinIteration()"
             "System.Int32 System.Threading.Thread.GetCurrentProcessorId()"
@@ -205,6 +205,16 @@ module Loader =
             "System.Void System.Threading.Thread.Initialize(this)"
             "System.Byte System.Threading.ThreadPool.InitializeConfigAndDetermineUsePortableThreadPool()"
             "System.Void System.Threading.Thread.set_Name(this, System.String)"
+            "System.Void System.Threading.LowLevelMonitor.Initialize(this)"
+            "System.Void System.Threading.Semaphore.CreateSemaphoreCore(this, System.Int32, System.Int32, System.String, System.Boolean&)"
+            "System.Void System.Threading.Semaphore..ctor(this, System.Int32, System.Int32, System.String, System.Boolean&)"
+            "System.Void System.Threading.Semaphore..ctor(this, System.Int32, System.Int32, System.String)"
+            "System.Void System.Threading.Semaphore..ctor(this, System.Int32, System.Int32)"
+            "System.Void System.Threading.LowLevelLifoSemaphore.Create(this, System.Int32)"
+            "System.Void System.Threading.Thread.set_IsThreadPoolThread(this, System.Boolean)"
+            "System.Void System.Threading.Thread.set_IsBackground(this, System.Boolean)"
+            "System.Int32 System.Threading.Thread.GetCurrentProcessorNumber()"
+            "System.Boolean System.Threading.ProcessorIdCache.ProcessorNumberSpeedCheck()"
 
             // Interop
             "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
@@ -218,6 +228,7 @@ module Loader =
 
             // Diagnostics
             "System.Byte[] System.Diagnostics.Tracing.Statics.MetadataForString(System.String, System.Int32, System.Int32, System.Int32)"
+            "System.Int64 System.Diagnostics.Stopwatch.QueryPerformanceCounter()"
 //            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
 //            "System.Void System.Diagnostics.StackTrace.GetStackFramesInternal(System.Diagnostics.StackFrameHelper, System.Int32, System.Boolean, System.Exception)"
 
@@ -352,6 +363,7 @@ module Loader =
 
             // Arithmetics
             "System.Double System.Math.Pow(System.Double, System.Double)"
+            "System.Double System.Math.Min(System.Double, System.Double)"
 
             // ASP.NET Core
             // Configuration builder
@@ -374,6 +386,7 @@ module Loader =
 
             // String
             "System.String System.String.ToUpperInvariant(this)"
+            "System.Boolean System.Text.Unicode.Utf16Utility.AllCharsInUInt32AreAscii(System.UInt32)"
 
             // Array
             "System.UIntPtr System.Array.get_NativeLength(this)"
@@ -386,6 +399,12 @@ module Loader =
             // ProfileOptimization
             "System.Void System.Runtime.ProfileOptimization.SetProfileRoot(System.String)"
             "System.Void System.Runtime.ProfileOptimization.StartProfile(System.String)"
+
+            // Enum
+            "System.Boolean System.Enum.HasFlag(this, System.Enum)"
+
+            // WeakReference
+            "T System.WeakReference`1[T].get_Target(this)"
 
             // Unsafe
             // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"

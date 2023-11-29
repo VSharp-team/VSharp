@@ -38,3 +38,9 @@ module internal Thread =
 
     [<Implements("System.Void System.Threading.Thread.Initialize(this)")>]
     val Initialize : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Boolean System.Threading.WaitHandle.WaitOne(this)")>]
+    val WaitOne : state -> term list -> term
+
+    [<Implements("System.Boolean System.Threading.WaitHandle.WaitOneNoCheck(this, System.Int32)")>]
+    val WaitOneNoCheck : state -> term list -> term

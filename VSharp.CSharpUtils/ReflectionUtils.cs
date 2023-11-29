@@ -89,22 +89,40 @@ namespace VSharp.CSharpUtils
             return null;
         }
 
-        private static IEnumerable<MethodBase> FindMethodInType(Type t, string methodName)
+        private static bool MethodIsSuitable(Type t, string methodName, int paramsCount, MethodBase m)
+        {
+            var nameIsSuitable =
+                !m.IsAbstract && $"{t.FullName ?? t.Name}.{m.Name}".Contains(methodName) && m.DeclaredInType(t);
+            if (paramsCount > 0)
+                return nameIsSuitable && m.GetParameters().Length == paramsCount;
+            return nameIsSuitable;
+        }
+
+        private static IEnumerable<MethodBase> FindMethodInType(Type t, string methodName, int paramsCount)
         {
             const BindingFlags flags =
                 BindingFlags.IgnoreCase | BindingFlags.Static | BindingFlags.Instance
                 | BindingFlags.NonPublic | BindingFlags.Public;
 
             var methods = t.GetConstructors(flags).Concat<MethodBase>(t.GetMethods(flags));
-            return methods.Where(m => $"{t.FullName ?? t.Name}.{m.Name}".Contains(methodName) && m.DeclaredInType(t));
+            return methods.Where(m => MethodIsSuitable(t, methodName, paramsCount, m));
         }
 
         public static MethodBase? ResolveMethod(this Assembly assembly, string methodName)
         {
+            var name = methodName;
+            var parametersCount = -1;
+            var paramCountStart = methodName.IndexOf('[');
+            if (paramCountStart > 0 &&
+                int.TryParse(methodName[(paramCountStart + 1) .. methodName.IndexOf(']')], out parametersCount))
+            {
+                name = methodName[.. paramCountStart];
+            }
+
             var methods =
                 assembly
                     .GetTypes()
-                    .SelectMany(t => FindMethodInType(t, methodName))
+                    .SelectMany(t => FindMethodInType(t, name, parametersCount))
                     .ToArray();
 
             return methods.Length != 0 ? methods.MinBy(m => m.Name.Length) : null;
