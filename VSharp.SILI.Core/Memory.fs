@@ -909,7 +909,7 @@ module internal Memory =
     let readStaticField state typ (field : fieldId) =
         let extractor state = accessRegion state.staticFields (substituteTypeVariablesIntoField state field) (substituteTypeVariables state field.typ)
         let mkName = fun (key : symbolicTypeKey) -> $"{key.typ}.{field}"
-        let isDefault _ _ = state.complete // TODO: when statics are allocated? always or never? depends on our exploration strategy
+        let isDefault state _ = state.complete // TODO: when statics are allocated? always or never? depends on our exploration strategy
         let key = {typ = typ}
         let inst typ memoryRegion =
             let sort = StaticFieldSort field
