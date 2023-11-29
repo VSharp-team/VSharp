@@ -222,6 +222,7 @@ module Loader =
             "System.String Interop+Sys.GetDomainName()"
             "System.IntPtr System.RuntimeTypeHandle.GetGCHandle(System.Runtime.CompilerServices.QCallTypeHandle, System.Runtime.InteropServices.GCHandleType)"
             "System.Object System.Runtime.InteropServices.GCHandle.InternalGet(System.IntPtr)"
+            "System.Span`1[System.Byte] System.Runtime.InteropServices.MemoryMarshal.AsBytes(System.Span`1[T]))"
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
 //            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
@@ -264,6 +265,7 @@ module Loader =
             "System.Void System.Threading.TimerQueueTimer..ctor(this, System.Threading.TimerCallback, System.Object, System.UInt32, System.UInt32, System.Boolean)"
             "System.Void System.ConsolePal.EnsureInitializedCore()"
             "System.Void System.Console.add_CancelKeyPress(System.ConsoleCancelEventHandler)"
+            "System.Boolean System.IO.File.Exists(System.String)"
 
             // Text
             "System.Int32 System.Text.UTF8Encoding.GetBytes(this, System.String, System.Int32, System.Int32, System.Byte[], System.Int32)"
@@ -301,6 +303,7 @@ module Loader =
             "System.Guid System.Guid.NewGuid()"
             "System.Void System.Guid..ctor(this, System.String)"
             "System.Guid System.Diagnostics.Tracing.EventSource.GetGuid(System.Type)"
+            "System.Guid System.Guid.Parse(System.String)"
 
             // CultureInfo
             "System.Globalization.CultureInfo System.Globalization.CultureInfo.get_CurrentCulture()"
@@ -312,6 +315,9 @@ module Loader =
             "System.Globalization.CultureData System.Globalization.CultureData.GetCultureData(System.String, System.Boolean)"
             "System.String System.Globalization.CultureInfo.GetUserDefaultLocaleName()"
             "System.String System.Globalization.CultureData.GetLocaleInfoEx(System.String, System.UInt32)"
+            "System.Globalization.CultureData System.Globalization.CultureData.get_Invariant()"
+            "System.Globalization.CalendarData System.Globalization.CalendarData.CreateInvariant()"
+            "System.Object System.Globalization.CultureInfo.GetFormat(this, System.Type)"
 
             // ResourceManager
             "System.Void System.Resources.ResourceManager..ctor(this, System.String, System.Reflection.Assembly)"
@@ -387,6 +393,11 @@ module Loader =
             // String
             "System.String System.String.ToUpperInvariant(this)"
             "System.Boolean System.Text.Unicode.Utf16Utility.AllCharsInUInt32AreAscii(System.UInt32)"
+            "System.String System.Int32.ToString(this, System.IFormatProvider)"
+            "System.String System.Number.FormatInt32(System.Int32, System.Int32, System.String, System.IFormatProvider)"
+            "System.String System.String.FormatHelper(System.IFormatProvider, System.String, System.ReadOnlySpan`1[System.Object])"
+            "System.Void System.Text.ValueStringBuilder.AppendFormatHelper(this, System.IFormatProvider, System.String, System.ReadOnlySpan`1[System.Object])"
+            "System.String System.String.Format(System.IFormatProvider, System.String, System.Object)"
 
             // Array
             "System.UIntPtr System.Array.get_NativeLength(this)"
@@ -395,6 +406,7 @@ module Loader =
             // Span
             "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
             "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+            "System.ReadOnlySpan`1[T] System.ReadOnlyMemory`1[T].get_Span(this)"
 
             // ProfileOptimization
             "System.Void System.Runtime.ProfileOptimization.SetProfileRoot(System.String)"
@@ -405,6 +417,13 @@ module Loader =
 
             // WeakReference
             "T System.WeakReference`1[T].get_Target(this)"
+
+            // RuntimeHelpers
+            "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsReferenceOrContainsReferences()"
+            "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.ObjectHasComponentSize(System.Object)"
+
+            // Infrastructure
+            "Microsoft.Management.Infrastructure.Serialization.CimMofDeserializer Microsoft.Management.Infrastructure.Serialization.CimMofDeserializer.Create()"
 
             // Unsafe
             // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"
