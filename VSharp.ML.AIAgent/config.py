@@ -5,9 +5,6 @@ from shutil import rmtree
 
 import torch
 
-import ml.model_modified
-import ml.models
-
 
 class GeneralConfig:
     SERVER_COUNT = 16
@@ -19,12 +16,8 @@ class GeneralConfig:
     MAX_STEPS = 5000
     MUTATION_PERCENT_GENES = 5
     LOGGER_LEVEL = logging.INFO
-    IMPORT_MODEL_INIT = lambda: ml.models.StateModelEncoder(
-        hidden_channels=32, out_channels=8
-    )
-    EXPORT_MODEL_INIT = lambda: ml.model_modified.StateModelEncoderExport(
-        hidden_channels=32, out_channels=8
-    )
+    IMPORT_MODEL_INIT = ...
+    EXPORT_MODEL_INIT = ...
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 

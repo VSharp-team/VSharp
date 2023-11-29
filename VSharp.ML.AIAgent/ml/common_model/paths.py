@@ -1,14 +1,15 @@
 import os
+import pathlib
 
-csv_path = os.path.join("report", "epochs_tables")
-models_path = os.path.join("report", "epochs_best")
-common_models_path = os.path.join("report", "common_models")
-best_models_dict_path = os.path.join("report", "updated_best_models_dicts")
-dataset_root_path = os.path.join("report", "dataset")
-dataset_map_results_file_name = os.path.join("report", "dataset_state.csv")
-training_data_path = os.path.join("report", "run_tables")
-pretrained_models_path = os.path.join("ml", "models")
+CSV_PATH = os.path.join("report", "epochs_tables")
+MODELS_PATH = os.path.join("report", "epochs_best")
+COMMON_MODELS_PATH = os.path.join("report", "common_models")
+BEST_MODELS_DICT_PATH = os.path.join("report", "updated_best_models_dicts")
+DATASET_ROOT_PATH = os.path.join("report", "dataset")
+DATASET_MAP_RESULTS_FILENAME = os.path.join("report", "dataset_state.csv")
+TRAINING_DATA_PATH = os.path.join("report", "run_tables")
+PRETRAINED_MODEL_PATH = pathlib.Path("ml/models")
 
-path_to_models_for_parallel_architecture = os.path.join(
+PATH_TO_MODELS_FOR_PARALLEL_ARCHITECTURE = os.path.join(
     "ml", "pretrained_models", "models_for_parallel_architecture"
 )
