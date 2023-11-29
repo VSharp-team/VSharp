@@ -519,6 +519,45 @@ namespace IntegrationTests
             return 3;
         }
 
+        [TestSvm(95)]
+        public static int TestSolvingCopy8(object[] a, object[] b, int i)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                Array.Fill(a, 1);
+                Array.Copy(a, b, b.Length);
+
+                if (b[i] == b[i + 1])
+                    return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(97)]
+        public static int TestSolvingCopy9(object[] a, int i, object[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                var x = (object)4;
+                var y = (object)31;
+                a[0] = 42;
+                b[i] = x;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+                b[0] = y;
+
+                a[0] = 12;
+                a[3] = y;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+
+                if (i == b.Length - 1 && b[i] != x && i > 0)
+                    return -1;
+
+                return 10;
+            }
+            return 3;
+        }
+
         [Ignore("Need to add arrays into type candidates")]
         public static int ArrayAliasWrite(object[] o, string[] s, string str1, string str2)
         {
