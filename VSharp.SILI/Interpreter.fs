@@ -743,6 +743,7 @@ type ILInterpreter() as this =
         if method.CanCallConcrete then
             // Before term args, type args are located
             let termArgs = List.skip (List.length args - method.Parameters.Length) args
+            // TODO: support out parameters
             let objArgs = List.choose (TryTermToObj state) termArgs
             let hasThis = Option.isSome thisOption
             let declaringType = method.DeclaringType
