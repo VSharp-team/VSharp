@@ -833,7 +833,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeLongToIntReinterpretation(long x)
         {
             int r = *(int*)&x;
@@ -841,7 +841,7 @@ namespace IntegrationTests
             return -10;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeDoubleReinterpretation1(double x)
         {
             int r = *(int*)&x;
@@ -849,7 +849,7 @@ namespace IntegrationTests
             return -10;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeDoubleReinterpretation2(double x)
         {
             byte* a = (byte*)&x + 1;
@@ -858,14 +858,14 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeDoubleReinterpretation3(double x)
         {
             if (*(long*)((byte*)&x + 1) == 175767216) return 0;
             return -1;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeDoubleReinterpretation4(double x)
         {
             byte* a = (byte*)&x + 1;
@@ -874,7 +874,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeDoubleReinterpretation5(double x)
         {
             byte* a = (byte*)&x + 1;
@@ -883,13 +883,28 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeDoubleReinterpretation6(double x)
         {
             byte* a = (byte*)&x + 1;
             int y = *(int*) a;
             if (x == 7831.455 && y != 1954210119) return -1;
             return 0;
+        }
+
+        [TestSvm(94)]
+        public static int CombineIntoDouble(int[] arr)
+        {
+            fixed (int* p = arr)
+            {
+                var ptr = (double*) p;
+                if (arr[0] == 1 && arr[1] == 3 && *ptr != 6.3659873734E-314)
+                {
+                    return -1;
+                }
+
+                return arr[1];
+            }
         }
 
         [Ignore("Insufficient information")]
