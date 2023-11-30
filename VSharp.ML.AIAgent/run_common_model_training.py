@@ -222,10 +222,13 @@ def get_dataset(
 
 def main():
     print(GeneralConfig.DEVICE)
-    path_to_weights = (
-        PRETRAINED_MODEL_PATH / "TAGSageSimple/32ch/20e/GNN_state_pred_het_dict"
+    path_to_weights = os.path.join(
+        PRETRAINED_MODEL_PATH,
+        "TAGSageSimple",
+        "32ch",
+        "20e",
+        "GNN_state_pred_het_dict",
     )
-
     model_initializer = lambda: StateModelEncoderLastLayer(
         hidden_channels=32, out_channels=8
     )
