@@ -928,7 +928,7 @@ module internal Z3 =
                 belowZero |> List.singleton
             else List.empty
 
-        // NOTE: temporary generating string with 0 <= length <= 20
+        // NOTE: temporary generating string with 0 <= length <= maxBufferSize
         member private x.GenerateLengthAssumptions encodingResult =
             let expr = encodingResult.expr :?> BitVecExpr
             let assumptions = encodingResult.assumptions
@@ -937,7 +937,7 @@ module internal Z3 =
             let assumptions =
                 if maxBufferSize < 0 then assumptions
                 else x.MkBVSLE(expr, ctx.MkBV(maxBufferSize, expr.SortSize)) :: assumptions
-            // TODO: this limits length < 20, delete when model normalization is complete
+            // TODO: this limits length < 'maxBufferSize', delete when model normalization is complete
             { encodingResult with assumptions = assumptions }
 
         // NOTE: XML serializer can not generate special char symbols (char <= 32) #XMLChar

@@ -46,53 +46,55 @@ module internal Buffer =
         Memory.CopyArray state srcHeapRef srcLinearIndex srcType dstHeapRef dstLinearIndex dstType elemCount
 
     let CommonMemmove (cilState : cilState) dst dstIndex src srcIndex bytesCount =
-        let state = cilState.state
-        let bytesCount = Types.Cast bytesCount typeof<int>
-        let checkDst (info, cilState) =
-            match info with
-            | Some (dstAddress : address) ->
-                let checkSrc (info, cilState) =
-                    match info with
-                    | Some (srcAddress : address) ->
-                        let dstType = lazy dstAddress.TypeOfLocation
-                        let srcType = lazy srcAddress.TypeOfLocation
-                        let dstSize = lazy(TypeUtils.internalSizeOf dstType.Value)
-                        let srcSize = lazy(TypeUtils.internalSizeOf srcType.Value)
-                        let allSafe() =
-                            let isSafe =
-                                dstType.Value = srcType.Value
-                                || TypeUtils.canCastImplicitly srcType.Value dstType.Value
-                                && dstSize.Value = srcSize.Value
-                            isSafe && MakeNumber srcSize.Value = bytesCount
-                        let dstSafe = lazy(MakeNumber dstSize.Value = bytesCount)
-                        let srcSafe = lazy(MakeNumber srcSize.Value = bytesCount)
-                        match dstAddress, srcAddress with
-                        | _ when allSafe() ->
-                            let value = read cilState (Ref srcAddress)
-                            let cilStates = write cilState (Ref dstAddress) value
-                            assert(List.length cilStates = 1)
-                            List.head cilStates
-                        | _ when dstSafe.Value ->
-                            let ptr = Types.Cast (Ref srcAddress) (dstType.Value.MakePointerType())
-                            let value = read cilState ptr
-                            let cilStates = write cilState (Ref dstAddress) value
-                            assert(List.length cilStates = 1)
-                            List.head cilStates
-                        | _ when srcSafe.Value ->
-                            let value = read cilState (Ref srcAddress)
-                            let ptr = Types.Cast (Ref dstAddress) (srcType.Value.MakePointerType())
-                            let cilStates = write cilState ptr value
-                            assert(List.length cilStates = 1)
-                            List.head cilStates
-                        | ArrayIndex(dstAddress, dstIndices, dstArrayType), ArrayIndex(srcAddress, srcIndices, srcArrayType) ->
-                            Copy dstAddress dstIndex dstIndices dstArrayType srcAddress srcIndex srcIndices srcArrayType state bytesCount
-                            cilState
-                        // TODO: implement unsafe copy
-                        | _ -> internalfail $"CommonMemmove unexpected addresses {srcAddress}, {dstAddress}"
-                    | None -> cilState
-                getAddress cilState src |> List.map checkSrc
-            | None -> cilState |> List.singleton
-        getAddress cilState dst |> List.collect checkDst
+        if bytesCount = MakeNumber 0 then List.singleton cilState
+        else
+            let state = cilState.state
+            let bytesCount = Types.Cast bytesCount typeof<int>
+            let checkDst (info, cilState) =
+                match info with
+                | Some (dstAddress : address) ->
+                    let checkSrc (info, cilState) =
+                        match info with
+                        | Some (srcAddress : address) ->
+                            let dstType = lazy dstAddress.TypeOfLocation
+                            let srcType = lazy srcAddress.TypeOfLocation
+                            let dstSize = lazy(TypeUtils.internalSizeOf dstType.Value)
+                            let srcSize = lazy(TypeUtils.internalSizeOf srcType.Value)
+                            let allSafe() =
+                                let isSafe =
+                                    dstType.Value = srcType.Value
+                                    || TypeUtils.canCastImplicitly srcType.Value dstType.Value
+                                    && dstSize.Value = srcSize.Value
+                                isSafe && MakeNumber srcSize.Value = bytesCount
+                            let dstSafe = lazy(MakeNumber dstSize.Value = bytesCount)
+                            let srcSafe = lazy(MakeNumber srcSize.Value = bytesCount)
+                            match dstAddress, srcAddress with
+                            | _ when allSafe() ->
+                                let value = read cilState (Ref srcAddress)
+                                let cilStates = write cilState (Ref dstAddress) value
+                                assert(List.length cilStates = 1)
+                                List.head cilStates
+                            | _ when dstSafe.Value ->
+                                let ptr = Types.Cast (Ref srcAddress) (dstType.Value.MakePointerType())
+                                let value = read cilState ptr
+                                let cilStates = write cilState (Ref dstAddress) value
+                                assert(List.length cilStates = 1)
+                                List.head cilStates
+                            | _ when srcSafe.Value ->
+                                let value = read cilState (Ref srcAddress)
+                                let ptr = Types.Cast (Ref dstAddress) (srcType.Value.MakePointerType())
+                                let cilStates = write cilState ptr value
+                                assert(List.length cilStates = 1)
+                                List.head cilStates
+                            | ArrayIndex(dstAddress, dstIndices, dstArrayType), ArrayIndex(srcAddress, srcIndices, srcArrayType) ->
+                                Copy dstAddress dstIndex dstIndices dstArrayType srcAddress srcIndex srcIndices srcArrayType state bytesCount
+                                cilState
+                            // TODO: implement unsafe copy
+                            | _ -> internalfail $"CommonMemmove unexpected addresses {srcAddress}, {dstAddress}"
+                        | None -> cilState
+                    getAddress cilState src |> List.map checkSrc
+                | None -> cilState |> List.singleton
+            getAddress cilState dst |> List.collect checkDst
 
     let Memmove (cilState : cilState) dst src bytesCount =
         CommonMemmove cilState dst None src None bytesCount

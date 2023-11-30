@@ -179,6 +179,8 @@ module Loader =
             "System.Reflection.MemberTypes System.RuntimeType.get_MemberType(this)"
             "System.Int32 System.RuntimeType.get_MetadataToken(this)"
             "System.Object System.Enum.InternalBoxEnum(System.RuntimeType, System.Int64)"
+            "System.Reflection.Assembly System.RuntimeType.get_Assembly(this)"
+            "System.Void System.Type+<>c..ctor(this)"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
@@ -192,6 +194,8 @@ module Loader =
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultComparer(System.Type)"
             "System.Collections.Generic.EqualityComparer`1[T] System.Collections.Generic.EqualityComparer`1[T].get_Default()"
+            "System.Void System.Collections.Generic.NonRandomizedStringEqualityComparer+OrdinalComparer..ctor(this, System.Collections.Generic.IEqualityComparer`1[System.String])"
+            "System.Void System.StringComparer..ctor(this)"
 
             // Threading
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
@@ -318,6 +322,7 @@ module Loader =
             "System.Globalization.CultureData System.Globalization.CultureData.get_Invariant()"
             "System.Globalization.CalendarData System.Globalization.CalendarData.CreateInvariant()"
             "System.Object System.Globalization.CultureInfo.GetFormat(this, System.Type)"
+            "System.Void System.Globalization.CultureInfo..ctor(this, System.Globalization.CultureData, System.Boolean)"
 
             // ResourceManager
             "System.Void System.Resources.ResourceManager..ctor(this, System.String, System.Reflection.Assembly)"
@@ -390,6 +395,29 @@ module Loader =
             "TSource System.Linq.Enumerable.Single(System.Collections.Generic.IEnumerable`1[TSource], System.Func`2[TSource,System.Boolean])"
             "TSource System.Linq.Enumerable.Max(System.Collections.Generic.IEnumerable`1[TSource]))"
 
+            // Dictionary
+            "System.Void System.Collections.Generic.Dictionary`2[TKey,TValue].Add(this, TKey, TValue)"
+            "System.Void System.Collections.Generic.Dictionary`2[TKey,TValue]..ctor(this)"
+            "System.Void System.Collections.Generic.Dictionary`2[TKey,TValue]..ctor(this, System.Int32, System.Collections.Generic.IEqualityComparer`1[TKey])"
+            "System.Void System.Collections.Generic.Dictionary`2[TKey,TValue]..ctor(this, System.Collections.Generic.IEqualityComparer`1[TKey])"
+            "System.Boolean System.Collections.Generic.Dictionary`2[TKey,TValue].TryInsert(this, TKey, TValue, System.Collections.Generic.InsertionBehavior)"
+            "System.Boolean System.Collections.Generic.Dictionary`2[TKey,TValue].ContainsKey(this, TKey)"
+            "System.Boolean System.Collections.Generic.Dictionary`2[TKey,TValue].TryGetValue(this, TKey, TValue&)"
+            "System.Void System.Collections.Generic.SortedDictionary`2+KeyValuePairComparer[TKey,TValue]..ctor(this, System.Collections.Generic.IComparer`1[TKey])"
+
+            // Set
+            "System.Int32 System.Collections.Generic.HashSet`1[T].Initialize(this, System.Int32)"
+            "System.Void System.Collections.Generic.HashSet`1[T].UnionWith(this, System.Collections.Generic.IEnumerable`1[T])"
+            "System.Void System.Collections.Generic.HashSet`1[T]..ctor(this, System.Collections.Generic.IEqualityComparer`1[T])"
+            "System.Boolean System.Collections.Generic.HashSet`1[T].Add(this, T)"
+            "System.Void System.Collections.Generic.TreeSet`1[T]..ctor(this, System.Collections.Generic.IComparer`1[T])"
+            "System.Void System.Collections.Generic.SortedSet`1[T]..ctor(this, System.Collections.Generic.IComparer`1[T])"
+            "System.Void System.Collections.Generic.SortedDictionary`2[TKey,TValue]..ctor(this)"
+            "System.Void System.Collections.Generic.SortedDictionary`2[TKey,TValue]..ctor(this, System.Collections.Generic.IComparer`1[TKey])"
+
+            // Collection
+            "System.Void System.Collections.ObjectModel.Collection`1[T]..ctor(this)"
+
             // String
             "System.String System.String.ToUpperInvariant(this)"
             "System.Boolean System.Text.Unicode.Utf16Utility.AllCharsInUInt32AreAscii(System.UInt32)"
@@ -398,10 +426,26 @@ module Loader =
             "System.String System.String.FormatHelper(System.IFormatProvider, System.String, System.ReadOnlySpan`1[System.Object])"
             "System.Void System.Text.ValueStringBuilder.AppendFormatHelper(this, System.IFormatProvider, System.String, System.ReadOnlySpan`1[System.Object])"
             "System.String System.String.Format(System.IFormatProvider, System.String, System.Object)"
+            "System.String System.String.InternalSubString(this, System.Int32, System.Int32)"
+            "System.String System.String.Substring(this, System.Int32)"
+            "System.String System.String.Substring(this, System.Int32, System.Int32)"
+            "System.String[] System.String.CreateSplitArrayOfThisAsSoleValue(this, System.StringSplitOptions, System.Int32)"
+            "System.String[] System.String.Split(this, System.Char[], System.StringSplitOptions)"
+            "System.Int32 System.Globalization.CompareInfo.Compare(this, System.String, System.String, System.Globalization.CompareOptions)"
+            "System.Boolean System.String.Contains(this, System.Char)"
 
             // Array
             "System.UIntPtr System.Array.get_NativeLength(this)"
             "System.Object System.Array.InternalGetValue(this, System.IntPtr)"
+
+            // List
+            "System.Void System.Collections.Generic.List`1[T]..ctor(this)"
+            "T[] System.Collections.Generic.List`1[T].ToArray(this)"
+            "System.Void System.Collections.Generic.List`1[T].Add(this, T)"
+            "System.Void System.Collections.Generic.List`1[T].AddWithResize(this, T)"
+            "System.Void System.Collections.Generic.List`1[T].Grow(this, System.Int32)"
+            "System.Void System.Collections.Generic.List`1[T].RemoveAt(this, System.Int32)"
+            "System.Void System.Collections.Generic.List`1+Enumerator[T]..ctor(this, System.Collections.Generic.List`1[T])"
 
             // Span
             "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
@@ -427,6 +471,9 @@ module Loader =
 
             // GC
             "T[] System.GC.AllocateUninitializedArray(System.Int32, System.Boolean)"
+
+            // ResourceManager
+            "System.Void System.Resources.ResourceManager..ctor(this, System.Type)"
 
             // Unsafe
             // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"
