@@ -192,7 +192,7 @@ module internal Pointers =
             | DetachedPtr offset, _ -> offset, y
             | _, DetachedPtr offset -> x, offset
             | _ -> __insufficientInformation__ $"simplifyPointerDivide: {x} {y}"
-        simplifyBinaryOperation op x y k  
+        simplifyBinaryOperation op x y k
 
     let private toPointerIfNeeded x =
         match x.term with
@@ -283,13 +283,13 @@ module internal Pointers =
 
     let isPointerOperation op left right =
         match op with
-        | OperationType.Equal
-        | OperationType.NotEqual -> isRefOrPtr left || isRefOrPtr right
         | OperationType.Subtract -> isRefOrPtr left && (isRefOrPtr right || Terms.isNumeric right)
-        | OperationType.Add -> isRefOrPtr left || isRefOrPtr right
-        | OperationType.Multiply -> isRefOrPtr left || isRefOrPtr right
+        | OperationType.Equal
+        | OperationType.NotEqual
+        | OperationType.Add
+        | OperationType.Multiply
         | OperationType.Divide
-        | OperationType.Divide_Un -> isRefOrPtr left || isRefOrPtr right
+        | OperationType.Divide_Un
         | OperationType.Less
         | OperationType.Less_Un
         | OperationType.LessOrEqual

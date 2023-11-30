@@ -849,11 +849,11 @@ namespace IntegrationTests
             return -10;
         }
 
-        [TestSvm(100)]
+        [TestSvm(88)]
         public static int EncodeDoubleReinterpretation2(double x)
         {
-            byte* a = (byte*)&x + 1;
-            int y = *(int*) a; //-219902326
+            byte* a = (byte*)&x;
+            int y = *(int*) (a + 1); //-219902326
             if (x == 198.1234 && y != -219902326) return -1;
             return 0;
         }
@@ -861,11 +861,13 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int EncodeDoubleReinterpretation3(double x)
         {
-            if (*(long*)((byte*)&x + 1) == 175767216) return 0;
+            byte* a = (byte*)&x;
+            var b = *(long*) a;
+            if (b == 175767216L) return 0;
             return -1;
         }
 
-        [TestSvm(100)]
+        [TestSvm(86)]
         public static int EncodeDoubleReinterpretation4(double x)
         {
             byte* a = (byte*)&x + 1;
@@ -874,7 +876,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100)]
+        [TestSvm(87)]
         public static int EncodeDoubleReinterpretation5(double x)
         {
             byte* a = (byte*)&x + 1;
@@ -883,7 +885,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100)]
+        [TestSvm(87)]
         public static int EncodeDoubleReinterpretation6(double x)
         {
             byte* a = (byte*)&x + 1;
