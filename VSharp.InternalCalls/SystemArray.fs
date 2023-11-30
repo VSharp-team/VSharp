@@ -85,7 +85,7 @@ module internal SystemArray =
         interpreter.NpeOrInvoke cilState array (fun cilState k ->
         interpreter.NpeOrInvoke cilState handleTerm initArray k) id
 
-    let Clear (interpreter : IInterpreter) cilState args =
+    let ClearWithIndexLength (interpreter : IInterpreter) cilState args =
         assert(List.length args = 3)
         let array, index, length = args[0], args[1], args[2]
         let (>>) = API.Arithmetics.(>>)
@@ -110,6 +110,21 @@ module internal SystemArray =
             (fun state k -> k (IsNullReference array, state))
             (interpreter.Raise interpreter.ArgumentNullException)
             nonNullCase
+            id
+
+    let ClearWhole (interpreter : IInterpreter) cilState args =
+        assert(List.length args = 1)
+        let array = args[0]
+        let clearCase (cilState : cilState) k =
+            let zero = MakeNumber 0
+            let index = Memory.ArrayLowerBoundByDimension cilState.state array zero
+            let numOfAllElements = Memory.CountOfArrayElements cilState.state array
+            Memory.ClearArray cilState.state array index numOfAllElements
+            k [cilState]
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (IsNullReference array, state))
+            (interpreter.Raise interpreter.ArgumentNullException)
+            clearCase
             id
 
     let CommonCopyArray (i : IInterpreter) (cilState : cilState) src srcIndex dst dstIndex length =
@@ -199,3 +214,9 @@ module internal SystemArray =
             (interpreter.Raise interpreter.ArgumentNullException)
             fill
             id
+
+    let AllocateUninitializedArray (state : state) args =
+        assert(List.length args = 3)
+        let typ, length = args[0], args[1]
+        let elemType = Helpers.unwrapType typ
+        Memory.AllocateVectorArray state length elemType

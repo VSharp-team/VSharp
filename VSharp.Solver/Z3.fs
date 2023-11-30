@@ -202,6 +202,12 @@ module internal Z3 =
 
         member private x.AddressSort = ctx.MkBitVecSort(32u) :> Sort
 
+        member private x.SizeOfBV (typ : Type) : uint =
+            match typ with
+            | typ when isNumeric typ -> numericBitSizeOf typ
+            | AddressType -> 32u
+            | _ -> __unreachable__()
+
         member private x.Type2Sort typ =
             Dict.getValueOrUpdate encodingCache.sorts typ (fun () ->
                 match typ with
@@ -691,8 +697,24 @@ module internal Z3 =
             let falseBitVec = ctx.MkNumeral(0, x.Type2Sort typeof<byte>)
             x.MkITE(b, trueBitVec, falseBitVec) :?> BitVecExpr
 
+        member private x.CreateCombineResult result typ size =
+            if isReal typ then
+                let signStart, signEnd, expStart, expEnd, sigStart, sigEnd =
+                    if typ = typeof<single> then
+                        assert(size = 32u)
+                        31u, 31u, 30u, 23u, 22u, 0u
+                    else
+                        assert(size = 64u && typ = typeof<double>)
+                        63u, 63u, 62u, 52u, 51u, 0u
+                let signExpr = ctx.MkExtract(signStart, signEnd, result)
+                let expExpr = ctx.MkExtract(expStart, expEnd, result)
+                let sigExpr = ctx.MkExtract(sigStart, sigEnd, result)
+                ctx.MkFP(signExpr, expExpr, sigExpr) :> Expr
+            else result :> Expr
+
         member private x.EncodeCombine slices typ =
-            let res = ctx.MkNumeral(0, x.Type2Sort typ) :?> BitVecExpr
+            let size = x.SizeOfBV typ
+            let res = ctx.MkBV(0, size)
             let window = res.SortSize
             let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
             let addOneSlice (res, assumptions) slice =
@@ -738,7 +760,9 @@ module internal Z3 =
                 let res = x.MkITE(intersects, x.MkBVOr(res, part), res) :?> BitVecExpr
                 res, assumptions
             let result, assumptions = List.fold addOneSlice (res, List.empty) slices
-            {expr = x.ReverseBytes result; assumptions = assumptions}
+            let result = x.ReverseBytes result
+            let result = x.CreateCombineResult result typ size
+            {expr = result; assumptions = assumptions}
 
         member private x.EncodeApplication sf typ (args : Expr array) =
             let argsSort = args |> Array.map (fun arg -> arg.Sort)

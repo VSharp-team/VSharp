@@ -185,6 +185,15 @@ module internal Pointers =
             multiplyPtrByNumber
             simplifyPointerMultiply
 
+    let rec private simplifyPointerDivide op x y k =
+        let x, y =
+            match x.term, y.term with
+            | DetachedPtr offset1, DetachedPtr offset2 -> offset1, offset2
+            | DetachedPtr offset, _ -> offset, y
+            | _, DetachedPtr offset -> x, offset
+            | _ -> __insufficientInformation__ $"simplifyPointerDivide: {x} {y}"
+        simplifyBinaryOperation op x y k
+
     let private toPointerIfNeeded x =
         match x.term with
         | HeapRef(address, t) -> Ptr (HeapLocation(address, t)) t (makeNumber 0)
@@ -217,14 +226,25 @@ module internal Pointers =
         if Terms.isNumeric y then simplifyPointerAddition x (neg y) k
         else commonPointerSubtraction x y k
 
+    let private pointerIdOfBaseAndOffset pointerBase offset =
+        match pointerBase with
+        | HeapLocation({term = ConcreteHeapAddress a}, _) ->
+            let pointerBase = convert (VectorTime.hash a) typeof<int> |> makeNumber
+            add pointerBase offset
+        | _ -> __insufficientInformation__ $"pointerId: unable to get pointer ID of pointerBase {pointerBase}"
+
     let private pointerId ptr =
         match ptr.term with
         | DetachedPtr offset -> offset
         | _ when typeOf ptr |> isNative ->
             primitiveCast ptr typeof<int>
-        | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, o) ->
-            let pointerBase = convert (VectorTime.hash a) typeof<int> |> makeNumber
-            add pointerBase o
+        | Ptr(pointerBase, _, o) ->
+            pointerIdOfBaseAndOffset pointerBase o
+        | Ref address ->
+            let pointerBase, offset = addressToBaseAndOffset address
+            pointerIdOfBaseAndOffset pointerBase offset
+        | HeapRef({term = ConcreteHeapAddress a}, _) ->
+            convert (VectorTime.hash a) typeof<int> |> makeNumber
         | _ -> __insufficientInformation__ $"pointerId: unable to get pointer ID of symbolic pointer {ptr}"
 
     let private simplifyPointerComparison op x y k =
@@ -244,6 +264,8 @@ module internal Pointers =
             simplifyPointerAddition x y k
         | OperationType.Multiply ->
             simplifyPointerMultiply x y k
+        | OperationType.Divide
+        | OperationType.Divide_Un -> simplifyPointerDivide op x y k
         | OperationType.Equal -> simplifyReferenceEqualityk x y k
         | OperationType.NotEqual ->
             simplifyReferenceEqualityk x y (fun e ->
@@ -261,11 +283,13 @@ module internal Pointers =
 
     let isPointerOperation op left right =
         match op with
-        | OperationType.Equal
-        | OperationType.NotEqual -> isRefOrPtr left || isRefOrPtr right
         | OperationType.Subtract -> isRefOrPtr left && (isRefOrPtr right || Terms.isNumeric right)
-        | OperationType.Add -> isRefOrPtr left || isRefOrPtr right
-        | OperationType.Multiply -> isRefOrPtr left || isRefOrPtr right
+        | OperationType.Equal
+        | OperationType.NotEqual
+        | OperationType.Add
+        | OperationType.Multiply
+        | OperationType.Divide
+        | OperationType.Divide_Un
         | OperationType.Less
         | OperationType.Less_Un
         | OperationType.LessOrEqual

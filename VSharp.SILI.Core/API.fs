@@ -130,7 +130,6 @@ module API =
             let zero = MakeNumber 0
             let ptrToRef sightType offset state k =
                 let ref = Memory.tryPtrToRef state pointerBase sightType offset
-                assert(Option.isSome ref)
                 k (ref, state)
             let fork state condition sightType offset =
                 StatedConditionalExecution state
