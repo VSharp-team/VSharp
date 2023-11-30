@@ -14,7 +14,9 @@ from ml.common_model.paths import (
     common_models_path,
 )
 from ml.utils import load_model
-from ml.models.TAGSageTeacher.model_modified import StateModelEncoderLastLayer
+from ml.models.StateGNNEncoderConvEdgeAttr.model_modified import (
+    StateModelEncoderLastLayer,
+)
 
 
 def euclidean_dist(y_pred, y_true):
@@ -58,26 +60,25 @@ def csv2best_models():
                     models_stat[map_names[i]] = int_row[i]
                 models.append((row[0], models_stat))
 
-            for map_name in map_names:
-                best_model = max(models, key=(lambda m: m[1][map_name]))
-                best_model_name = best_model[0]
-                best_model_score = best_model[1]
-                path_to_model = os.path.join(
-                    models_path,
-                    "epoch_" + str(epoch_num),
-                    best_model_name + ".pth",
-                )
-                ref_model = load_model(
-                    Path(path_to_model), model=StateModelEncoderLastLayer(32, 8)
-                )
+        for map_name in map_names:
+            best_model = max(models, key=(lambda m: m[1][map_name]))
+            best_model_name, best_model_score = best_model[0], best_model[1]
+            path_to_model = os.path.join(
+                models_path,
+                "epoch_" + str(epoch_num),
+                best_model_name + ".pth",
+            )
+            ref_model = load_model(
+                Path(path_to_model), model=StateModelEncoderLastLayer(32, 8)
+            )
 
-                ref_model.to(GeneralConfig.DEVICE)
-                best_models[map_name] = [
-                    ref_model,
-                    best_model_score[map_name],
-                    best_model_name,
-                ]
-            return best_models
+            ref_model.to(GeneralConfig.DEVICE)
+            best_models[map_name] = (
+                ref_model,
+                best_model_score[map_name],
+                best_model_name,
+            )
+        return best_models
 
 
 def back_prop(best_model, model, data, optimizer, criterion):
@@ -127,9 +128,7 @@ def load_best_models_dict(path):
                 )
                 ref_model.load_state_dict(torch.load(path_to_model))
                 ref_model.to(GeneralConfig.DEVICE)
-                best_models[row[0]][0] = ref_model
-                best_models[row[0]][1] = ast.literal_eval(row[2])
-                best_models[row[0]][2] = row[1]
+                best_models[row[0]] = (ref_model, ast.literal_eval(row[2]), row[1])
     return best_models
 
 
@@ -142,7 +141,8 @@ def load_dataset_state_dict(path):
     return dataset_state_dict
 
 
-def get_model(path_to_weights: Path, model: torch.nn.Module):
+def get_model(path_to_weights: Path, model: torch.nn.Module, random_seed: int):
+    np.random.seed(random_seed)
     weights = torch.load(path_to_weights)
     weights["lin_last.weight"] = torch.tensor(np.random.random([1, 8]))
     weights["lin_last.bias"] = torch.tensor(np.random.random([1]))

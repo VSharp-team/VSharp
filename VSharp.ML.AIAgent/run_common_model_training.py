@@ -18,18 +18,11 @@ from connection.broker_conn.socket_manager import game_server_socket_manager
 from connection.game_server_conn.utils import MapsType, get_maps
 from epochs_statistics.tables import create_pivot_table, table_to_string
 from learning.play_game import play_game
-from ml.common_model.models import CommonModel
 from ml.common_model.utils import (
     csv2best_models,
     get_model,
-    euclidean_dist,
-    save_best_models2csv,
-    load_best_models_dict,
-    load_dataset_state_dict,
-    back_prop,
 )
 from ml.common_model.wrapper import CommonModelWrapper, BestModelsWrapper
-from ml.fileop import save_model
 from ml.common_model.paths import (
     common_models_path,
     best_models_dict_path,
@@ -38,14 +31,11 @@ from ml.common_model.paths import (
     training_data_path,
     pretrained_models_path,
 )
-from ml.model_wrappers.protocols import Predictor
-from ml.utils import load_model, convert_to_export
 import numpy as np
 from ml.common_model.dataset import FullDataset
 from torch_geometric.loader import DataLoader
 import tqdm
 import pandas as pd
-from ml.models.TAGSageSimple.model import StateModelEncoder
 from ml.models.TAGSageSimple.model_modified import StateModelEncoderLastLayer
 
 
@@ -102,9 +92,9 @@ class TrainConfig:
 
 
 def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDataset):
-    for name, param in model.named_parameters():
-        if "lin_last" not in name:
-            param.requires_grad = False
+    # for name, param in model.named_parameters():
+    #     if "lin_last" not in name:
+    #         param.requires_grad = False
 
     model.to(GeneralConfig.DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
@@ -132,6 +122,7 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
         ]
 
     multiprocessing.set_start_method("spawn", force=True)
+    # p = Pool(GeneralConfig.SERVER_COUNT)
 
     all_average_results = []
     for epoch in range(train_config.epochs):
@@ -172,15 +163,19 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
         # validation
         model.eval()
         cmwrapper.make_copy(str(epoch + 1))
-        result = list(map(play_game_task, tasks))
 
-        all_results = []
-        for maps_result, maps_data in result:
-            for map_name in maps_data.keys():
-                dataset.update(map_name, maps_data[map_name][0], maps_data[map_name][1])
-            all_results += maps_result
+        with Pool(GeneralConfig.SERVER_COUNT) as p:
+            result = list(p.map(play_game_task, tasks))
 
-        dataset.save()
+            all_results = []
+            for maps_result, maps_data in result:
+                for map_name in maps_data.keys():
+                    dataset.update(
+                        map_name, maps_data[map_name][0], maps_data[map_name][1], True
+                    )
+                all_results += maps_result
+
+            dataset.save()
 
         print(
             "Average dataset_state result",
@@ -203,6 +198,7 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
         torch.save(model.state_dict(), Path(path_to_model))
         del data_list
         del data_loader
+    # p.close()
 
     return all_average_results
 
@@ -210,10 +206,10 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
 def get_dataset(generate_dataset: bool):
     dataset = FullDataset(dataset_root_path, dataset_map_results_file_name)
 
-    with game_server_socket_manager() as ws:
-        all_maps = get_maps(websocket=ws, type=MapsType.TRAIN)
     if generate_dataset:
         # creating new dataset
+        with game_server_socket_manager() as ws:
+            all_maps = get_maps(websocket=ws, type=MapsType.TRAIN)
         best_models_dict = csv2best_models()
         play_game(
             with_predictor=BestModelsWrapper(best_models_dict),
@@ -223,7 +219,6 @@ def get_dataset(generate_dataset: bool):
             with_dataset=dataset,
         )
         dataset.save()
-        generate_dataset = False
     else:
         # loading existing dataset
         dataset.load()
@@ -241,14 +236,14 @@ def main():
     )
 
     best_result = {"average_coverage": 0, "config": dict(), "epoch": 0}
-    generate_dataset = True
+    generate_dataset = False
     dataset = get_dataset(generate_dataset)
 
     while True:
         config = TrainConfig(
             lr=random.choice([10 ** (-i) for i in range(3, 8)]),
             batch_size=random.choice([2**i for i in range(5, 10)]),
-            epochs=10,
+            epochs=20,
         )
         print("Current hyperparameters")
         data_frame = pd.DataFrame(
@@ -261,10 +256,10 @@ def main():
         model = get_model(
             Path(path_to_weights),
             StateModelEncoderLastLayer(hidden_channels=32, out_channels=8),
+            random_seed=937,
         )
 
         results = train(train_config=config, model=model, dataset=dataset)
-        generate_dataset = True
         max_value = max(results)
         max_ind = results.index(max_value)
         if best_result["average_coverage"] < max_value:

@@ -2,14 +2,9 @@ import logging
 from statistics import StatisticsError
 from time import perf_counter
 from typing import TypeAlias
-import random
-import copy
 
 import tqdm
 from func_timeout import FunctionTimedOut, func_set_timeout
-
-from torch_geometric.data import HeteroData
-
 
 from common.classes import GameResult, Map2Result
 from common.constants import TQDM_FORMAT_DICT
@@ -18,17 +13,13 @@ from common.utils import get_states
 from config import FeatureConfig, GeneralConfig
 from connection.broker_conn.socket_manager import game_server_socket_manager
 from connection.game_server_conn.connector import Connector
-from connection.game_server_conn.utils import MapsType, get_maps
+from connection.game_server_conn.utils import MapsType
 from learning.timer.resources_manager import manage_map_inference_times_array
 from learning.timer.stats import compute_statistics
 from learning.timer.utils import get_map_inference_times
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.fileop import save_model
 from ml.model_wrappers.protocols import Predictor
-from torch_geometric.data import Dataset
-
-# from ray.experimental.tqdm_ray import tqdm
-
 
 TimeDuration: TypeAlias = float
 

@@ -7,8 +7,8 @@ class StateModelEncoder(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels):
         super().__init__()
         self.conv1 = TAGConv(5, hidden_channels, 2)
-        self.conv2 = TAGConv(6, hidden_channels, 3)  # TAGConv
-        self.conv3 = GraphConv((-1, -1), hidden_channels)  # SAGEConv
+        self.conv2 = TAGConv(6, hidden_channels, 3)
+        self.conv3 = GraphConv((-1, -1), hidden_channels)
         self.conv32 = GraphConv((-1, -1), hidden_channels)
         self.conv4 = SAGEConv((-1, -1), hidden_channels)
         self.conv42 = SAGEConv((-1, -1), hidden_channels)

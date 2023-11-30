@@ -46,52 +46,57 @@ class CommonModel(torch.nn.Module):
 
         self.mlp = MLP(hidden_channels, [1])
 
-    def forward(self, x_dict, edge_index_dict, edge_attr_dict):
+    def forward(
+        self,
+        game_x,
+        state_x,
+        edge_index_v_v,
+        edge_type_v_v,
+        edge_index_history_v_s,
+        edge_attr_history_v_s,
+        edge_index_in_v_s,
+        edge_index_s_s,
+    ):
         game_x = self.gv_layers[0](
-            x_dict["game_vertex"],
-            edge_index_dict[("game_vertex", "to", "game_vertex")],
+            game_x,
+            edge_index_v_v,
         ).relu()
         for layer in self.gv_layers[1:]:
             game_x = layer(
                 game_x,
-                edge_index_dict[("game_vertex", "to", "game_vertex")],
+                edge_index_v_v,
             ).relu()
 
         state_x = self.sv_layers[0](
-            x_dict["state_vertex"],
-            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+            state_x,
+            edge_index_s_s,
         ).relu()
         for layer in self.sv_layers[1:]:
             state_x = layer(
                 state_x,
-                edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+                edge_index_s_s,
             ).relu()
 
         history_x = self.history1(
             (game_x, state_x),
-            edge_index_dict[("game_vertex", "history", "state_vertex")],
-            edge_attr_dict,
+            edge_index_history_v_s,
+            edge_attr_history_v_s,
             size=(game_x.size(0), state_x.size(0)),
         ).relu()
 
-        in_x = self.in1(
-            (game_x, history_x), edge_index_dict[("game_vertex", "in", "state_vertex")]
-        ).relu()
+        in_x = self.in1((game_x, history_x), edge_index_in_v_s).relu()
 
         state_x = self.sv_layers2[0](
             in_x,
-            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+            edge_index_s_s,
         ).relu()
         for layer in self.sv_layers2[1:]:
             state_x = layer(
                 state_x,
-                edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+                edge_index_s_s,
             ).relu()
         x = self.mlp(state_x)
-        z_dict = {}
-        z_dict["state_vertex"] = x
-        z_dict["game_vertex"] = x_dict["game_vertex"]
-        return z_dict
+        return x
 
 
 class ParallelBlocks(torch.nn.Module):
@@ -100,14 +105,30 @@ class ParallelBlocks(torch.nn.Module):
         self.models_list = models_list
         self.mlp = MLP(len(models_list), mlp_list)
 
-    def forward(self, x_dict, edge_index_dict, edge_attr=None):
+    def forward(
+        self,
+        game_x,
+        state_x,
+        edge_index_v_v,
+        edge_type_v_v,
+        edge_index_history_v_s,
+        edge_attr_history_v_s,
+        edge_index_in_v_s,
+        edge_index_s_s,
+    ):
         results_list = []
         for model in self.models_list:
             results_list.append(
-                model(x_dict, edge_index_dict, edge_attr)["state_vertex"]
+                model(
+                    game_x,
+                    state_x,
+                    edge_index_v_v,
+                    edge_type_v_v,
+                    edge_index_history_v_s,
+                    edge_attr_history_v_s,
+                    edge_index_in_v_s,
+                    edge_index_s_s,
+                )
             )
-        z_dict = {}
         results_tensor = torch.cat(results_list, dim=1)
-        z_dict["state_vertex"] = self.mlp(results_tensor)
-        z_dict["game_vertex"] = x_dict["game_vertex"]
-        return z_dict
+        return results_tensor

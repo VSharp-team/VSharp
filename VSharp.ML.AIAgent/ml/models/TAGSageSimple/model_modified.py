@@ -1,8 +1,4 @@
-import torch
-from torch.nn import Linear
 from torch_geometric.nn import Linear
-
-from learning.timer.wrapper import timeit
 from torch.nn.functional import softmax
 from .model import StateModelEncoder
 

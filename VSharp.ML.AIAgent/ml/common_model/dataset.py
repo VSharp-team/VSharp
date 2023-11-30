@@ -47,32 +47,29 @@ class FullDataset:
     def remove_similar_steps(self, map_steps):
         filtered_map_steps = []
         for step in map_steps:
-            if len(filtered_map_steps) != 0:
-                if step["y_true"].size() == filtered_map_steps[-1]["y_true"].size():
-                    cos_d = 1 - torch.sum(
-                        (step["y_true"] / torch.linalg.vector_norm(step["y_true"]))
-                        * (
-                            filtered_map_steps[-1]["y_true"]
-                            / torch.linalg.vector_norm(filtered_map_steps[-1]["y_true"])
-                        )
+            if (
+                len(filtered_map_steps) != 0
+                and step["y_true"].size() == filtered_map_steps[-1]["y_true"].size()
+            ):
+                cos_d = 1 - torch.sum(
+                    (step["y_true"] / torch.linalg.vector_norm(step["y_true"]))
+                    * (
+                        filtered_map_steps[-1]["y_true"]
+                        / torch.linalg.vector_norm(filtered_map_steps[-1]["y_true"])
                     )
-                    if (
-                        cos_d < 1e-7
-                        and step["game_vertex"]["x"].size()[0]
-                        == filtered_map_steps[-1]["game_vertex"]["x"].size()[0]
-                    ):
-                        if np.random.choice(
-                            [True, False],
-                            p=[
-                                self.similar_steps_save_prob,
-                                1 - self.similar_steps_save_prob,
-                            ],
-                        ):
-                            step.use_for_train = True
-                        else:
-                            step.use_for_train = False
-                    else:
-                        step.use_for_train = True
+                )
+                if (
+                    cos_d < 1e-7
+                    and step["game_vertex"]["x"].size()[0]
+                    == filtered_map_steps[-1]["game_vertex"]["x"].size()[0]
+                ):
+                    step.use_for_train = np.random.choice(
+                        [True, False],
+                        p=[
+                            self.similar_steps_save_prob,
+                            1 - self.similar_steps_save_prob,
+                        ],
+                    )
                 else:
                     step.use_for_train = True
             else:
@@ -83,13 +80,11 @@ class FullDataset:
     def filter_map_steps(self, map_steps):
         filtered_map_steps = []
         for step in map_steps:
-            if step["y_true"].size()[0] != 1:
-                if not step["y_true"].isnan().any():
-                    max_ind = torch.argmax(step["y_true"])
-                    step["y_true"] = torch.zeros_like(step["y_true"])
-                    step["y_true"][max_ind] = 1.0
-                    filtered_map_steps.append(step)
-
+            if step["y_true"].size()[0] != 1 and not step["y_true"].isnan().any():
+                max_ind = torch.argmax(step["y_true"])
+                step["y_true"] = torch.zeros_like(step["y_true"])
+                step["y_true"][max_ind] = 1.0
+                filtered_map_steps.append(step)
         return filtered_map_steps
 
     def get_plain_data(self):
