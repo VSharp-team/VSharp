@@ -190,10 +190,11 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
 
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
-            if pi.ParameterType.IsByRef then
+            let parameterType = pi.ParameterType
+            if parameterType.IsByRef then
                 if Memory.CallStackSize initialState = 0 then
                     Memory.NewStackFrame initialState None []
-                let typ = pi.ParameterType.GetElementType()
+                let typ = parameterType.GetElementType()
                 let position = pi.Position + 1
                 let stackRef = Memory.AllocateTemporaryLocalVariableOfType initialState pi.Name position typ
                 Some stackRef

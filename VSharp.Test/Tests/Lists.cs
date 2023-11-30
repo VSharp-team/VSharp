@@ -815,6 +815,39 @@ namespace IntegrationTests
             return -12;
         }
 
+        [Ignore("fix concrete memory (check fully concreteness) and concrete invoke (by ref parameters)")]
+        public static int ConcreteDictionaryTest(int v)
+        {
+            var d = new Dictionary<int, int>();
+            d.Add(1, v);
+            if (d.TryGetValue(1, out var value))
+            {
+                if (value != v)
+                {
+                    return -1;
+                }
+
+                return value;
+            }
+
+            return 0;
+        }
+
+        [Ignore("needs fix")]
+        public static int ConcreteDictionaryTest1(int a, int b)
+        {
+            var d = new Dictionary<int, List<int>>();
+            d.Add(1, new List<int> {2, 3});
+            d.Add(4, new List<int> {5, 6});
+            if (d.TryGetValue(a, out var res))
+            {
+                if (res.Contains(b))
+                    return 1;
+                return 0;
+            }
+            return 2;
+        }
+
         [Ignore("Support rendering recursive arrays")]
         public static object[] ConcreteRecursiveArray()
         {
