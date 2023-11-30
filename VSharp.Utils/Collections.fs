@@ -318,7 +318,7 @@ module Array =
                 | :? float as i when elementType = typeof<float> -> fillFast arr i
                 | _ ->
                     // Slow case
-                    Logger.trace "Slowly filling array with %d elements..." arr.Length
+                    Logger.trace $"Slowly filling array with {arr.Length} elements..."
                     let rank = arr.Rank
                     let dims = Array.init rank id
                     let lengths = Array.map arr.GetLength dims

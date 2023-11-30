@@ -558,6 +558,20 @@ namespace IntegrationTests
             return 3;
         }
 
+        [Ignore("fix creating SMT-solver model")]
+        public static int TestSolvingCopy10(string[] a, int i, string[] b)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                Array.Copy(a, b, b.Length);
+
+                if (b[i][0] == b[i + 1][0])
+                    return 42;
+                return 10;
+            }
+            return 3;
+        }
+
         [Ignore("Need to add arrays into type candidates")]
         public static int ArrayAliasWrite(object[] o, string[] s, string str1, string str2)
         {
