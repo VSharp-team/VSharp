@@ -214,3 +214,9 @@ module internal SystemArray =
             (interpreter.Raise interpreter.ArgumentNullException)
             fill
             id
+
+    let AllocateUninitializedArray (state : state) args =
+        assert(List.length args = 3)
+        let typ, length = args[0], args[1]
+        let elemType = Helpers.unwrapType typ
+        Memory.AllocateVectorArray state length elemType

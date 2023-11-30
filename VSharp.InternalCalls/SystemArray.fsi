@@ -53,3 +53,6 @@ module internal SystemArray =
 
     [<Implements("System.Void System.Array.Fill(T[], T)")>]
     val FillArray : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("T[] System.GC.AllocateUninitializedArray(System.Int32, System.Boolean)")>]
+    val AllocateUninitializedArray : state -> term list -> term

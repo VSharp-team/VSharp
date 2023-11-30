@@ -425,6 +425,9 @@ module Loader =
             // Infrastructure
             "Microsoft.Management.Infrastructure.Serialization.CimMofDeserializer Microsoft.Management.Infrastructure.Serialization.CimMofDeserializer.Create()"
 
+            // GC
+            "T[] System.GC.AllocateUninitializedArray(System.Int32, System.Boolean)"
+
             // Unsafe
             // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"
             // "T System.Runtime.CompilerServices.Unsafe.As(System.Object)"
