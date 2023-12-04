@@ -656,7 +656,7 @@ and genericCandidate private (
         let supertypeDef = TypeUtils.getTypeDef supertype
         let supertypeDefArgs = TypeUtils.getGenericArgs supertypeDef
         let supertypeArgs = TypeUtils.getGenericArgs supertype
-        let index = interfaces |> Array.tryFindIndex (fun t -> t.GetGenericTypeDefinition() = supertypeDef)
+        let index = interfaces |> Array.tryFindIndex (fun t -> t = supertypeDef || t.IsGenericType && t.GetGenericTypeDefinition() = supertypeDef)
         match index with
         | Some index ->
             let interfaceParams = interfaces[index].GetGenericArguments()
