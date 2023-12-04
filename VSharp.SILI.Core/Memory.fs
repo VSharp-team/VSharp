@@ -811,6 +811,7 @@ module internal Memory =
         | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
             let data = cm.GetAllArrayData concreteAddress
             readSymbolicIndexFromConcreteArray state concreteAddress data indices arrayType
+        // TODO: remember all concrete data from 'ConcreteMemory' and add it to symbolic constant [Test: ConcreteDictionaryTest1]
         | _ -> readArrayIndexSymbolic state address indices arrayType
 
 // ------------------------------- Array writing -------------------------------
@@ -904,6 +905,7 @@ module internal Memory =
         match address.term with
         | ConcreteHeapAddress address when cm.Contains address ->
             cm.ReadClassField address field |> objToTerm state field.typ
+        // TODO: remember all concrete field values from 'ConcreteMemory' and add it to symbolic constant [Test: ConcreteDictionaryTest1]
         | _ -> readClassFieldSymbolic state address field
 
     let readStaticField state typ (field : fieldId) =

@@ -189,7 +189,6 @@ with
                 t.MethodMocks |> Seq.map (fun m -> m.ReturnValues |> Array.map encode) |> Array.ofSeq
             outImplementations =
                 t.MethodMocks |> Seq.map (fun m -> m.OutValues |> Array.map (Array.map encode)) |> Seq.toArray
-                
         }
 
     member x.Decode() =

@@ -833,7 +833,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [Ignore("needs fix")]
+        [Ignore("fix composition with concrete memory")]
         public static int ConcreteDictionaryTest1(int a, int b)
         {
             var d = new Dictionary<int, List<int>>();
@@ -846,6 +846,15 @@ namespace IntegrationTests
                 return 0;
             }
             return 2;
+        }
+
+        [TestSvm(100)]
+        public static int ListContains(int a, int b)
+        {
+            var l = new List<int> {2, 3, b, 5};
+            if (l.Contains(a))
+                return 1;
+            return 0;
         }
 
         [Ignore("Support rendering recursive arrays")]
