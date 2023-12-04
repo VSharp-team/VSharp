@@ -161,17 +161,16 @@ namespace VSharp.Runner
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     var inputArgs = unknownArgs ? null : args;
-                    var options = new VSharpOptions
-                    {
-                        Timeout = timeout,
-                        SolverTimeout = solverTimeout,
-                        OutputDirectory = output.FullName,
-                        RenderTests = renderTests,
-                        SearchStrategy = strat,
-                        Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold,
-                        ExplorationMode = explorationMode
-                    };
+                    var options =
+                        new VSharpOptions(
+                            timeout: timeout,
+                            solverTimeout: solverTimeout,
+                            outputDirectory: output.FullName,
+                            renderTests: renderTests,
+                            searchStrategy: strat,
+                            verbosity: verbosity,
+                            recursionThreshold: recursionThreshold,
+                            explorationMode: explorationMode);
 
                     if (assembly == null) return;
 
@@ -187,17 +186,16 @@ namespace VSharp.Runner
                 (assemblyPath, timeout, solverTimeout, output, renderTests, runTests, singleFile, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
-                    var options = new VSharpOptions
-                    {
-                        Timeout = timeout,
-                        SolverTimeout = solverTimeout,
-                        OutputDirectory = output.FullName,
-                        RenderTests = renderTests,
-                        SearchStrategy = strat,
-                        Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold,
-                        ExplorationMode = explorationMode
-                    };
+                    var options =
+                        new VSharpOptions(
+                            timeout: timeout,
+                            solverTimeout: solverTimeout,
+                            outputDirectory: output.FullName,
+                            renderTests: renderTests,
+                            searchStrategy: strat,
+                            verbosity: verbosity,
+                            recursionThreshold: recursionThreshold,
+                            explorationMode: explorationMode);
 
                     if (assembly == null) return;
 
@@ -222,17 +220,16 @@ namespace VSharp.Runner
                         return;
                     }
 
-                    var options = new VSharpOptions
-                    {
-                        Timeout = timeout,
-                        SolverTimeout = solverTimeout,
-                        OutputDirectory = output.FullName,
-                        RenderTests = renderTests,
-                        SearchStrategy = strat,
-                        Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold,
-                        ExplorationMode = explorationMode
-                    };
+                    var options =
+                        new VSharpOptions(
+                            timeout: timeout,
+                            solverTimeout: solverTimeout,
+                            outputDirectory: output.FullName,
+                            renderTests: renderTests,
+                            searchStrategy: strat,
+                            verbosity: verbosity,
+                            recursionThreshold: recursionThreshold,
+                            explorationMode: explorationMode);
 
                     if (runTests)
                     {
@@ -271,17 +268,16 @@ namespace VSharp.Runner
                         }
                     }
 
-                    var options = new VSharpOptions
-                    {
-                        Timeout = timeout,
-                        SolverTimeout = solverTimeout,
-                        OutputDirectory = output.FullName,
-                        RenderTests = renderTests,
-                        SearchStrategy = strat,
-                        Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold,
-                        ExplorationMode = explorationMode
-                    };
+                    var options =
+                        new VSharpOptions(
+                            timeout: timeout,
+                            solverTimeout: solverTimeout,
+                            outputDirectory: output.FullName,
+                            renderTests: renderTests,
+                            searchStrategy: strat,
+                            verbosity: verbosity,
+                            recursionThreshold: recursionThreshold,
+                            explorationMode: explorationMode);
 
                     if (runTests)
                     {
@@ -304,17 +300,16 @@ namespace VSharp.Runner
                         return;
                     }
 
-                    var options = new VSharpOptions
-                    {
-                        Timeout = timeout,
-                        SolverTimeout = solverTimeout,
-                        OutputDirectory = output.FullName,
-                        RenderTests = renderTests,
-                        SearchStrategy = strat,
-                        Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold,
-                        ExplorationMode = explorationMode
-                    };
+                    var options =
+                        new VSharpOptions(
+                            timeout: timeout,
+                            solverTimeout: solverTimeout,
+                            outputDirectory: output.FullName,
+                            renderTests: renderTests,
+                            searchStrategy: strat,
+                            verbosity: verbosity,
+                            recursionThreshold: recursionThreshold,
+                            explorationMode: explorationMode);
                     if (runTests)
                     {
                         TestGenerator.CoverAndRun(namespaceTypes, out var statistics, options);
