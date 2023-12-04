@@ -118,6 +118,8 @@ module Loader =
             "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_ExclusiveOr(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector.ConditionalSelect(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
             "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].get_AllBitsSet()"
+            "System.Numerics.Vector`1[T] System.Numerics.Vector.LessThanOrEqual(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Boolean System.Numerics.Vector.LessThanOrEqualAll(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
         |]
         let runtimeHelpers = [|
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
@@ -179,6 +181,7 @@ module Loader =
             "System.Reflection.MemberTypes System.RuntimeType.get_MemberType(this)"
             "System.Int32 System.RuntimeType.get_MetadataToken(this)"
             "System.Object System.Enum.InternalBoxEnum(System.RuntimeType, System.Int64)"
+            "System.Object System.Reflection.RtFieldInfo.GetValue(this, System.Object)"
             "System.Reflection.Assembly System.RuntimeType.get_Assembly(this)"
             "System.Void System.Type+<>c..ctor(this)"
 
@@ -486,6 +489,10 @@ module Loader =
             // "TTo& System.Runtime.CompilerServices.Unsafe.As(TFrom&)"
             // "System.Boolean Internal.Runtime.CompilerServices.Unsafe.IsNullRef(T&)"
             // "System.Boolean System.Runtime.CompilerServices.Unsafe.IsNullRef(T&)"
+
+            "System.Boolean System.Double.TryParse(System.String, System.Double&)"
+            "System.Boolean System.Single.TryParse(System.String, System.Single&)"
+            "System.String System.Exception.GetStackTrace(this)"
         ]
 
     let internal isInvokeInternalCall (fullMethodName : string) =

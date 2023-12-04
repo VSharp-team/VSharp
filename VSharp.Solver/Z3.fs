@@ -1263,8 +1263,8 @@ module internal Z3 =
                 let suitableKeys = HashSet<ISymbolicTypeKey>()
                 for expressions in getDefaultValues regionSort do
                     assert(Array.length expressions = 1)
-                    let refinedAddress = m.Eval(expressions[0], false)
-                    let typ = x.DecodeSymbolicTypeAddress refinedAddress
+                    let address = expressions[0]
+                    let typ = x.DecodeSymbolicTypeAddress address
                     suitableKeys.Add({typ = typ}) |> ignore
                 let isSuitable = suitableKeys.Contains
                 Memory.FillStaticsRegion state typ constantValue isSuitable

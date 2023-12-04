@@ -60,3 +60,14 @@ module Thread =
 
     let WaitOneNoCheck (_ : state) (_ : term list) =
         MakeBool true
+
+    let MonitorWait (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 1)
+        let obj = List.head args
+        let nonNullCase cilState k =
+            push (MakeBool true) cilState
+            List.singleton cilState |> k
+        BranchOnNullCIL cilState obj
+            (interpreter.Raise interpreter.ArgumentNullException)
+            nonNullCase
+            id
