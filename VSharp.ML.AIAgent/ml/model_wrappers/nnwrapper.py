@@ -1,7 +1,7 @@
 import json
 
 import torch.nn
-from predict import predict_state_with_dict
+from ml.predict import predict_state_with_dict
 
 from common.game import GameState
 from ml.data_loader_compact import ServerDataloaderHeteroVector

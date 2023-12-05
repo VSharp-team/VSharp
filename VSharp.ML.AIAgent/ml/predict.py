@@ -31,7 +31,7 @@ def predict_state_with_dict(
 
     remapped = []
 
-    for index, vector in enumerate(out["state_vertex"]):
+    for index, vector in enumerate(out):
         state_vector_mapping = StateVectorMapping(
             state=reversed_state_map[index],
             vector=(vector.detach().cpu().numpy()).tolist(),
