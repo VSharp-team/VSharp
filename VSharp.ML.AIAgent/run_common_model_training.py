@@ -1,49 +1,42 @@
-import copy
-from dataclasses import dataclass, asdict
 import logging
-from multiprocessing import Pool
-import multiprocessing
-
+import multiprocessing as mp
 import os
-from pathlib import Path
-from datetime import datetime
 import random
+import typing as t
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
-import numpy as np
+import tqdm
+from torch_geometric.loader import DataLoader
 
 from config import GeneralConfig
 from connection.broker_conn.socket_manager import game_server_socket_manager
 from connection.game_server_conn.utils import MapsType, get_maps
 from epochs_statistics.tables import create_pivot_table, table_to_string
 from learning.play_game import play_game
-from ml.common_model.utils import (
-    csv2best_models,
-    get_model,
-)
-from ml.common_model.wrapper import CommonModelWrapper, BestModelsWrapper
-from ml.common_model.paths import (
-    common_models_path,
-    best_models_dict_path,
-    dataset_root_path,
-    dataset_map_results_file_name,
-    training_data_path,
-    pretrained_models_path,
-)
-import numpy as np
 from ml.common_model.dataset import FullDataset
-from torch_geometric.loader import DataLoader
-import tqdm
-import pandas as pd
+from ml.common_model.paths import (
+    BEST_MODELS_DICT_PATH,
+    COMMON_MODELS_PATH,
+    DATASET_MAP_RESULTS_FILENAME,
+    DATASET_ROOT_PATH,
+    PRETRAINED_MODEL_PATH,
+    TRAINING_DATA_PATH,
+)
+from ml.common_model.utils import csv2best_models, get_model
+from ml.common_model.wrapper import BestModelsWrapper, CommonModelWrapper
 from ml.models.TAGSageSimple.model_modified import StateModelEncoderLastLayer
-
 
 LOG_PATH = Path("./ml_app.log")
 TABLES_PATH = Path("./ml_tables.log")
-COMMON_MODELS_PATH = Path(common_models_path)
-BEST_MODELS_DICT = Path(best_models_dict_path)
-TRAINING_DATA_PATH = Path(training_data_path)
+COMMON_MODELS_PATH = Path(COMMON_MODELS_PATH)
+BEST_MODELS_DICT = Path(BEST_MODELS_DICT_PATH)
+TRAINING_DATA_PATH = Path(TRAINING_DATA_PATH)
 
 
 logging.basicConfig(
@@ -54,13 +47,13 @@ logging.basicConfig(
 )
 
 if not COMMON_MODELS_PATH.exists():
-    os.makedirs(common_models_path)
+    os.makedirs(COMMON_MODELS_PATH)
 
 if not BEST_MODELS_DICT.exists():
-    os.makedirs(best_models_dict_path)
+    os.makedirs(BEST_MODELS_DICT_PATH)
 
 if not TRAINING_DATA_PATH.exists():
-    os.makedirs(training_data_path)
+    os.makedirs(TRAINING_DATA_PATH)
 
 
 def create_file(file: Path):
@@ -104,9 +97,9 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
     run_name = f"{datetime.fromtimestamp(timestamp)}_{train_config.batch_size}_Adam_{train_config.lr}_KLDL"
 
     print(run_name)
-    path_to_saved_models = os.path.join(common_models_path, run_name)
+    path_to_saved_models = os.path.join(COMMON_MODELS_PATH, run_name)
     os.makedirs(path_to_saved_models)
-    TABLES_PATH = Path(os.path.join(training_data_path, run_name + ".log"))
+    TABLES_PATH = Path(os.path.join(TRAINING_DATA_PATH, run_name + ".log"))
     create_file(TABLES_PATH)
     create_file(LOG_PATH)
 
@@ -121,7 +114,7 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
             for i in range(GeneralConfig.SERVER_COUNT)
         ]
 
-    multiprocessing.set_start_method("spawn", force=True)
+    mp.set_start_method("spawn", force=True)
     # p = Pool(GeneralConfig.SERVER_COUNT)
 
     all_average_results = []
@@ -164,7 +157,7 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
         model.eval()
         cmwrapper.make_copy(str(epoch + 1))
 
-        with Pool(GeneralConfig.SERVER_COUNT) as p:
+        with mp.Pool(GeneralConfig.SERVER_COUNT) as p:
             result = list(p.map(play_game_task, tasks))
 
             all_results = []
@@ -194,7 +187,7 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
         )
         append_to_file(TABLES_PATH, table + "\n")
 
-        path_to_model = os.path.join(common_models_path, run_name, str(epoch + 1))
+        path_to_model = os.path.join(COMMON_MODELS_PATH, run_name, str(epoch + 1))
         torch.save(model.state_dict(), Path(path_to_model))
         del data_list
         del data_loader
@@ -203,14 +196,16 @@ def train(train_config: TrainConfig, model: torch.nn.Module, dataset: FullDatase
     return all_average_results
 
 
-def get_dataset(generate_dataset: bool):
-    dataset = FullDataset(dataset_root_path, dataset_map_results_file_name)
+def get_dataset(
+    generate_dataset: bool, ref_model_init: t.Callable[[], torch.nn.Module]
+):
+    dataset = FullDataset(DATASET_ROOT_PATH, DATASET_MAP_RESULTS_FILENAME)
 
     if generate_dataset:
-        # creating new dataset
         with game_server_socket_manager() as ws:
             all_maps = get_maps(websocket=ws, type=MapsType.TRAIN)
-        best_models_dict = csv2best_models()
+        # creating new dataset
+        best_models_dict = csv2best_models(ref_model_init=ref_model_init)
         play_game(
             with_predictor=BestModelsWrapper(best_models_dict),
             max_steps=GeneralConfig.MAX_STEPS,
@@ -228,16 +223,19 @@ def get_dataset(generate_dataset: bool):
 def main():
     print(GeneralConfig.DEVICE)
     path_to_weights = os.path.join(
-        pretrained_models_path,
+        PRETRAINED_MODEL_PATH,
         "TAGSageSimple",
         "32ch",
         "20e",
         "GNN_state_pred_het_dict",
     )
+    model_initializer = lambda: StateModelEncoderLastLayer(
+        hidden_channels=32, out_channels=8
+    )
 
     best_result = {"average_coverage": 0, "config": dict(), "epoch": 0}
     generate_dataset = False
-    dataset = get_dataset(generate_dataset)
+    dataset = get_dataset(generate_dataset, ref_model_init=model_initializer)
 
     while True:
         config = TrainConfig(
@@ -255,7 +253,7 @@ def main():
 
         model = get_model(
             Path(path_to_weights),
-            StateModelEncoderLastLayer(hidden_channels=32, out_channels=8),
+            model_initializer,
             random_seed=937,
         )
 

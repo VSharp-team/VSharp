@@ -2,21 +2,15 @@ import ast
 import csv
 import os
 import re
+import typing as t
 from pathlib import Path
 
-import torch
 import numpy as np
+import torch
 
 from config import GeneralConfig
-from ml.common_model.paths import (
-    csv_path,
-    models_path,
-    common_models_path,
-)
+from ml.common_model.paths import COMMON_MODELS_PATH, CSV_PATH, MODELS_PATH
 from ml.utils import load_model
-from ml.models.StateGNNEncoderConvEdgeAttr.model_modified import (
-    StateModelEncoderLastLayer,
-)
 
 
 def euclidean_dist(y_pred, y_true):
@@ -43,10 +37,10 @@ def get_tuple_for_max(t):
     return tuple(values_list)
 
 
-def csv2best_models():
+def csv2best_models(ref_model_init: t.Callable[[], torch.nn.Module]):
     best_models = {}
-    for epoch_num in range(1, len(os.listdir(csv_path)) + 1):
-        path_to_csv = os.path.join(csv_path, str(epoch_num) + ".csv")
+    for epoch_num in range(1, len(os.listdir(CSV_PATH)) + 1):
+        path_to_csv = os.path.join(CSV_PATH, str(epoch_num) + ".csv")
         with open(path_to_csv, "r") as csv_file:
             csv_reader = csv.reader(csv_file)
             map_names = next(csv_reader)[1:]
@@ -59,18 +53,15 @@ def csv2best_models():
                 for i in range(len(int_row)):
                     models_stat[map_names[i]] = int_row[i]
                 models.append((row[0], models_stat))
-
-        for map_name in map_names:
-            best_model = max(models, key=(lambda m: m[1][map_name]))
-            best_model_name, best_model_score = best_model[0], best_model[1]
-            path_to_model = os.path.join(
-                models_path,
-                "epoch_" + str(epoch_num),
-                best_model_name + ".pth",
-            )
-            ref_model = load_model(
-                Path(path_to_model), model=StateModelEncoderLastLayer(32, 8)
-            )
+            for map_name in map_names:
+                best_model = max(models, key=(lambda m: m[1][map_name]))
+                best_model_name, best_model_score = best_model[0], best_model[1]
+                path_to_model = os.path.join(
+                    MODELS_PATH,
+                    "epoch_" + str(epoch_num),
+                    best_model_name + ".pth",
+                )
+                ref_model = load_model(Path(path_to_model), model=ref_model_init())
 
             ref_model.to(GeneralConfig.DEVICE)
             best_models[map_name] = (
@@ -116,16 +107,14 @@ def save_best_models2csv(best_models: dict, path):
         writer.writerows(values_for_csv)
 
 
-def load_best_models_dict(path):
+def load_best_models_dict(path, model_init: t.Callable[[], torch.nn.Module]):
     best_models = csv2best_models()
     with open(path, "r") as csv_file:
         csv_reader = csv.reader(csv_file)
         for row in csv_reader:
             if row[1] != best_models[row[0]][2]:
-                path_to_model = os.path.join(common_models_path, row[1])
-                ref_model = load_model(
-                    Path(path_to_model), model=StateModelEncoderLastLayer(32, 8)
-                )
+                path_to_model = os.path.join(COMMON_MODELS_PATH, row[1])
+                ref_model = load_model(Path(path_to_model), model=model_init())
                 ref_model.load_state_dict(torch.load(path_to_model))
                 ref_model.to(GeneralConfig.DEVICE)
                 best_models[row[0]] = (ref_model, ast.literal_eval(row[2]), row[1])
@@ -141,8 +130,11 @@ def load_dataset_state_dict(path):
     return dataset_state_dict
 
 
-def get_model(path_to_weights: Path, model: torch.nn.Module, random_seed: int):
+def get_model(
+    path_to_weights: Path, model_init: t.Callable[[], torch.nn.Module], random_seed: int
+):
     np.random.seed(random_seed)
+    model = model_init()
     weights = torch.load(path_to_weights)
     weights["lin_last.weight"] = torch.tensor(np.random.random([1, 8]))
     weights["lin_last.bias"] = torch.tensor(np.random.random([1]))
