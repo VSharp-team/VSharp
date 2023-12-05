@@ -30,7 +30,12 @@ from ml.common_model.paths import (
 )
 from ml.common_model.utils import csv2best_models, get_model
 from ml.common_model.wrapper import BestModelsWrapper, CommonModelWrapper
-from ml.models.TAGSageSimple.model_modified import StateModelEncoderLastLayer
+from ml.models.RGCNEdgeTypeTAG2VerticesDouble.model_modified import (
+    StateModelEncoderLastLayer,
+)
+from ml.models.StateGNNEncoderConvEdgeAttr.model_modified import (
+    StateModelEncoderLastLayer as RefStateModelEncoderLastLayer,
+)
 import optuna
 from functools import partial
 import joblib
@@ -99,21 +104,21 @@ def train(trial: optuna.trial.Trial, dataset: FullDataset):
         loss=trial.suggest_categorical("loss", [nn.KLDivLoss]),
         random_seed=937,
     )
+    np.random.seed(config.random_seed)
     # for name, param in model.named_parameters():
     #     if "lin_last" not in name:
     #         param.requires_grad = False
 
     path_to_weights = os.path.join(
         PRETRAINED_MODEL_PATH,
-        "TAGSageSimple",
-        "32ch",
-        "20e",
+        "RGCNEdgeTypeTAG2VerticesDouble",
+        "64ch",
+        "100e",
         "GNN_state_pred_het_dict",
     )
     model = get_model(
         Path(path_to_weights),
-        StateModelEncoderLastLayer(hidden_channels=32, out_channels=8),
-        random_seed=config.random_seed,
+        lambda: StateModelEncoderLastLayer(hidden_channels=64, out_channels=8),
     )
 
     model.to(GeneralConfig.DEVICE)
@@ -206,7 +211,7 @@ def train(trial: optuna.trial.Trial, dataset: FullDataset):
         )
         all_average_results.append(average_result)
         table, _, _ = create_pivot_table(
-            {cmwrapper: all_results.sort(key=lambda x: x.map.MapName)}
+            {cmwrapper: sorted(all_results, key=lambda x: x.map.MapName)}
         )
         table = table_to_string(table)
         append_to_file(
@@ -250,12 +255,12 @@ def get_dataset(
 
 def main():
     print(GeneralConfig.DEVICE)
-    model_initializer = lambda: StateModelEncoderLastLayer(
+    ref_model_initializer = lambda: RefStateModelEncoderLastLayer(
         hidden_channels=32, out_channels=8
     )
 
     generate_dataset = False
-    dataset = get_dataset(generate_dataset, ref_model_init=model_initializer)
+    dataset = get_dataset(generate_dataset, ref_model_init=ref_model_initializer)
 
     sampler = optuna.samplers.TPESampler(n_startup_trials=10)
     study = optuna.create_study(sampler=sampler, direction="maximize")
