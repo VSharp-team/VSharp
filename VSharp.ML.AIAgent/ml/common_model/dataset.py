@@ -124,7 +124,7 @@ class FullDataset:
                 x.to("cpu")
         filtered_map_steps = self.filter_map_steps(map_steps)
         if map_name in self.maps_data.keys():
-            if self.maps_data[map_name][0] < map_result:
+            if self.maps_data[map_name][0] <= map_result:
                 logging.info(
                     f"The model with result = {self.maps_data[map_name][0]} was replaced with the model with "
                     f"result = {map_result} on the map {map_name}"
