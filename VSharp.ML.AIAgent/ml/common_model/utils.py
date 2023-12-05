@@ -78,7 +78,7 @@ def csv2best_models():
                 best_model_score[map_name],
                 best_model_name,
             )
-        return best_models
+    return best_models
 
 
 def back_prop(best_model, model, data, optimizer, criterion):
