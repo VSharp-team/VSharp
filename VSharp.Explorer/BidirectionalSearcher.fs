@@ -5,6 +5,7 @@ open FSharpx.Collections
 
 open VSharp
 open VSharp.Interpreter.IL
+open CilState
 
 type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearcher, targeted : ITargetedSearcher) =
 
@@ -44,7 +45,7 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
         override x.UpdatePobs parent child =
             backward.Update parent child
         override x.UpdateStates parent children =
-            if not <| CilStateOperations.isIsolated parent then
+            if not parent.IsIsolated then
                 forward.Update (parent, children)
                 backward.AddBranch parent |> ignore
                 Seq.iter (backward.AddBranch >> ignore) children
@@ -128,8 +129,8 @@ type BackwardSearcher() =
         ancestorOf[child].Add(parent)
         doAddPob child
 
-    let updateQBack s : pob list =
-        match IpOperations.ip2codeLocation (CilStateOperations.currentIp s) with
+    let updateQBack (s : cilState) : pob list =
+        match s.CurrentIp.ToCodeLocation() with
         | None -> []
         | Some loc ->
             let pobsList = ref null
@@ -208,13 +209,12 @@ type BackwardSearcher() =
         override x.StatesCount with get() = qBack.Count
 
 module DummyTargetedSearcher =
-    open CilStateOperations
 
     type DummyTargetedSearcher() =
-        let forPropagation = Dictionary<ip, List<cilState>>()
-        let finished = Dictionary<ip, List<cilState>>()
-        let reached = Dictionary<ip, List<cilState>>()
-        let targets = Dictionary<ip, List<ip>>()
+        let forPropagation = Dictionary<instructionPointer, List<cilState>>()
+        let finished = Dictionary<instructionPointer, List<cilState>>()
+        let reached = Dictionary<instructionPointer, List<cilState>>()
+        let targets = Dictionary<instructionPointer, List<instructionPointer>>()
 
         let addReached from s =
             let mutable l = ref null
@@ -226,9 +226,9 @@ module DummyTargetedSearcher =
         let add (s : cilState) : cilState seq =
             let from = s.startingIP
             assert(targets.ContainsKey from)
-            let current = currentIp s
+            let current = s.CurrentIp
 
-            if isIIEState s || isUnhandledExceptionOrError s || not(isExecutable(s)) then
+            if s.IsIIEState || s.IsUnhandledExceptionOrError || not s.IsExecutable then
                 finished[from].Add(s); Seq.empty
             elif targets[from].Contains(current) then addReached from s
             else
@@ -238,7 +238,7 @@ module DummyTargetedSearcher =
 
         interface ITargetedSearcher with
             override x.SetTargets from tos =
-                if not (targets.ContainsKey from) then targets.Add(from, List<ip>())
+                if not (targets.ContainsKey from) then targets.Add(from, List<instructionPointer>())
                 targets[from].AddRange(tos)
 
             override x.Update parent children =

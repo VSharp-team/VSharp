@@ -248,6 +248,7 @@ module API =
         val Union : evaluationStack -> evaluationStack -> evaluationStack
         val MakeSymbolicActiveFrame : (int -> term -> term) -> evaluationStack -> evaluationStack
         val Length : evaluationStack -> int
+        val FramesCount : evaluationStack -> int
         val ToList : evaluationStack -> term list
         val ClearActiveFrame : evaluationStack -> evaluationStack
         val EmptyStack : evaluationStack
@@ -295,8 +296,8 @@ module API =
         val WriteStackLocation : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteStructFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> term
+        val WriteClassFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> state list
         val WriteClassField : state -> term -> fieldId -> term -> state list
-        val WriteArrayIndex : state -> term -> term list -> term -> Type option -> state list
         val WriteArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> term -> Type option -> state list
         val WriteStaticField : state -> Type -> fieldId -> term -> unit
 

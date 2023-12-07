@@ -6,7 +6,7 @@ open global.System
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.CilState
 
 // ------------------------------ System.ReadOnlySpan --------------------------------
 
@@ -29,20 +29,20 @@ module internal ReadOnlySpan =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let lenField = spanFields |> Array.find (fst >> isLengthField) |> fst
-        readField cilState spanStruct lenField
+        cilState.ReadField spanStruct lenField
 
     let GetContentsRef (cilState : cilState) (spanStruct : term) =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let ptrField = spanFields |> Array.find (fst >> isContentReferenceField) |> fst
-        let ptrFieldValue = readField cilState spanStruct ptrField
+        let ptrFieldValue = cilState.ReadField spanStruct ptrField
         let ptrFieldType = ptrField.typ
         if ptrFieldIsByRef ptrFieldType then
             // Case for .NET 6, where Span contains 'System.ByReference' field
             let byRefFields = Terms.TypeOf ptrFieldValue |> Reflection.fieldsOf false
             assert(Array.length byRefFields = 1)
             let byRefField = byRefFields |> Array.find (fst >> ByReference.isValueField) |> fst
-            readField cilState ptrFieldValue byRefField
+            cilState.ReadField ptrFieldValue byRefField
         else
             // Case for .NET 7, where Span contains 'Byte&' field
             ptrFieldValue
@@ -59,11 +59,11 @@ module internal ReadOnlySpan =
         assert(List.length args = 3)
         let this, wrappedType, index = args[0], args[1], args[2]
         let t = Helpers.unwrapType wrappedType
-        let spanStruct = read cilState this
+        let spanStruct = cilState.Read this
         let len = GetLength cilState spanStruct
         let ref = GetContentsRef cilState spanStruct
-        let checkIndex cilState k =
-            let readIndex cilState k =
+        let checkIndex (cilState : cilState) k =
+            let readIndex (cilState : cilState) k =
                 let ref =
                     match ref.term with
                     | _ when IsArrayContents ref ->
@@ -81,9 +81,9 @@ module internal ReadOnlySpan =
                         let offset = Arithmetics.Add offset (Arithmetics.Mul index size)
                         Ptr pointerBase t offset
                     | _ -> internalfail $"GetItemFromReadOnlySpan: unexpected contents ref {ref}"
-                push ref cilState
+                cilState.Push ref
                 List.singleton cilState |> k
-            StatedConditionalExecutionCIL cilState
+            cilState.StatedConditionalExecutionCIL
                 (fun state k -> k (Arithmetics.Less index len, state))
                 readIndex
                 (i.Raise i.IndexOutOfRangeException)
@@ -98,7 +98,7 @@ module internal ReadOnlySpan =
         | Some address -> Ref address
         | None -> ref
 
-    let private InitSpanStruct cilState spanStruct refToFirst length =
+    let private InitSpanStruct (cilState : cilState) spanStruct refToFirst length =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let refToFirst = PrepareRefField cilState.state refToFirst
@@ -111,33 +111,33 @@ module internal ReadOnlySpan =
                 let byRefFields = Reflection.fieldsOf false ptrFieldType
                 assert(Array.length byRefFields = 1)
                 let valueField = byRefFields |> Array.find (fst >> ByReference.isValueField) |> fst
-                let initializedByRef = writeStructField cilState byRef valueField refToFirst
-                writeStructField cilState spanStruct ptrField initializedByRef
+                let initializedByRef = cilState.WriteStructField byRef valueField refToFirst
+                cilState.WriteStructField spanStruct ptrField initializedByRef
             else
                 // Case for .NET 7, where Span contains 'Byte&' field
-                writeStructField cilState spanStruct ptrField refToFirst
+                cilState.WriteStructField spanStruct ptrField refToFirst
         let lengthField = spanFields |> Array.find (fst >> isLengthField) |> fst
-        writeStructField cilState spanWithPtrField lengthField length
+        cilState.WriteStructField spanWithPtrField lengthField length
 
     let private CommonCtor (cilState : cilState) this refToFirst length =
-        let span = read cilState this
+        let span = cilState.Read this
         let initializedSpan = InitSpanStruct cilState span refToFirst length
-        write cilState this initializedSpan
+        cilState.Write this initializedSpan
 
     let CtorFromPtr (i : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
         assert(List.length args = 4)
         let this, wrappedType, ptr, size = args[0], args[1], args[2], args[3]
         let t = Helpers.unwrapType wrappedType
-        let ctor cilState k =
+        let ctor (cilState : cilState) k =
             let state = cilState.state
             let ptr =
-                if isStackArray cilState ptr then
+                if cilState.IsStackArray ptr then
                     // Ptr came from localloc instruction
                     Memory.AllocateVectorArray state size t
                 elif MostConcreteTypeOfRef state ptr = t then ptr
                 else Types.Cast ptr (t.MakePointerType())
             CommonCtor cilState this ptr size |> k
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (Arithmetics.GreaterOrEqual size (MakeNumber 0), state))
             ctor
             (i.Raise i.ArgumentOutOfRangeException)
@@ -147,7 +147,7 @@ module internal ReadOnlySpan =
         assert(List.length args = 3)
         let this, arrayRef = args[0], args[2]
         let state = cilState.state
-        let nullCase cilState k =
+        let nullCase (cilState : cilState) k =
             let t = MostConcreteTypeOfRef cilState.state arrayRef
             let ref = NullRef t
             CommonCtor cilState this ref (MakeNumber 0) |> k
@@ -155,7 +155,7 @@ module internal ReadOnlySpan =
             let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None
             let lengthOfArray = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
             CommonCtor cilState this refToFirstElement lengthOfArray |> k
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (IsNullReference arrayRef, state))
             nullCase
             nonNullCase
@@ -171,14 +171,14 @@ module internal ReadOnlySpan =
         let nullCase cilState k =
             let ref = NullRef typeof<char[]>
             let span = InitSpanStruct cilState span ref (MakeNumber 0)
-            push span cilState
+            cilState.Push span
             List.singleton cilState |> k
         let nonNullCase cilState k =
             let refToFirst = Memory.ReferenceField state string Reflection.stringFirstCharField
             let span = InitSpanStruct cilState span refToFirst length
-            push span cilState
+            cilState.Push span
             List.singleton cilState |> k
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (IsNullReference string, state))
             nullCase
             nonNullCase

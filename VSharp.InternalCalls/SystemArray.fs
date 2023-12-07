@@ -4,7 +4,7 @@ open global.System
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.CilState
 
 // ------------------------------- mscorlib.System.Array -------------------------------
 
@@ -31,7 +31,7 @@ module internal SystemArray =
 
     let ContainsChar (state : state) args =
         assert(List.length args = 3)
-        let this, char = args.[0], args.[2]
+        let this, char = args[0], args[2]
         match this.term with
         | HeapRef({term = ConcreteHeapAddress _}, _) ->
             let checkOneElement acc i =
@@ -54,15 +54,15 @@ module internal SystemArray =
 
     let GetItem (state : state) (args : term list) =
         assert(List.length args = 3)
-        let this, index = args.[0], args.[2]
+        let this, index = args[0], args[2]
         Memory.ReadArrayIndex state this [index] None
 
     let GetArrayLength (interpreter : IInterpreter) cilState args =
         assert(List.length args = 2)
         let array = args[0]
         let dim = args[1]
-        let arrayLengthByDimension arrayRef index cilState k =
-            push (Memory.ArrayLengthByDimension cilState.state arrayRef index) cilState
+        let arrayLengthByDimension arrayRef index (cilState : cilState) k =
+            cilState.Push (Memory.ArrayLengthByDimension cilState.state arrayRef index)
             k [cilState]
         interpreter.AccessArrayDimension arrayLengthByDimension cilState array dim
 
@@ -70,8 +70,8 @@ module internal SystemArray =
         assert(List.length args = 2)
         let array = args[0]
         let dim = args[1]
-        let arrayLowerBoundByDimension arrayRef index cilState k =
-            push (Memory.ArrayLowerBoundByDimension cilState.state arrayRef index) cilState
+        let arrayLowerBoundByDimension arrayRef index (cilState : cilState) k =
+            cilState.Push (Memory.ArrayLowerBoundByDimension cilState.state arrayRef index)
             k [cilState]
         interpreter.AccessArrayDimension arrayLowerBoundByDimension cilState array dim
 
@@ -85,7 +85,7 @@ module internal SystemArray =
         interpreter.NpeOrInvoke cilState array (fun cilState k ->
         interpreter.NpeOrInvoke cilState handleTerm initArray k) id
 
-    let ClearWithIndexLength (interpreter : IInterpreter) cilState args =
+    let ClearWithIndexLength (interpreter : IInterpreter) (cilState : cilState) args =
         assert(List.length args = 3)
         let array, index, length = args[0], args[1], args[2]
         let (>>) = API.Arithmetics.(>>)
@@ -101,18 +101,18 @@ module internal SystemArray =
                 (index << lb)
                 ||| ((Arithmetics.Add index length) >> numOfAllElements)
                 ||| (length << zero)
-            StatedConditionalExecutionCIL cilState
+            cilState.StatedConditionalExecutionCIL
                 (fun state k -> k (check, state))
                 (interpreter.Raise interpreter.IndexOutOfRangeException)
                 clearCase
                 k
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (IsNullReference array, state))
             (interpreter.Raise interpreter.ArgumentNullException)
             nonNullCase
             id
 
-    let ClearWhole (interpreter : IInterpreter) cilState args =
+    let ClearWhole (interpreter : IInterpreter) (cilState : cilState) args =
         assert(List.length args = 1)
         let array = args[0]
         let clearCase (cilState : cilState) k =
@@ -121,7 +121,7 @@ module internal SystemArray =
             let numOfAllElements = Memory.CountOfArrayElements cilState.state array
             Memory.ClearArray cilState.state array index numOfAllElements
             k [cilState]
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (IsNullReference array, state))
             (interpreter.Raise interpreter.ArgumentNullException)
             clearCase
@@ -151,7 +151,7 @@ module internal SystemArray =
             let check =
                 (endSrcIndex >> srcNumOfAllElements) ||| (endSrcIndex << srcLB)
                 ||| (endDstIndex >> dstNumOfAllElements) ||| (endDstIndex << dstLB)
-            StatedConditionalExecutionCIL cilState
+            cilState.StatedConditionalExecutionCIL
                 (fun state k -> k (check, state))
                 (i.Raise i.ArgumentException)
                 defaultCase
@@ -161,7 +161,7 @@ module internal SystemArray =
             let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >>= srcNumOfAllElements else False())
             let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >>= dstNumOfAllElements else False())
 
-            StatedConditionalExecutionCIL cilState
+            cilState.StatedConditionalExecutionCIL
                 (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
                 (i.Raise i.ArgumentOutOfRangeException)
                 lengthCheck
@@ -171,14 +171,14 @@ module internal SystemArray =
             let condition =
                 if Types.IsValueType srcElemType then True()
                 else Types.TypeIsType srcElemType dstElemType
-            StatedConditionalExecutionCIL cilState
+            cilState.StatedConditionalExecutionCIL
                 (fun state k -> k (condition, state))
                 indicesCheck
                 (i.Raise i.InvalidCastException)
         let rankCheck (cilState : cilState) =
             if Types.RankOf srcType = Types.RankOf dstType then assignableCheck cilState
             else i.Raise i.RankException cilState
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (IsNullReference src ||| IsNullReference dst, state))
             (i.Raise i.ArgumentNullException)
             rankCheck
@@ -194,7 +194,7 @@ module internal SystemArray =
         let src, srcIndex, dst, dstIndex, length = args[0], args[1], args[2], args[3], args[4]
         CommonCopyArray interpreter cilState src srcIndex dst dstIndex length
 
-    let CopyArrayShortForm (interpreter : IInterpreter) cilState args =
+    let CopyArrayShortForm (interpreter : IInterpreter) (cilState : cilState) args =
         assert(List.length args = 3)
         let src, dst, length = args[0], args[1], args[2]
         let state = cilState.state
@@ -203,13 +203,13 @@ module internal SystemArray =
         let dstLB = Memory.ArrayLowerBoundByDimension state dst zero
         CommonCopyArray interpreter cilState src srcLB dst dstLB length
 
-    let FillArray (interpreter : IInterpreter) cilState args =
+    let FillArray (interpreter : IInterpreter) (cilState : cilState) args =
         assert(List.length args = 3)
         let array, value = args[1], args[2]
-        let fill cilState k =
+        let fill (cilState : cilState) k =
             Memory.FillArray cilState.state array value
             k [cilState]
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (IsNullReference array, state))
             (interpreter.Raise interpreter.ArgumentNullException)
             fill

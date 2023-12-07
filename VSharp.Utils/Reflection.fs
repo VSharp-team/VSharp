@@ -520,7 +520,7 @@ module public Reflection =
     // TODO: add cache: map from wrapped field to unwrapped
 
     let wrapField (field : FieldInfo) =
-        {declaringType = field.DeclaringType; name = field.Name; typ = field.FieldType}
+        { declaringType = field.DeclaringType; name = field.Name; typ = field.FieldType }
 
     let getFieldInfo (field : fieldId) =
         let result = field.declaringType.GetField(field.name, allBindingFlags)

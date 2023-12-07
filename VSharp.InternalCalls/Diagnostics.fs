@@ -4,14 +4,14 @@ open global.System
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.CilState
 
 module internal Diagnostics =
 
-    let DebugAssert (_ : IInterpreter) cilState (args : term list) =
+    let DebugAssert (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 1)
         let condition = List.head args
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (condition, state))
             (fun cilState k -> (); k [cilState])
             (fun cilState k ->
@@ -19,12 +19,12 @@ module internal Diagnostics =
                 k [])
             id
 
-    let Fail (_ : IInterpreter) cilState (args : term list) =
+    let Fail (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 1)
         ErrorReporter.ReportFatalError cilState "System.Diagnostics.Debug.Fail called"
         [cilState]
 
-    let FailWithDetailedMessage (_ : IInterpreter) cilState (args : term list) =
+    let FailWithDetailedMessage (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 2)
         ErrorReporter.ReportFatalError cilState "System.Diagnostics.Debug.Fail called"
         [cilState]

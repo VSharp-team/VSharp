@@ -5,7 +5,7 @@ open System.Runtime.InteropServices
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.CilState
 
 module internal InteropServices =
 
@@ -50,7 +50,7 @@ module internal InteropServices =
     let private isHandleField fieldId =
         fieldId.name = "_handle"
 
-    let private gcHandleType = typeof<System.Runtime.InteropServices.GCHandle>
+    let private gcHandleType = typeof<GCHandle>
 
     let private gcHandleField =
         lazy(
@@ -82,11 +82,11 @@ module internal InteropServices =
         let obj = args[0]
         CommonAlloc obj
 
-    let GCHandleInternalGet (_ : IInterpreter) cilState args =
+    let GCHandleInternalGet (_ : IInterpreter) (cilState : cilState) args =
         assert(List.length args = 1)
         let ptr = args[0]
-        let obj = read cilState ptr
-        push obj cilState
+        let obj = cilState.Read ptr
+        cilState.Push obj
         List.singleton cilState
 
     let GCHandleFree (_ : state) (args : term list) =

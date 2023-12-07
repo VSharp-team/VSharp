@@ -3,7 +3,7 @@ namespace VSharp.System
 open global.System
 open VSharp.Core
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.CilState
 
 // ------------------------------ mscorlib.System.Threading.Thread --------------------------------
 
@@ -32,9 +32,9 @@ module Thread =
     let MonitorReliableEnter (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 2)
         let obj, resultRef = args[0], args[1]
-        let success cilState k =
-            write cilState resultRef (True()) |> k
-        BranchOnNullCIL cilState obj
+        let success (cilState : cilState) k =
+            cilState.Write resultRef (True()) |> k
+        cilState.BranchOnNullCIL obj
             (interpreter.Raise interpreter.ArgumentNullException)
             success
             id
@@ -42,7 +42,7 @@ module Thread =
     let MonitorEnter (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 1)
         let obj = List.head args
-        BranchOnNullCIL cilState obj
+        cilState.BranchOnNullCIL obj
             (interpreter.Raise interpreter.ArgumentNullException)
             (fun cilState k -> List.singleton cilState |> k)
             id
@@ -64,10 +64,10 @@ module Thread =
     let MonitorWait (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 1)
         let obj = List.head args
-        let nonNullCase cilState k =
-            push (MakeBool true) cilState
+        let nonNullCase (cilState : cilState) k =
+            cilState.Push (MakeBool true)
             List.singleton cilState |> k
-        BranchOnNullCIL cilState obj
+        cilState.BranchOnNullCIL obj
             (interpreter.Raise interpreter.ArgumentNullException)
             nonNullCase
             id

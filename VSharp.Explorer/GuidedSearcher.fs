@@ -4,6 +4,7 @@ open System.Collections.Generic
 
 open VSharp
 open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilState
 open VSharp.Utils
 open CilStateOperations
 
@@ -13,12 +14,12 @@ type TargetedSearcher(target) =
     override x.Insert state =
         let wasInserted = base.Insert state
         if not wasInserted then
-            removeTarget state target |> ignore
+            state.RemoveTarget target |> ignore
         wasInserted
 
     override x.Update (parent, newStates) =
-        let needsUpdating state =
-            let currLoc = tryCurrentLoc state
+        let needsUpdating (state : cilState) =
+            let currLoc = state.TryCurrentLoc
             match currLoc with
             | Some loc ->
                 let cfg = loc.method.CFG
@@ -36,7 +37,7 @@ type TargetedSearcher(target) =
         for state in Seq.cons parent newStates do
             match x.TryGetWeight state with
             | None ->
-                removeTarget state target |> ignore
+                state.RemoveTarget target |> ignore
             | _ -> ()
 
         wasAnyUpdated
@@ -53,16 +54,16 @@ type ITargetManager =
 type RecursionBasedTargetManager(statistics : SVMStatistics, threshold : uint) =
     interface ITargetManager with
         override x.IsStuck state =
-            match tryCurrentLoc state with
+            match state.TryCurrentLoc with
             | Some currLoc ->
                 let cfg = currLoc.method.CFG
                 let onVertex = cfg.IsBasicBlockStart currLoc.offset
-                let level = if PersistentDict.contains currLoc state.level then state.level.[currLoc] else 0u
+                let level = state.LevelOfLocation currLoc
                 onVertex && level > threshold
             | _ -> false
 
         override x.CalculateTarget state =
-            let locStack = state.ipStack |> Seq.choose IpOperations.ip2codeLocation
+            let locStack = state.ipStack |> Seq.choose (fun ip -> ip.ToCodeLocation())
             let inCoverageZone loc = loc.method.InCoverageZone
             Cps.Seq.foldlk (fun reachingLoc loc k ->
             match reachingLoc with
@@ -86,23 +87,23 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
         let targetedSearcher = getTargetedSearcher target
         targetedSearcher.Insert state
 
-    let addReturnTarget state =
-        let startingLoc = startingLoc state
+    let addReturnTarget (state : cilState) =
+        let startingLoc = state.StartingLoc
         let startingMethod = startingLoc.method
         let cfg = startingMethod.CFG
 
         for retOffset in cfg.Sinks do
             let target = {offset = retOffset.StartOffset; method = startingMethod}
-            if addTarget state target then
+            if state.AddTarget target then
                 insertInTargetedSearcher state target |> ignore
 
     let deleteTargetedSearcher target =
         let targetedSearcher = getTargetedSearcher target
         for state in targetedSearcher.ToSeq() do
-            removeTarget state target |> ignore
+            state.RemoveTarget target |> ignore
         targetedSearchers.Remove target |> ignore
 
-    let updateTargetedSearchers parent (newStates : cilState seq) =
+    let updateTargetedSearchers (parent : cilState) (newStates : cilState seq) =
         let cilStatesByTarget = Dictionary<codeLocation, List<cilState>>()
 
         for target in parent.targets do
@@ -170,12 +171,12 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
             if Set.isEmpty state.targets && targetManager.IsStuck state then
                 match targetManager.CalculateTarget state with
                 | Some target ->
-                    addTarget state target |> ignore
+                    state.AddTarget target |> ignore
                     if not <| insertInTargetedSearcher state target then
-                        state.targets <- Set.empty
+                        state.ClearTargets()
                         remove state
                 | None ->
-                    state.targets <- Set.empty
+                    state.ClearTargets()
                     remove state
 
         let targetsWithEmptySearchers = targetedSearchers |> Seq.filter (fun (KeyValue(_, s)) -> s.Count = 0u) |> Seq.toList

@@ -478,6 +478,10 @@ module Loader =
             // ResourceManager
             "System.Void System.Resources.ResourceManager..ctor(this, System.Type)"
 
+            // ProfileOptimization
+            "System.Void System.Runtime.ProfileOptimization.SetProfileRoot(System.String)"
+            "System.Void System.Runtime.ProfileOptimization.StartProfile(System.String)"
+
             // Unsafe
             // "T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)"
             // "T System.Runtime.CompilerServices.Unsafe.As(System.Object)"

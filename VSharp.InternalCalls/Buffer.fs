@@ -4,23 +4,23 @@ open global.System
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.CilState
 
 // ------------------------------ System.Buffer --------------------------------
 
 module internal Buffer =
 
-    let private getAddress cilState ref =
+    let private getAddress (cilState : cilState) ref =
         let state = cilState.state
         let cases = Memory.TryAddressFromRefFork state ref
         assert(List.length cases >= 1)
         let createArrayRef (address, state) =
-            let cilState = changeState cilState state
+            let cilState = cilState.ChangeState state
             match address with
             | Some address -> Some address, cilState
             | _ ->
                 let iie = createInsufficientInformation "Memmove: unknown pointer"
-                cilState.iie <- Some iie
+                cilState.SetIIE iie
                 None, cilState
         List.map createArrayRef cases
 
@@ -50,10 +50,10 @@ module internal Buffer =
         else
             let state = cilState.state
             let bytesCount = Types.Cast bytesCount typeof<int>
-            let checkDst (info, cilState) =
+            let checkDst (info, cilState : cilState) =
                 match info with
                 | Some (dstAddress : address) ->
-                    let checkSrc (info, cilState) =
+                    let checkSrc (info, cilState : cilState) =
                         match info with
                         | Some (srcAddress : address) ->
                             let dstType = lazy dstAddress.TypeOfLocation
@@ -70,20 +70,20 @@ module internal Buffer =
                             let srcSafe = lazy(MakeNumber srcSize.Value = bytesCount)
                             match dstAddress, srcAddress with
                             | _ when allSafe() ->
-                                let value = read cilState (Ref srcAddress)
-                                let cilStates = write cilState (Ref dstAddress) value
+                                let value = cilState.Read (Ref srcAddress)
+                                let cilStates = cilState.Write (Ref dstAddress) value
                                 assert(List.length cilStates = 1)
                                 List.head cilStates
                             | _ when dstSafe.Value ->
                                 let ptr = Types.Cast (Ref srcAddress) (dstType.Value.MakePointerType())
-                                let value = read cilState ptr
-                                let cilStates = write cilState (Ref dstAddress) value
+                                let value = cilState.Read ptr
+                                let cilStates = cilState.Write (Ref dstAddress) value
                                 assert(List.length cilStates = 1)
                                 List.head cilStates
                             | _ when srcSafe.Value ->
-                                let value = read cilState (Ref srcAddress)
+                                let value = cilState.Read (Ref srcAddress)
                                 let ptr = Types.Cast (Ref dstAddress) (srcType.Value.MakePointerType())
-                                let cilStates = write cilState ptr value
+                                let cilStates = cilState.Write ptr value
                                 assert(List.length cilStates = 1)
                                 List.head cilStates
                             | ArrayIndex(dstAddress, dstIndices, dstArrayType), ArrayIndex(srcAddress, srcIndices, srcArrayType) ->
@@ -120,7 +120,7 @@ module internal Buffer =
             i.NpeOrInvoke cilState dst memMove k
         let checkSrc cilState k =
             i.NpeOrInvoke cilState src checkDst k
-        StatedConditionalExecutionCIL cilState
+        cilState.StatedConditionalExecutionCIL
             (fun state k -> k (Arithmetics.LessOrEqual bytesCount dstBytesCount, state))
             checkSrc
             (i.Raise i.ArgumentOutOfRangeException)

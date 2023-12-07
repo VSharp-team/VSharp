@@ -242,7 +242,7 @@ namespace VSharp
                 unitTests.UnitTestsCount,
                 unitTests.ErrorsCount,
                 statistics.StepsCount,
-                statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct(),
+                statistics.IncompleteStates.Select(s => s.iie.Value.Message).Distinct(),
                 generatedTestInfos);
             unitTests.WriteReport(statistics.PrintStatistics);
 

@@ -139,7 +139,7 @@ type MethodWithBody internal (m : MethodBase) =
     member x.ReflectedType = m.ReflectedType
     member x.Parameters = parameters
     member x.HasParameterOnStack =
-        x.DeclaringType.IsValueType && not x.IsStatic
+        x.ReflectedType.IsValueType && not x.IsStatic
         || x.Parameters |> Array.exists (fun p -> p.ParameterType.IsByRef)
     member x.LocalVariables = localVariables
     member x.HasThis = hasThis
@@ -246,6 +246,7 @@ type MethodWithBody internal (m : MethodBase) =
         override x.Parameters = parameters
         override x.LocalVariables = localVariables
         override x.HasThis = hasThis
+        override x.HasParameterOnStack = x.HasParameterOnStack
         override x.IsConstructor = isConstructor
         override x.IsExternalMethod with get() = x.IsExternalMethod
         override x.ContainsGenericParameters with get() = x.ContainsGenericParameters

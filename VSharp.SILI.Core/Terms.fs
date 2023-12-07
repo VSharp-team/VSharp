@@ -17,6 +17,7 @@ type IMethod =
     abstract Parameters : Reflection.ParameterInfo[]
     abstract LocalVariables : IList<Reflection.LocalVariableInfo>
     abstract HasThis : bool
+    abstract HasParameterOnStack : bool
     abstract IsConstructor : bool
     abstract IsExternalMethod : bool
     abstract ContainsGenericParameters : bool
