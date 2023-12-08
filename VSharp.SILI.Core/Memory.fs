@@ -164,8 +164,8 @@ module internal Memory =
             if t = t' then typ else t'.MakeByRefType()
         | _ -> __unreachable__()
 
-    let private substituteTypeVariablesIntoArrayType state ((et, i, b) : arrayType) : arrayType =
-        (substituteTypeVariables state et, i, b)
+    let private substituteTypeVariablesIntoArrayType state ({elemType = et} as arrayType) : arrayType =
+        { arrayType with elemType = substituteTypeVariables state et }
 
     let typeVariableSubst state (t : Type) = commonTypeVariableSubst state t t
 
@@ -192,7 +192,7 @@ module internal Memory =
         if isAssignable locationType sightType then locationType
         else
             if isAssignable sightType locationType |> not then
-                Logger.trace "mostConcreteTypeOfHeapRef: Sight type (%O) of address %O differs from type in heap (%O)" sightType address locationType
+                Logger.trace $"mostConcreteTypeOfHeapRef: Sight type ({sightType}) of address {address} differs from type in heap ({locationType})"
             sightType
 
     let mostConcreteTypeOfRef state ref =
@@ -201,7 +201,7 @@ module internal Memory =
             | HeapRef(address, sightType) -> mostConcreteTypeOfHeapRef state address sightType
             | Ref address -> address.TypeOfLocation
             | Ptr(_, t, _) -> t
-            | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
+            | _ -> internalfail $"reading type token: expected heap reference, but got {ref}"
         commonTypeOf getType ref
 
     let baseTypeOfAddress state address =
@@ -694,7 +694,7 @@ module internal Memory =
     let private readLowerBoundSymbolic (state : state) address dimension arrayType =
         let extractor (state : state) = accessRegion state.lowerBounds (substituteTypeVariablesIntoArrayType state arrayType) lengthType
         let mkName (key : heapVectorIndexKey) = $"LowerBound({key.address}, {key.index})"
-        let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || thd3 arrayType
+        let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || arrayType.isVector
         let key = {address = address; index = dimension}
         let inst typ memoryRegion =
             let sort = ArrayLowerBoundSort arrayType
@@ -753,7 +753,7 @@ module internal Memory =
     let private readArrayKeySymbolic state key arrayType =
         let extractor state =
             let arrayType = substituteTypeVariablesIntoArrayType state arrayType
-            accessRegion state.arrays arrayType (fst3 arrayType)
+            accessRegion state.arrays arrayType arrayType.elemType
         readArrayRegion state arrayType extractor (extractor state) false key
 
     let private readArrayIndexSymbolic state address indices arrayType =
@@ -783,7 +783,7 @@ module internal Memory =
         let address = ConcreteHeapAddress concreteAddress
         let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
         let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
-        let region = arrayRegionFromData state concreteAddress arrayData (fst3 arrayType)
+        let region = arrayRegionFromData state concreteAddress arrayData arrayType.elemType
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         readArrayRegion state arrayType (always region) region true key
 
@@ -797,7 +797,7 @@ module internal Memory =
 
     let private readSymbolicIndexFromConcreteArray state concreteAddress arrayData indices arrayType =
         let address = ConcreteHeapAddress concreteAddress
-        let region = arrayRegionFromData state concreteAddress arrayData (fst3 arrayType)
+        let region = arrayRegionFromData state concreteAddress arrayData arrayType.elemType
         let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
         readArrayRegion state arrayType (always region) region true key
@@ -807,7 +807,7 @@ module internal Memory =
         let concreteIndices = tryIntListFromTermList indices
         match address.term, concreteIndices with
         | ConcreteHeapAddress address, Some concreteIndices when cm.Contains address ->
-            cm.ReadArrayIndex address concreteIndices |> objToTerm state (fst3 arrayType)
+            cm.ReadArrayIndex address concreteIndices |> objToTerm state arrayType.elemType
         | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
             let data = cm.GetAllArrayData concreteAddress
             readSymbolicIndexFromConcreteArray state concreteAddress data indices arrayType
@@ -820,21 +820,21 @@ module internal Memory =
         if isOpenType typ then __insufficientInformation__ $"Cannot write value of generic type {typ}"
 
     let private writeLowerBoundSymbolic (state : state) address dimension arrayType value =
-        ensureConcreteType (fst3 arrayType)
+        ensureConcreteType arrayType.elemType
         let mr = accessRegion state.lowerBounds arrayType lengthType
         let key = {address = address; index = dimension}
         let mr' = MemoryRegion.write mr key value
         state.lowerBounds <- PersistentDict.add arrayType mr' state.lowerBounds
 
     let writeLengthSymbolic (state : state) address dimension arrayType value =
-        ensureConcreteType (fst3 arrayType)
+        ensureConcreteType arrayType.elemType
         let mr = accessRegion state.lengths arrayType lengthType
         let key = {address = address; index = dimension}
         let mr' = MemoryRegion.write mr key value
         state.lengths <- PersistentDict.add arrayType mr' state.lengths
 
     let private writeArrayKeySymbolic state key arrayType value =
-        let elementType = fst3 arrayType
+        let elementType = arrayType.elemType
         ensureConcreteType elementType
         let mr = accessRegion state.arrays arrayType elementType
         let mr' = MemoryRegion.write mr key value
@@ -872,7 +872,7 @@ module internal Memory =
         MemoryRegion.read region key (isDefault state) instantiate
 
     let stringArrayInfo state stringAddress length =
-        let arrayType = typeof<char>, 1, true
+        let arrayType = arrayType.CharVector
         if PersistentSet.contains stringAddress state.initializedAddresses then
             stringAddress, arrayType
         else
@@ -1119,13 +1119,13 @@ module internal Memory =
         let readField fieldId = readClassField state address fieldId
         readFieldsUnsafe reporter readField false classType offset endByte sightType
 
-    and arrayIndicesToOffset state address (elementType, dim, _ as arrayType) indices =
+    and arrayIndicesToOffset state address ({elemType = elementType; dimension = dim} as arrayType) indices =
         let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
         let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
         let linearIndex = linearizeArrayIndex lens lbs indices
         mul linearIndex (internalSizeOf elementType |> makeNumber)
 
-    and private getAffectedIndices reporter state address (elementType, dim, _ as arrayType) offset viewSize =
+    and private getAffectedIndices reporter state address ({elemType = elementType; dimension = dim} as arrayType) offset viewSize =
         let concreteElementSize = internalSizeOf elementType
         let elementSize = makeNumber concreteElementSize
         let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
@@ -1259,7 +1259,7 @@ module internal Memory =
                     let index = div offset elemSize
                     let address, arrayType =
                         if typ = typeof<string> then stringArrayInfo state address None
-                        else address, (sightType, 1, true)
+                        else address, arrayType.CreateVector sightType
                     ArrayIndex(address, [index], arrayType) |> Some
                 else None
             elif isValueType typ && suitableType typ && offset = zero then
@@ -1368,14 +1368,14 @@ module internal Memory =
 
     let private arrayMemsetData state concreteAddress data arrayType =
         let arrayType = substituteTypeVariablesIntoArrayType state arrayType
-        let elemType = fst3 arrayType
+        let elemType = arrayType.elemType
         ensureConcreteType elemType
         let region = accessRegion state.arrays arrayType elemType
         let region' = arrayRegionMemsetData state concreteAddress data elemType region
         state.arrays <- PersistentDict.add arrayType region' state.arrays
 
     let initializeArray state address indicesAndValues arrayType =
-        let elementType = fst3 arrayType
+        let elementType = arrayType.elemType
         ensureConcreteType elementType
         let mr = accessRegion state.arrays arrayType elementType
         let keysAndValues = Seq.map (fun (i, v) -> OneArrayIndexKey(address, i), v) indicesAndValues
@@ -1394,7 +1394,7 @@ module internal Memory =
 
     let private fillArrayBoundsSymbolic state address lengths lowerBounds arrayType =
         let d = List.length lengths
-        assert(d = snd3 arrayType)
+        assert(d = arrayType.dimension)
         assert(List.length lowerBounds = d)
         let writeLengths state l i = writeLengthSymbolic state address (Concrete i lengthType) arrayType l
         let writeLowerBounds state l i = writeLowerBoundSymbolic state address (Concrete i lengthType) arrayType l
@@ -1439,7 +1439,8 @@ module internal Memory =
 
     let private unmarshallArray (state : state) concreteAddress (array : Array) =
         let address = ConcreteHeapAddress concreteAddress
-        let _, dim, _ as arrayType = array.GetType() |> symbolicTypeToArrayType
+        let arrayType = array.GetType() |> symbolicTypeToArrayType
+        let dim = arrayType.dimension
         let lbs = List.init dim array.GetLowerBound
         let lens = List.init dim array.GetLength
         let indicesWithValues = Array.getArrayIndicesWithValues array
@@ -1711,7 +1712,7 @@ module internal Memory =
             ConcreteHeapAddress concreteAddress
         | _ ->
             let address = allocateVector state elementType length
-            let arrayType : arrayType = (elementType, 1, true)
+            let arrayType = arrayType.CreateVector elementType
             let mr = accessRegion state.arrays arrayType elementType
             let keysAndValues = Seq.mapi (fun i v -> OneArrayIndexKey(address, [makeNumber i]), Concrete v elementType) contents
             let mr' = MemoryRegion.memset mr keysAndValues

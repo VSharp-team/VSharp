@@ -27,7 +27,7 @@ module internal Buffer =
     let private Copy dstAddr dstIndex dstIndices dstArrayType srcAddr srcIndex srcIndices srcArrayType state bytesCount =
         if Memory.IsSafeContextCopy srcArrayType dstArrayType |> not then
             internalfail $"Buffer.Copy: unsafe memory copy is not implemented, src type {srcArrayType}, dst type {dstArrayType}"
-        let size = TypeUtils.internalSizeOf (fst3 srcArrayType)
+        let size = TypeUtils.internalSizeOf srcArrayType.elemType
         let elemCount = Arithmetics.Div bytesCount (MakeNumber size)
         let dstType = Types.ArrayTypeToSymbolicType dstArrayType
         let srcType = Types.ArrayTypeToSymbolicType srcArrayType

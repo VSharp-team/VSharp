@@ -380,22 +380,22 @@ module API =
             match arrayRef.term with
             | HeapRef(addr, typ) ->
                 let t = Memory.mostConcreteTypeOfHeapRef state addr typ
-                let addr, (elemType, dim, _ as arrayType) =
+                let addr, arrayType =
                     if TypeUtils.isArrayType t then
                         addr, symbolicTypeToArrayType t
                     else StringArrayInfo state addr None
-                assert(dim = List.length indices)
+                assert(arrayType.dimension = List.length indices)
                 match valueType with
-                | Some valueType when not (Memory.isSafeContextWrite elemType valueType) ->
+                | Some valueType when not (Memory.isSafeContextWrite arrayType.elemType valueType) ->
                     Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
-            | Ref(ArrayIndex(address, innerIndices, (elemType, _, _ as arrayType)) as ref) ->
+            | Ref(ArrayIndex(address, innerIndices, arrayType) as ref) ->
                 assert(List.length indices = List.length innerIndices)
                 match valueType with
                 | None ->
                     let indices = List.map2 add indices innerIndices
                     ArrayIndex(address, indices, arrayType) |> Ref
-                | Some typ when Memory.isSafeContextWrite elemType typ ->
+                | Some typ when Memory.isSafeContextWrite arrayType.elemType typ ->
                     let indices = List.map2 add indices innerIndices
                     ArrayIndex(address, indices, arrayType) |> Ref
                 | Some typ ->
@@ -407,7 +407,8 @@ module API =
                     Ptr pointerBase typ offset
             | Ptr(HeapLocation(address, t) as baseAddress, _, offset) ->
                 assert(TypeUtils.isArrayType t)
-                let elemType, _, _ as arrayType = symbolicTypeToArrayType t
+                let arrayType = symbolicTypeToArrayType t
+                let elemType = arrayType.elemType
                 let sightType, indexOffset =
                     match valueType with
                     | None ->
@@ -422,7 +423,7 @@ module API =
             | Union gvs ->
                 let referenceArrayIndex term = ReferenceArrayIndex state term indices valueType
                 Merging.guardedMap referenceArrayIndex gvs
-            | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
+            | _ -> internalfail $"Referencing array index: expected reference, but got {arrayRef}"
 
         let ReferenceField state reference fieldId =
             Memory.referenceField state reference fieldId
@@ -439,8 +440,8 @@ module API =
             | HeapRef(address, typ) ->
                 let t = MostConcreteTypeOfRef state ref
                 if TypeUtils.isArrayType t then
-                    let _, dim, _ as arrayType = Types.SymbolicTypeToArrayType t
-                    let indices = List.init dim (fun _ -> zero)
+                    let arrayType = Types.SymbolicTypeToArrayType t
+                    let indices = List.init arrayType.dimension (fun _ -> zero)
                     ArrayIndex(address, indices, arrayType) |> Some |> singleton
                 elif t = typeof<string> then
                     let address, arrayType = StringArrayInfo state address None
@@ -486,7 +487,7 @@ module API =
                 | Ref _ -> ReferenceField state target field |> Memory.read reporter state
                 | Struct _ -> Memory.readStruct reporter state target field
                 | Combined _ -> Memory.readFieldUnsafe reporter state target field
-                | _ -> internalfailf "Reading field of %O" term
+                | _ -> internalfail $"Reading field of {term}"
             Merging.guardedApply doRead term
 
         let ReadField state term field =
@@ -518,7 +519,7 @@ module API =
             | Union gvs ->
                 let readStringChar term = ReadStringChar state term index
                 Merging.guardedMap readStringChar gvs
-            | _ -> internalfailf "Reading string char: expected reference, but got %O" reference
+            | _ -> internalfail $"Reading string char: expected reference, but got {reference}"
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
 
@@ -564,7 +565,9 @@ module API =
             let ref = ReferenceArrayIndex state reference indices valueType
             let value =
                 if isPtr ref then Option.fold (fun _ -> Types.Cast value) value valueType
-                else MostConcreteTypeOfRef state reference |> symbolicTypeToArrayType |> fst3 |> Types.Cast value
+                else
+                    let arrayType = MostConcreteTypeOfRef state reference |> symbolicTypeToArrayType
+                    Types.Cast value arrayType.elemType
             WriteUnsafe reporter state ref value
 
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
@@ -668,7 +671,8 @@ module API =
 
         let AllocateConcreteObject state (obj : obj) typ = Memory.allocateConcreteObject state obj typ
 
-        let LinearizeArrayIndex state address indices (_, dim, _ as arrayType) =
+        let LinearizeArrayIndex state address indices arrayType =
+            let dim = arrayType.dimension
             let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
             let lbs = List.init dim (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType)
             Memory.linearizeArrayIndex lens lbs indices
@@ -682,7 +686,7 @@ module API =
                 let srcType = symbolicTypeToArrayType srcType
                 let dstType = symbolicTypeToArrayType dstType
                 Copying.copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length
-            | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
+            | _ -> internalfail $"Coping arrays: expected heapRefs, but got {src}, {dst}"
 
         let CopyStringArray state src srcIndex dst dstIndex length =
             match src.term, dst.term with
@@ -691,29 +695,29 @@ module API =
                 assert(Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType = typeof<string>)
                 let srcAddress, srcType = Memory.stringArrayInfo state srcAddress None
                 let dstAddress, dstType = Memory.stringArrayInfo state dstAddress None
-                assert(srcType = (typeof<char>, 1, true) && dstType = (typeof<char>, 1, true))
+                assert(srcType = arrayType.CharVector && dstType = arrayType.CharVector)
                 Copying.copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length
-            | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
+            | _ -> internalfail $"Coping arrays: expected heapRefs, but got {src}, {dst}"
 
         let ClearArray state array index length =
             match array.term with
             | HeapRef(address, sightType) ->
                 let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
-                let elemType = fst3 arrayType
+                let elemType = arrayType.elemType
                 let value = makeDefaultValue elemType
                 Copying.fillArray state address arrayType index length value
-            | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
+            | _ -> internalfail $"Clearing array: expected heapRef, but got {array}"
 
         let FillArray state array value =
             match array.term with
             | HeapRef(address, sightType) ->
                 let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
                 // Asserting that array is vector (T[])
-                assert(thd3 arrayType)
+                assert arrayType.isVector
                 let zero = makeNumber 0
                 let length = Memory.readLength state address zero arrayType
                 Copying.fillArray state address arrayType zero length value
-            | _ -> internalfailf "Filling array: expected heapRef, but got %O" array
+            | _ -> internalfail $"Filling array: expected heapRef, but got {array}"
 
         let StringFromReplicatedChar state string char length =
             let cm = state.concreteMemory
@@ -739,7 +743,7 @@ module API =
             | HeapRef(address, sightType), _, _ ->
                 assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
                 symbolicCase address
-            | _ -> internalfailf "Creating string from replicated char: expected heapRef, but got %O" string
+            | _ -> internalfail $"Creating string from replicated char: expected heapRef, but got {string}"
 
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
         let Dump state = Memory.dump state
@@ -751,30 +755,31 @@ module API =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> TypeUtils.rankOf |> makeNumber
             | Union gvs -> Merging.guardedMap (ArrayRank state) gvs
-            | _ -> internalfailf "Getting rank of array: expected ref, but got %O" arrayRef
+            | _ -> internalfail $"Getting rank of array: expected ref, but got {arrayRef}"
+
         let rec ArrayLengthByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLength state addr index
             | Union gvs ->
                 let arrayLengthByDimension term = ArrayLengthByDimension state term index
                 Merging.guardedMap arrayLengthByDimension gvs
-            | _ -> internalfailf "reading array length: expected heap reference, but got %O" arrayRef
+            | _ -> internalfail $"reading array length: expected heap reference, but got {arrayRef}"
         let rec ArrayLowerBoundByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLowerBound state addr index
             | Union gvs ->
                 let arrayLowerBoundByDimension term = ArrayLowerBoundByDimension state term index
                 Merging.guardedMap arrayLowerBoundByDimension gvs
-            | _ -> internalfailf "reading array lower bound: expected heap reference, but got %O" arrayRef
+            | _ -> internalfail $"reading array lower bound: expected heap reference, but got {arrayRef}"
 
         let rec CountOfArrayElements state arrayRef =
             match arrayRef.term with
             | HeapRef(address, typ) ->
-                let _, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state address typ |> symbolicTypeToArrayType
-                let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
+                let arrayType = Memory.mostConcreteTypeOfHeapRef state address typ |> symbolicTypeToArrayType
+                let lens = List.init arrayType.dimension (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
                 List.fold mul (makeNumber 1) lens
             | Union gvs -> Merging.guardedMap (CountOfArrayElements state) gvs
-            | _ -> internalfailf "counting array elements: expected heap reference, but got %O" arrayRef
+            | _ -> internalfail $"counting array elements: expected heap reference, but got {arrayRef}"
 
         let StringLength state strRef = Memory.lengthOfString state strRef
 
@@ -788,8 +793,8 @@ module API =
                         assert(let t = Memory.mostConcreteTypeOfHeapRef state arrayAddr typ in t = typeof<char[]> || t = typeof<string>)
                         Copying.copyCharArrayToString state arrayAddr dstAddr (makeNumber 0) length
                         k (Nop(), state)
-                    | Ref(ArrayIndex(arrayAddr, indices, (elemType, dim, isVector))) ->
-                        assert(isVector && dim = 1 && elemType = typeof<char> && List.length indices = 1)
+                    | Ref(ArrayIndex(arrayAddr, indices, arrayType)) ->
+                        assert(arrayType.IsCharVector && List.length indices = 1)
                         let index = indices[0]
                         Copying.copyCharArrayToString state arrayAddr dstAddr index length
                         k (Nop(), state)
@@ -823,10 +828,10 @@ module API =
             let fill region = MemoryRegion.fillRegion value isSuitableKey region
             state.staticFields <- PersistentDict.update state.staticFields field defaultValue fill
 
-        let FillArrayRegion state typ value isSuitableKey =
-            let defaultValue = fst3 typ |> MemoryRegion.empty
+        let FillArrayRegion state arrayType value isSuitableKey =
+            let defaultValue = MemoryRegion.empty arrayType.elemType
             let fill region = MemoryRegion.fillRegion value isSuitableKey region
-            state.arrays <- PersistentDict.update state.arrays typ defaultValue fill
+            state.arrays <- PersistentDict.update state.arrays arrayType defaultValue fill
 
         let FillLengthRegion state typ value isSuitableKey =
             let defaultValue = MemoryRegion.empty TypeUtils.lengthType

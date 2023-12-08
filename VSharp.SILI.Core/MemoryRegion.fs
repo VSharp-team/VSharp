@@ -28,7 +28,7 @@ type regionSort =
         match x with
         | HeapFieldSort field
         | StaticFieldSort field -> field.typ
-        | ArrayIndexSort(elementType, _, _) -> elementType
+        | ArrayIndexSort arrayType -> arrayType.elemType
         | ArrayLengthSort _
         | ArrayLowerBoundSort _ -> typeof<int32>
         | StackBufferSort _ -> typeof<int8>
@@ -38,15 +38,15 @@ type regionSort =
         match x with
         | HeapFieldSort field -> $"HeapField {field.FullName}"
         | StaticFieldSort field -> $"StaticField {field.FullName}"
-        | ArrayIndexSort(elementType, dim, isVector) ->
+        | ArrayIndexSort {elemType = elementType; dimension = dim; isVector = isVector} ->
             if isVector then
                 $"VectorIndex to {elementType}[{dim}]"
             else $"ArrayIndex to {elementType}[{dim}]"
-        | ArrayLengthSort(elementType, dim, isVector) ->
+        | ArrayLengthSort {elemType = elementType; dimension = dim; isVector = isVector} ->
             if isVector then
                 $"VectorLength to {elementType}[{dim}]"
             else $"ArrayLength to {elementType}[{dim}]"
-        | ArrayLowerBoundSort(elementType, dim, isVector) ->
+        | ArrayLowerBoundSort {elemType = elementType; dimension = dim; isVector = isVector} ->
             if isVector then
                 $"VectorLowerBound to {elementType}[{dim}]"
             else $"ArrayLowerBound to {elementType}[{dim}]"
@@ -113,7 +113,7 @@ module private MemoryKeyUtils =
 
     let rec keysInListProductRegion keys (region : int points listProductRegion) =
         match region, keys with
-        | NilRegion, Seq.Empty -> (True())
+        | NilRegion, Seq.Empty -> True()
         | ConsRegion products, Seq.Cons(curr, rest) ->
             let keyInPoints = keyInIntPoints curr
             let keyInProduct = keysInListProductRegion rest
@@ -429,11 +429,11 @@ type symbolicTypeKey =
             reg.Map (fun t -> {t = mapper t.t}), {typ = mapper x.typ}
         override x.IsUnion = false
         override x.Unguard = [(True(), x)]
-        override x.InRegionCondition region =
+        override x.InRegionCondition _ =
             // TODO implement some time if need
             True()
 
-        override x.MatchCondition key keyIndexingRegion =
+        override x.MatchCondition key _ =
             Concrete (x.typ = key.typ) typeof<bool>
 
     override x.ToString() = x.typ.ToString()
