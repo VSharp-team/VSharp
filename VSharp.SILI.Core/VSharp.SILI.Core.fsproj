@@ -31,8 +31,9 @@
         <Compile Include="EvaluationStack.fs" />
         <Compile Include="CallStack.fs" />
         <Compile Include="TypeSolverUtils.fs" />
-        <Compile Include="State.fs" />
+        <Compile Include="ConcreteMemory.fsi" />
         <Compile Include="ConcreteMemory.fs" />
+        <Compile Include="State.fs" />
         <Compile Include="Memory.fs" />
         <Compile Include="MethodMock.fs" />
         <Compile Include="ArrayInitialization.fs" />

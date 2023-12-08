@@ -575,7 +575,6 @@ module API =
         let DefaultOf typ = makeDefaultValue typ
 
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
-        let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
 
         let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack

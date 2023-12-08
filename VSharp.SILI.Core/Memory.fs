@@ -2111,7 +2111,7 @@ module internal Memory =
             | None -> PersistentDict.add k' v' acc
         PersistentDict.fold fillAndMutate dict dict'
 
-    let private composeConcreteMemory mapKey (cm : IConcreteMemory) (cm' : IConcreteMemory) =
+    let private composeConcreteMemory mapKey (cm : ConcreteMemory) (cm' : ConcreteMemory) =
         // TODO: implement concrete memory composition
         ()
 

@@ -11,28 +11,6 @@ type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
-type IConcreteMemory =
-    abstract Copy : unit -> IConcreteMemory
-    abstract Contains : concreteHeapAddress -> bool
-    abstract VirtToPhys : concreteHeapAddress -> obj
-    abstract TryVirtToPhys : concreteHeapAddress -> obj option
-    abstract PhysToVirt : obj -> concreteHeapAddress
-    abstract TryPhysToVirt : obj -> concreteHeapAddress option
-    abstract Allocate : concreteHeapAddress -> obj -> unit
-    abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
-    abstract ReadArrayIndex : concreteHeapAddress -> int list -> obj
-    abstract GetAllArrayData : concreteHeapAddress -> seq<int list * obj>
-    abstract ReadArrayLowerBound : concreteHeapAddress -> int -> obj
-    abstract ReadArrayLength : concreteHeapAddress -> int -> obj
-    abstract WriteClassField : concreteHeapAddress -> fieldId -> obj -> unit
-    abstract WriteArrayIndex : concreteHeapAddress -> int list -> obj -> unit
-    abstract InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
-    abstract FillArray : concreteHeapAddress -> int -> int -> obj -> unit
-    abstract CopyArray : concreteHeapAddress -> concreteHeapAddress -> int64 -> int64 -> int64 -> unit
-    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> int -> unit
-    abstract CopyCharArrayToStringLen : concreteHeapAddress -> concreteHeapAddress -> int -> int -> unit
-    abstract Remove : concreteHeapAddress -> unit
-
 // TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =
     | Unhandled of term * bool * string // Exception term * is runtime exception * stack trace
@@ -195,7 +173,7 @@ and
         mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
         mutable boxedLocations : pdict<Type, heapRegion>                   // Value types boxed in heap
         mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
-        concreteMemory : IConcreteMemory                                   // Fully concrete objects
+        concreteMemory : ConcreteMemory                                    // Fully concrete objects
         mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
         mutable initializedAddresses : pset<term>                          // Addresses, which invariants were initialized
         mutable typeVariables : typeVariables                              // Type variables assignment in the current state
