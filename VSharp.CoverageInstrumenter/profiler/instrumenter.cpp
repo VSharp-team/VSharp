@@ -2,6 +2,7 @@
 #include "logging.h"
 #include "cComPtr.h"
 #include "os.h"
+#include "profilerState.h"
 #include <vector>
 
 
@@ -19,53 +20,6 @@ using namespace vsharp;
 #define ELEMENT_TYPE_TOKEN ELEMENT_TYPE_U4
 #define ELEMENT_TYPE_OFFSET ELEMENT_TYPE_I4
 #define ELEMENT_TYPE_SIZE ELEMENT_TYPE_U
-
-WCHAR* vsharp::mainAssemblyName = nullptr;
-int vsharp::mainAssemblyNameLength = 0;
-WCHAR* vsharp::mainModuleName = nullptr;
-int vsharp::mainModuleNameLength = 0;
-mdMethodDef vsharp::mainToken = 0;
-bool vsharp::rewriteMainOnly = false;
-
-extern "C" void SetEntryMain(char* assemblyName, int assemblyNameLength, char* moduleName, int moduleNameLength, int methodToken) {
-    mainAssemblyNameLength = assemblyNameLength;
-    mainAssemblyName = new WCHAR[assemblyNameLength];
-    memcpy(mainAssemblyName, assemblyName, assemblyNameLength * sizeof(WCHAR));
-
-    mainModuleNameLength = moduleNameLength;
-    mainModuleName = new WCHAR[moduleNameLength];
-    memcpy(mainModuleName, moduleName, moduleNameLength * sizeof(WCHAR));
-
-    mainToken = methodToken;
-
-    LOG(tout << "received entry main" << std::endl);
-}
-
-extern "C" void GetHistory(UINT_PTR size, UINT_PTR bytes) {
-    LOG(tout << "GetHistory request received! serializing and writing the response");
-
-    std::atomic_fetch_add(&shutdownBlockingRequestsCount, 1);
-    size_t tmpSize;
-    auto tmpBytes = coverageTracker->serializeCoverageReport(&tmpSize);
-    *(ULONG*)size = tmpSize;
-    *(char**)bytes = tmpBytes;
-
-    coverageTracker->clear();
-    threadTracker->clear();
-    std::atomic_fetch_sub(&shutdownBlockingRequestsCount, 1);
-    LOG(tout << "GetHistory request handled!");
-}
-
-extern "C" void SetCurrentThreadId(int mapId) {
-    LOG(tout << "Map current thread to: " << mapId);
-    threadTracker->mapCurrentThread(mapId);
-}
-
-extern "C" void SetStackBottom() {
-    LOG(tout << "Bottom marker was set");
-    int stackBottomMarker;
-    stackBottom = (size_t) &stackBottomMarker;
-}
 
 std::set<std::pair<FunctionID, ModuleID>> vsharp::instrumentedMethods;
 
@@ -101,17 +55,23 @@ Instrumenter::~Instrumenter()
     delete[] m_signatureTokens;
 }
 
-
-bool Instrumenter::currentMethodIsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) const {
+bool vsharp::IsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) {
     // NOTE: decrementing 'moduleSize', because of null terminator
-    if (mainModuleName == nullptr)
+    if (profilerState->mainMethodInfo.moduleName == nullptr)
         return false;
-    if (mainModuleNameLength != moduleSize - 1 || mainToken != method)
+    if (profilerState->mainMethodInfo.moduleNameLength != moduleSize - 1 || profilerState->mainMethodInfo.token != method)
         return false;
-    for (int i = 0; i < mainModuleNameLength; i++)
-        if (mainModuleName[i] != moduleName[i]) return false;
+    for (int i = 0; i < profilerState->mainMethodInfo.moduleNameLength; i++)
+        if (profilerState->mainMethodInfo.moduleName[i] != moduleName[i]) return false;
+
     return true;
 }
+
+bool vsharp::InstrumentationIsNeeded(const WCHAR *moduleName, int moduleSize, mdMethodDef method) {
+    return IsMain(moduleName, moduleSize, method) || !profilerState->collectMainOnly;
+}
+
+
 
 HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength) {
     HRESULT hr;
@@ -129,7 +89,14 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, c
         memcpy(m_signatureTokens, (char *)&tokens[0], m_signatureTokensLength);
     }
 
-    RewriteIL(&m_profilerInfo, nullptr, m_moduleId, m_jittedToken, methodId, currentMethodIsMain(moduleName, moduleNameLength, m_jittedToken), rewriteMainOnly);
+    RewriteIL(
+            &m_profilerInfo,
+            nullptr,
+            m_moduleId,
+            m_jittedToken,
+            methodId,
+            IsMain(moduleName, moduleNameLength, m_jittedToken)
+    );
 
     return S_OK;
 }
@@ -155,12 +122,12 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
 
     // skipping non-main methods
-    if (rewriteMainOnly && !currentMethodIsMain(moduleName, moduleNameLength, m_jittedToken)) {
+    if (!InstrumentationIsNeeded(moduleName, moduleNameLength, m_jittedToken)) {
         return S_OK;
     }
 
-    if (rewriteMainOnly) {
-        vsharp::setMainFunctionId(functionId);
+    if (profilerState->collectMainOnly) {
+        profilerState->mainFunctionId = functionId;
     }
 
     // checking if this method was rewritten before
@@ -170,7 +137,7 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     }
 
     mutex.lock();
-    size_t currentMethodId = coverageTracker->collectMethod({
+    size_t currentMethodId = profilerState->coverageTracker->collectMethod({
             m_jittedToken,
             assemblyNameLength,
             assemblyName,

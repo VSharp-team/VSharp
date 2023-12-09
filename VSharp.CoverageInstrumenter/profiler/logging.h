@@ -29,11 +29,7 @@ static inline void close_log() {}
 #endif
 
 #define LOG(CODE) LOG_CODE(logMutex.lock(); tout << "[" << std::this_thread::get_id() << "] "; CODE ; tout << "\n"; tout.flush(); logMutex.unlock();)
-//#define LOG(CODE) LOG_CODE(tout << "---------------- " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE ; tout << "------------------------------------------------\n"; tout.flush();)
-//#define SLOG(CODE) LOG_CODE(CODE ; tout.flush();)
-//#define CLOG(COND, CODE) LOG_CODE(if (COND) { tout << "---------------- " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE ; tout << "------------------------------------------------\n"; tout.flush(); })
-#define CLOG(COND, CODE) LOG_CODE(if (COND) { CODE ; tout << "\n"; tout.flush(); })
 #define LOG_ERROR(CODE) LOG_CODE(tout << "-------- [LOG_ERROR] " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE ; tout << "------------------------------------------------\n"; tout.flush();)
-#define FAIL_LOUD(x) {LOG_ERROR(tout << (x)); throw std::logic_error(x);}
+
 
 #endif // LOGGING_H_

@@ -110,12 +110,14 @@ public:
 };
 
 HRESULT RewriteIL(
-    ICorProfilerInfo * pICorProfilerInfo,
-    ICorProfilerFunctionControl * pICorProfilerFunctionControl,
+    ICorProfilerInfo* pICorProfilerInfo,
+    ICorProfilerFunctionControl* pICorProfilerFunctionControl,
     ModuleID moduleID,
     mdMethodDef methodDef,
     int methodId,
-    bool isMain,
-    bool rewriteMainOnly);
+    bool isMain);
+
+bool NeedFullInstrumentation(const WCHAR *moduleName, int moduleSize, mdMethodDef method);
+
 
 #endif // ILREWRITER_H_
