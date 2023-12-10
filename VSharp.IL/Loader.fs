@@ -344,6 +344,7 @@ module Loader =
             "System.DateTime System.DateTime.get_Now()"
             "System.DateTime System.DateTime.get_UtcNow()"
             "System.DateTime System.Diagnostics.Process.get_StartTime(this)"
+            "System.String System.DateTime.ToString(this, System.String)"
 
             // FileSystem
             "System.String System.IO.FileSystemInfo.get_LinkTarget(this)"
