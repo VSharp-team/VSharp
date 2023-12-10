@@ -192,8 +192,13 @@ module internal Memory =
         if isAssignable locationType sightType then locationType
         else
             if isAssignable sightType locationType |> not then
-                Logger.trace $"mostConcreteTypeOfHeapRef: Sight type ({sightType}) of address {address} differs from type in heap ({locationType})"
-            sightType
+                if locationType = typeof<string> && sightType = typeof<char[]> || locationType = typeof<char[]> && sightType = typeof<string> then
+                    typeof<string>
+                else
+                    Logger.trace $"mostConcreteTypeOfHeapRef: Sight type ({sightType}) of address {address} differs from type in heap ({locationType})"
+                    sightType
+            else
+                sightType
 
     let mostConcreteTypeOfRef state ref =
         let getType ref =
