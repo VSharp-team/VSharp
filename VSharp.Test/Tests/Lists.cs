@@ -558,7 +558,7 @@ namespace IntegrationTests
             return 3;
         }
 
-        [Ignore("fix creating SMT-solver model")]
+        [TestSvm(100)]
         public static int TestSolvingCopy10(string[] a, int i, string[] b)
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)

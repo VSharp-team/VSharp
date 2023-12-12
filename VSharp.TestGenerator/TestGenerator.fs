@@ -121,6 +121,7 @@ module TestGenerator =
                 addMockToMemoryGraph indices encodeMock (Some evalField) test addr mock
 
     let private encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
+        assert(TypeUtils.isArrayType typ)
         if state.concreteMemory.Contains cha then
             // TODO: Use compact representation for big arrays
             let contents =
@@ -138,25 +139,38 @@ module TestGenerator =
                         List.head i < lengths[0])
                 else
                     List.toSeq >> Seq.zip3 lowerBounds lengths >> Seq.forall (fun (lb, l, i) -> i >= lb && i < lb + l)
+            let isModelArray = VectorTime.less cha VectorTime.zero
             let arrays =
-                if VectorTime.less cha VectorTime.zero then
+                if isModelArray then
                     match model with
                     | StateModel modelState -> modelState.arrays
                     | _ -> __unreachable__()
-                else
-                    state.arrays
+                else state.arrays
+            let elemType = arrayType.elemType
+            let checkElem value =
+                match value.term, model with
+                | HeapRef({term = ConcreteHeapAddress address}, _), StateModel modelState ->
+                    match PersistentDict.tryFind modelState.allocatedTypes address with
+                    | Some(ConcreteType typ) -> Memory.IsSafeContextWrite typ elemType
+                    | _ -> true
+                | _ -> internalfail $"checkElem: unexpected element {value}"
+            let isSuitableElem =
+                if isModelArray && not elemType.IsValueType then checkElem
+                else fun _ -> true
             let defaultValue, indices, values =
                 match PersistentDict.tryFind arrays arrayType with
                 | Some region ->
                     let defaultValue =
                         match region.defaultValue with
-                        | Some(defaultValue, _) -> encode defaultValue
+                        | Some defaultValue -> encode defaultValue
                         | None -> null
                     let updates = region.updates
                     let indicesWithValues = SortedDictionary<int list, obj>()
                     let addOneKey _ (k : updateTreeKey<heapArrayKey, term>) () =
                         let value = k.value
                         match k.key with
+                        // Filtering wrong store from SMT-model
+                        | _ when isSuitableElem value |> not -> ()
                         | OneArrayIndexKey(address, keyIndices) ->
                             let heapAddress = model.Eval address
                             match heapAddress with

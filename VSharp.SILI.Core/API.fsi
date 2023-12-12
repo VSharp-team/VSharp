@@ -333,6 +333,7 @@ module API =
         val LinearizeArrayIndex : state -> term -> term list -> arrayType -> term
 
         val IsSafeContextCopy : arrayType -> arrayType -> bool
+        val IsSafeContextWrite : Type -> Type -> bool
 
         val CopyArray : state -> term -> term -> Type -> term -> term -> Type -> term -> unit
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
@@ -365,13 +366,13 @@ module API =
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
-        val FillClassFieldsRegion : state -> fieldId -> term -> (IHeapAddressKey -> bool) -> unit
-        val FillStaticsRegion : state -> fieldId -> term -> (ISymbolicTypeKey -> bool) -> unit
-        val FillArrayRegion : state -> arrayType -> term -> (IHeapArrayKey -> bool) -> unit
-        val FillLengthRegion : state -> arrayType -> term -> (IHeapVectorIndexKey -> bool) -> unit
-        val FillLowerBoundRegion : state -> arrayType -> term -> (IHeapVectorIndexKey -> bool) -> unit
-        val FillStackBufferRegion : state -> stackKey -> term -> (IStackBufferIndexKey -> bool) -> unit
-        val FillBoxedRegion : state -> Type -> term -> (IHeapAddressKey -> bool) -> unit
+        val FillClassFieldsRegion : state -> fieldId -> term -> unit
+        val FillStaticsRegion : state -> fieldId -> term -> unit
+        val FillArrayRegion : state -> arrayType -> term -> unit
+        val FillLengthRegion : state -> arrayType -> term -> unit
+        val FillLowerBoundRegion : state -> arrayType -> term -> unit
+        val FillStackBufferRegion : state -> stackKey -> term -> unit
+        val FillBoxedRegion : state -> Type -> term -> unit
 
         val ObjectToTerm : state -> obj -> Type -> term
         val TryTermToObject : state -> term -> obj option

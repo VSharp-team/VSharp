@@ -372,9 +372,6 @@ module API =
 
         let StringArrayInfo state stringAddress length = Memory.stringArrayInfo state stringAddress length
 
-        let IsSafeContextWrite actualType neededType =
-            Memory.isSafeContextWrite actualType neededType
-
         let rec ReferenceArrayIndex state arrayRef indices (valueType : Type option) =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
             match arrayRef.term with
@@ -679,6 +676,9 @@ module API =
         let IsSafeContextCopy (srcArrayType : arrayType) (dstArrayType : arrayType) =
             Copying.isSafeContextCopy srcArrayType dstArrayType
 
+        let IsSafeContextWrite actualType neededType =
+            Memory.isSafeContextWrite actualType neededType
+
         let CopyArray state src srcIndex srcType dst dstIndex dstType length =
             match src.term, dst.term with
             | HeapRef(srcAddress, _), HeapRef(dstAddress, _) ->
@@ -817,39 +817,39 @@ module API =
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
 
-        let FillClassFieldsRegion state (field : fieldId) value isSuitableKey =
+        let FillClassFieldsRegion state (field : fieldId) value =
             let defaultValue = MemoryRegion.empty field.typ
-            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            let fill region = MemoryRegion.fillRegion value region
             state.classFields <- PersistentDict.update state.classFields field defaultValue fill
 
-        let FillStaticsRegion state (field : fieldId) value isSuitableKey =
+        let FillStaticsRegion state (field : fieldId) value =
             let defaultValue = MemoryRegion.empty field.typ
-            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            let fill region = MemoryRegion.fillRegion value region
             state.staticFields <- PersistentDict.update state.staticFields field defaultValue fill
 
-        let FillArrayRegion state arrayType value isSuitableKey =
+        let FillArrayRegion state arrayType value =
             let defaultValue = MemoryRegion.empty arrayType.elemType
-            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            let fill region = MemoryRegion.fillRegion value region
             state.arrays <- PersistentDict.update state.arrays arrayType defaultValue fill
 
-        let FillLengthRegion state typ value isSuitableKey =
+        let FillLengthRegion state typ value =
             let defaultValue = MemoryRegion.empty TypeUtils.lengthType
-            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            let fill region = MemoryRegion.fillRegion value region
             state.lengths <- PersistentDict.update state.lengths typ defaultValue fill
 
-        let FillLowerBoundRegion state typ value isSuitableKey =
+        let FillLowerBoundRegion state typ value =
             let defaultValue = MemoryRegion.empty TypeUtils.lengthType
-            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            let fill region = MemoryRegion.fillRegion value region
             state.lowerBounds <- PersistentDict.update state.lowerBounds typ defaultValue fill
 
-        let FillStackBufferRegion state key value isSuitableKey =
+        let FillStackBufferRegion state key value =
             let defaultValue = MemoryRegion.empty typeof<int8>
-            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            let fill region = MemoryRegion.fillRegion value region
             state.stackBuffers <- PersistentDict.update state.stackBuffers key defaultValue fill
 
-        let FillBoxedRegion state typ value isSuitableKey =
+        let FillBoxedRegion state typ value =
             let defaultValue = MemoryRegion.empty typ
-            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            let fill region = MemoryRegion.fillRegion value region
             state.boxedLocations <- PersistentDict.update state.boxedLocations typ defaultValue fill
 
         let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
