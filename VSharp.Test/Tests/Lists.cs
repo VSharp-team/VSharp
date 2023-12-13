@@ -558,7 +558,7 @@ namespace IntegrationTests
             return 3;
         }
 
-        [Ignore("fix creating SMT-solver model")]
+        [TestSvm(100)]
         public static int TestSolvingCopy10(string[] a, int i, string[] b)
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)
@@ -813,6 +813,48 @@ namespace IntegrationTests
             }
 
             return -12;
+        }
+
+        [Ignore("fix concrete memory (check fully concreteness) and concrete invoke (by ref parameters)")]
+        public static int ConcreteDictionaryTest(int v)
+        {
+            var d = new Dictionary<int, int>();
+            d.Add(1, v);
+            if (d.TryGetValue(1, out var value))
+            {
+                if (value != v)
+                {
+                    return -1;
+                }
+
+                return value;
+            }
+
+            return 0;
+        }
+
+        [Ignore("fix composition with concrete memory")]
+        public static int ConcreteDictionaryTest1(int a, int b)
+        {
+            var d = new Dictionary<int, List<int>>();
+            d.Add(1, new List<int> {2, 3});
+            d.Add(4, new List<int> {5, 6});
+            if (d.TryGetValue(a, out var res))
+            {
+                if (res.Contains(b))
+                    return 1;
+                return 0;
+            }
+            return 2;
+        }
+
+        [TestSvm(100)]
+        public static int ListContains(int a, int b)
+        {
+            var l = new List<int> {2, 3, b, 5};
+            if (l.Contains(a))
+                return 1;
+            return 0;
         }
 
         [Ignore("Support rendering recursive arrays")]

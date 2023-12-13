@@ -435,7 +435,7 @@ and
             | _ -> false
         override x.GetHashCode() = (x.offset, x.method).GetHashCode()
         override x.ToString() =
-            sprintf "[method = %s\noffset = %s]" x.method.FullName ((int x.offset).ToString("X"))
+            $"[method = {x.method.FullName}\noffset = {int x.offset : X}]"
         interface IComparable with
             override x.CompareTo y =
                 match y with

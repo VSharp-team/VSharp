@@ -31,15 +31,18 @@ module internal EvaluationStack =
         match evaluationStack.contents with
         | l :: ls -> {contents = (List.mapi f l) :: ls}
         | [] -> __corruptedStack__()
+
     let clearActiveFrame evaluationStack =
         match evaluationStack.contents with
         | _ :: ls -> {contents = [] :: ls}
         | _ -> __corruptedStack__()
+
     let newStackFrame evaluationStack = {contents = [] :: evaluationStack.contents}
+
     let popStackFrame evaluationStack =
         match evaluationStack.contents with
         | [] :: ls -> {contents = ls}
-        | [_] :: [] -> evaluationStack // res case
+        | [ [_] ] -> evaluationStack // res case
         | [res] :: l :: ls -> {contents = (res :: l) :: ls} // call case
         | _ -> __corruptedStack__()
 
@@ -59,6 +62,8 @@ module internal EvaluationStack =
         item' i evaluationStack.contents
 
     let length evaluationStack = List.fold (fun acc l -> List.length l + acc) 0 evaluationStack.contents
+
+    let framesCount evaluationStack = List.length evaluationStack.contents
 
     let popMany n evaluationStack =
         match evaluationStack.contents with

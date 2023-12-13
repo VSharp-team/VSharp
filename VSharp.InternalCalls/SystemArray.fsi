@@ -4,6 +4,7 @@ open global.System
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilState
 
 // ------------------------------- mscorlib.System.Array -------------------------------
 

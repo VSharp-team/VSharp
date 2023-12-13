@@ -7,7 +7,7 @@ open VSharp.Core
 module internal Copying =
 
     let private copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
-        let dstElemType = fst3 dstType
+        let dstElemType = dstType.elemType
         let offsets = List.init length id
         let copyOneElem offset =
             let srcIndex = add srcIndex (makeNumber offset)
@@ -25,7 +25,7 @@ module internal Copying =
         List.iter writeCopied toWrite
 
     let private copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
-        let dstElemType = fst3 dstType
+        let dstElemType = dstType.elemType
         let srcFromIndices = delinearizeArrayIndex srcIndex srcLens srcLBs
         let lenMinOne = sub length (makeNumber 1)
         let srcToIndices = delinearizeArrayIndex (add srcIndex lenMinOne) srcLens srcLBs
@@ -35,8 +35,9 @@ module internal Copying =
         let dstToIndices = delinearizeArrayIndex (add dstIndex lenMinOne) dstLens dstLBs
         writeArrayRange state dstAddress dstFromIndices dstToIndices dstType casted
 
-    let private copyArrayCommon state srcAddress srcIndex (_, srcDim, _ as srcType) dstAddress dstIndex dstType length =
-        let dstDim = snd3 dstType
+    let private copyArrayCommon state srcAddress srcIndex srcType dstAddress dstIndex dstType length =
+        let srcDim = srcType.dimension
+        let dstDim = dstType.dimension
         let srcLBs = List.init srcDim (fun dim -> readLowerBound state srcAddress (makeNumber dim) srcType)
         let srcLens = List.init srcDim (fun dim -> readLength state srcAddress (makeNumber dim) srcType)
         let dstLBs = List.init dstDim (fun dim -> readLowerBound state dstAddress (makeNumber dim) dstType)
@@ -49,9 +50,7 @@ module internal Copying =
             copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
 
     let isSafeContextCopy srcArrayType dstArrayType =
-        let srcElemType = fst3 srcArrayType
-        let dstElemType = fst3 dstArrayType
-        isSafeContextWrite srcElemType dstElemType
+        isSafeContextWrite srcArrayType.elemType dstArrayType.elemType
 
     let copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length =
         assert(isSafeContextCopy srcType dstType)
@@ -103,7 +102,7 @@ module internal Copying =
         | _, _, None ->
             if cm.Contains stringConcreteAddress then
                 cm.Remove stringConcreteAddress
-            let arrayType = (typeof<char>, 1, true)
+            let arrayType = arrayType.CharVector
             let length = readLength state arrayAddress (makeNumber 0) arrayType
             copyCharArrayToStringSymbolic state arrayAddress stringConcreteAddress startIndex length
 
@@ -121,8 +120,9 @@ module internal Copying =
         let upperBounds = delinearizeArrayIndex lastIndex lens lbs
         writeArrayRange state arrayAddress lowerBounds upperBounds arrayType castedValue
 
-    let private fillArrayCommon state arrayAddress (elemType, dim, _ as arrayType) index length value =
-        let castedValue = TypeCasting.cast value elemType
+    let private fillArrayCommon state arrayAddress arrayType index length value =
+        let dim = arrayType.dimension
+        let castedValue = TypeCasting.cast value arrayType.elemType
         let lbs = List.init dim (fun dim -> readLowerBound state arrayAddress (makeNumber dim) arrayType)
         let lens = List.init dim (fun dim -> readLength state arrayAddress (makeNumber dim) arrayType)
         match length.term with
@@ -131,11 +131,11 @@ module internal Copying =
             fillArrayConcrete state arrayAddress arrayType index length lbs lens castedValue
         | _ -> fillArraySymbolic state arrayAddress arrayType index length lbs lens castedValue
 
-    let fillArray state arrayAddress (elemType, _, _ as arrayType) index length value =
+    let fillArray state arrayAddress arrayType index length value =
         let cm = state.concreteMemory
         let concreteIndex = tryTermToObj state index
         let concreteLength = tryTermToObj state length
-        let castedValue = TypeCasting.cast value elemType
+        let castedValue = TypeCasting.cast value arrayType.elemType
         let concreteValue = tryTermToObj state castedValue
         match arrayAddress.term, concreteIndex, concreteLength, concreteValue with
         | ConcreteHeapAddress address, Some i, Some l, Some v when cm.Contains address ->

@@ -3,7 +3,7 @@ namespace VSharp.Explorer
 open System.Collections.Generic
 open Microsoft.FSharp.Core
 open VSharp
-open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilState
 open System.Linq
 
 /// <summary>

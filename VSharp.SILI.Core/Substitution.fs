@@ -7,14 +7,19 @@ module Substitution =
     let rec substituteAddress termSubst typeSubst = function
         | PrimitiveStackLocation _ as sl -> sl
         | ClassField(addr, field) -> ClassField(termSubst addr, field)
-        | ArrayIndex(addr, index, (elementType, dim, isVector)) ->
-            ArrayIndex(termSubst addr, List.map termSubst index, (typeSubst elementType, dim, isVector))
+        | ArrayIndex(addr, index, ({elemType = elementType} as arrayType)) ->
+            let arrayType = { arrayType with elemType = typeSubst elementType }
+            ArrayIndex(termSubst addr, List.map termSubst index, arrayType)
         | StructField(addr, field) -> StructField(substituteAddress termSubst typeSubst addr, field)
         | StaticField(typ, field) -> StaticField(typeSubst typ, field)
-        | ArrayLength(addr, dim, (typ, d, isVector)) -> ArrayLength(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))
+        | ArrayLength(addr, dim, ({elemType = elementType} as arrayType)) ->
+            let arrayType = { arrayType with elemType = typeSubst elementType }
+            ArrayLength(termSubst addr, termSubst dim, arrayType)
         | BoxedLocation(addr, typ) -> BoxedLocation(termSubst addr, typeSubst typ)
         | StackBufferIndex(key, index)  -> StackBufferIndex(key, termSubst index)
-        | ArrayLowerBound(addr, dim, (typ, d, isVector)) -> ArrayLowerBound(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))
+        | ArrayLowerBound(addr, dim, ({elemType = elementType} as arrayType)) ->
+            let arrayType = { arrayType with elemType = typeSubst elementType }
+            ArrayLowerBound(termSubst addr, termSubst dim, arrayType)
 
     let substitutePointerBase termSubst typeSubst = function
         | HeapLocation(loc, typ) -> HeapLocation(termSubst loc, typeSubst typ)

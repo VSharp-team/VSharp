@@ -72,14 +72,14 @@ module TestGenerator =
                     let arrayType, (lengths : int array), (lowerBounds : int array) =
                         match dim with
                         | Vector ->
-                            let arrayType = (elemType, 1, true)
+                            let arrayType = arrayType.CreateVector elemType
                             let len = ArrayLength(cha, MakeNumber 0, arrayType) |> eval |> unbox
                             arrayType, [| len |], null
                         | ConcreteDimension rank ->
-                            let arrayType = (elemType, rank, false)
-                            arrayType,
-                            Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval |> unbox),
-                            Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval |> unbox)
+                            let arrayType = { elemType = elemType; dimension = rank; isVector = false }
+                            let lens = Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval |> unbox)
+                            let lbs = Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval |> unbox)
+                            arrayType, lens, lbs
                         | SymbolicDimension -> __notImplemented__()
                     let length = Array.reduce (*) lengths
                     // TODO: normalize model (for example, try to minimize lengths of generated arrays)
@@ -101,7 +101,7 @@ module TestGenerator =
                         if length <= 0 then String.Empty
                         else
                             let readChar i =
-                                ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true)) |> eval |> unbox
+                                ArrayIndex(cha, [MakeNumber i], arrayType.CharVector) |> eval |> unbox
                             let contents : char array = Array.init length readChar
                             String(contents)
                     memoryGraph.AddString index string
@@ -121,6 +121,7 @@ module TestGenerator =
                 addMockToMemoryGraph indices encodeMock (Some evalField) test addr mock
 
     let private encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
+        assert(TypeUtils.isArrayType typ)
         if state.concreteMemory.Contains cha then
             // TODO: Use compact representation for big arrays
             let contents =
@@ -138,25 +139,38 @@ module TestGenerator =
                         List.head i < lengths[0])
                 else
                     List.toSeq >> Seq.zip3 lowerBounds lengths >> Seq.forall (fun (lb, l, i) -> i >= lb && i < lb + l)
+            let isModelArray = VectorTime.less cha VectorTime.zero
             let arrays =
-                if VectorTime.less cha VectorTime.zero then
+                if isModelArray then
                     match model with
                     | StateModel modelState -> modelState.arrays
                     | _ -> __unreachable__()
-                else
-                    state.arrays
+                else state.arrays
+            let elemType = arrayType.elemType
+            let checkElem value =
+                match value.term, model with
+                | HeapRef({term = ConcreteHeapAddress address}, _), StateModel modelState ->
+                    match PersistentDict.tryFind modelState.allocatedTypes address with
+                    | Some(ConcreteType typ) -> Memory.IsSafeContextWrite typ elemType
+                    | _ -> true
+                | _ -> internalfail $"checkElem: unexpected element {value}"
+            let isSuitableElem =
+                if isModelArray && not elemType.IsValueType then checkElem
+                else fun _ -> true
             let defaultValue, indices, values =
                 match PersistentDict.tryFind arrays arrayType with
                 | Some region ->
                     let defaultValue =
                         match region.defaultValue with
-                        | Some(defaultValue, _) -> encode defaultValue
+                        | Some defaultValue -> encode defaultValue
                         | None -> null
                     let updates = region.updates
                     let indicesWithValues = SortedDictionary<int list, obj>()
                     let addOneKey _ (k : updateTreeKey<heapArrayKey, term>) () =
                         let value = k.value
                         match k.key with
+                        // Filtering wrong store from SMT-model
+                        | _ when isSuitableElem value |> not -> ()
                         | OneArrayIndexKey(address, keyIndices) ->
                             let heapAddress = model.Eval address
                             match heapAddress with
@@ -233,7 +247,7 @@ module TestGenerator =
         | CombinedTerm(terms, t) ->
             let slices = List.map model.Eval terms
             ReinterpretConcretes slices t
-        | term -> internalfailf "term2obj: creating object from term: unexpected term %O" term
+        | term -> internalfail $"term2obj: creating object from term: unexpected term {term}"
 
     and private address2obj (model : model) state indices mockCache implementations (test : UnitTest) (address : concreteHeapAddress) : obj =
         let term2obj = term2obj model state indices mockCache implementations test

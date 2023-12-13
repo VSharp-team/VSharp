@@ -36,7 +36,7 @@ module internal Pointers =
             // TODO: use specific 'getFieldOffset'
             StaticLocation symbolicType, getFieldOffset field
         // NOTE: only vector case
-        | ArrayIndex(heapAddress, [index], (elementType, _, true as arrayType)) ->
+        | ArrayIndex(heapAddress, [index], ({elemType = elementType; isVector = true} as arrayType)) ->
             let sizeOfElement = internalSizeOf elementType |> makeNumber
             let typ = arrayTypeToSymbolicType arrayType
             HeapLocation(heapAddress, typ), mul index sizeOfElement

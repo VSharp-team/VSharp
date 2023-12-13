@@ -4,8 +4,7 @@ open System
 
 open VSharp
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
-open VSharp.Interpreter.IL.IpOperations
+open VSharp.Interpreter.IL.CilState
 
 type ShortestDistanceWeighter(target : codeLocation) =
     let infinity = UInt32.MaxValue
@@ -38,9 +37,9 @@ type ShortestDistanceWeighter(target : codeLocation) =
          |> Seq.min
 
     let calculateCallWeight (state : cilState) =
-        let suitable ip =
-            match offsetOf ip with
-            | Some offset -> Some (forceMethodOf ip, offset)
+        let suitable (ip : instructionPointer) =
+            match ip.Offset with
+            | Some offset -> Some (ip.ForceMethod(), offset)
             | None -> None
         let calculateWeight frameNumber (method, offset) =
             // TODO: do not execute this for frames with frameNumber > current minimum
@@ -90,7 +89,7 @@ type ShortestDistanceWeighter(target : codeLocation) =
     interface IWeighter with
         override x.Weight(state) =
             option {
-                match tryCurrentLoc state with
+                match state.TryCurrentLoc with
                 | Some currLoc ->
                     let! callWeight = calculateCallWeight state
                     let! weight =
@@ -115,8 +114,8 @@ type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SVMStatisti
 
     interface IWeighter with
         override x.Weight(state) =
-            let calculateWeight ip =
-                match ip2codeLocation ip, ip with
+            let calculateWeight (ip : instructionPointer) =
+                match ip.ToCodeLocation(), ip with
                 | Some loc, _ when loc.method.InCoverageZone -> minDistance loc.method loc.offset |> Some
                 | Some _, _-> None
                 | None, SearchingForHandler(_, _, toObserve, _) ->

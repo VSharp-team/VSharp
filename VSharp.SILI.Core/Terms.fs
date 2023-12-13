@@ -17,6 +17,7 @@ type IMethod =
     abstract Parameters : Reflection.ParameterInfo[]
     abstract LocalVariables : IList<Reflection.LocalVariableInfo>
     abstract HasThis : bool
+    abstract HasParameterOnStack : bool
     abstract IsConstructor : bool
     abstract IsExternalMethod : bool
     abstract ContainsGenericParameters : bool
@@ -83,7 +84,18 @@ type stackKey =
             TemporaryLocalVariableKey((Reflection.concretizeType typeSubst typ), index)
 
 type concreteHeapAddress = vectorTime
-type arrayType = Type * int * bool // Element type * dimension * is vector
+
+type arrayType =
+    { elemType : Type; dimension : int; isVector : bool }
+    with
+    static member CreateVector (elemType : Type) =
+        { elemType = elemType; dimension = 1; isVector = true }
+
+    static member CharVector = { elemType = typeof<char>; dimension = 1; isVector = true }
+
+    member x.IsVector = x.isVector && (assert(x.dimension = 1); true)
+
+    member x.IsCharVector = x.IsVector && x.elemType = typeof<char>
 
 [<StructuralEquality;NoComparison>]
 type operation =
@@ -136,7 +148,7 @@ type termNode =
                 $"<Lambda Expression {typ}>" |> k
             | Concrete(obj, AddressType) when (obj :?> int32 list) = [0] -> k "null"
             | Concrete(c, Char) when c :?> char = '\000' -> k "'\\000'"
-            | Concrete(c, Char) -> sprintf "'%O'" c |> k
+            | Concrete(c, Char) -> k $"'{c}'"
             | Concrete(:? concreteHeapAddress as addr, AddressType) -> VectorTime.print addr |> k
             | Concrete(value, _) -> value.ToString() |> k
             | Expression(operation, operands, _) ->
@@ -178,8 +190,8 @@ type termNode =
                 let printed = guards |> Seq.sort |> join ("\n" + indent)
                 formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]" |> k)
             | HeapRef({term = Concrete(obj, AddressType)}, _) when (obj :?> int32 list) = [0] -> k "NullRef"
-            | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType |> k
-            | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address |> k
+            | HeapRef(address, baseType) -> $"(HeapRef {address} to {baseType})" |> k
+            | Ref address -> $"({address.Zone()}Ref {address})" |> k
             | Ptr(HeapLocation(address, _), typ, shift) ->
                 $"(HeapPtr {address} as {typ}, offset = {shift})" |> k
             | Ptr(StackLocation loc, typ, shift) ->
@@ -226,7 +238,7 @@ and address =
         match x with
         | PrimitiveStackLocation key -> toString key
         | ClassField(addr, field) -> $"{addr}.{field}"
-        | ArrayIndex(addr, idcs, _) -> sprintf "%O[%s]" addr (List.map toString idcs |> join ", ")
+        | ArrayIndex(addr, indices, _) -> sprintf "%O[%s]" addr (List.map toString indices |> join ", ")
         | StaticField(typ, field) -> $"{typ}.{field}"
         | StructField(addr, field) -> $"{addr}.{field}"
         | ArrayLength(addr, dim, _) -> $"Length({addr}, {dim})"
@@ -249,7 +261,7 @@ and address =
         | ClassField(_, field)
         | StructField(_, field)
         | StaticField(_, field) -> field.typ
-        | ArrayIndex(_, _, (elementType, _, _)) -> elementType
+        | ArrayIndex(_, _, { elemType = elementType }) -> elementType
         | BoxedLocation(_, typ) -> typ
         | ArrayLength _
         | ArrayLowerBound  _ -> lengthType
@@ -319,7 +331,7 @@ module internal Terms =
         HashMap.addTerm (HeapRef(address, baseType))
     let Ref address =
         match address with
-        | ArrayIndex(_, indices, (_, dim, _)) -> assert(List.length indices = dim)
+        | ArrayIndex(_, indices, { dimension = dim }) -> assert(List.length indices = dim)
         | _ -> ()
         HashMap.addTerm (Ref address)
     let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
@@ -409,14 +421,14 @@ module internal Terms =
     let symbolicTypeToArrayType = function
         | ArrayType(elementType, dim) ->
             match dim with
-            | Vector -> (elementType, 1, true)
-            | ConcreteDimension d -> (elementType, d, false)
+            | Vector -> arrayType.CreateVector elementType
+            | ConcreteDimension d -> { elemType = elementType; dimension = d; isVector = false }
             | SymbolicDimension -> __insufficientInformation__ "Cannot process array of unknown dimension!"
         | typ -> internalfail $"symbolicTypeToArrayType: expected array type, but got {typ}"
 
-    let arrayTypeToSymbolicType (elemType : Type, dim, isVector) =
-        if isVector then elemType.MakeArrayType()
-        else elemType.MakeArrayType(dim)
+    let arrayTypeToSymbolicType arrayType =
+        if arrayType.isVector then arrayType.elemType.MakeArrayType()
+        else arrayType.elemType.MakeArrayType(arrayType.dimension)
 
     let sizeOf = typeOf >> internalSizeOf
 
@@ -1000,7 +1012,7 @@ module internal Terms =
         | Constant(_, source, _) -> source.Time
         | HeapRef(address, _) -> timeOf address
         | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
-        | _ -> internalfailf "timeOf : expected heap address, but got %O" address
+        | _ -> internalfail $"timeOf : expected heap address, but got {address}"
 
     and compareTerms t1 t2 =
         match t1.term, t2.term with
@@ -1044,9 +1056,9 @@ module internal Terms =
         | StaticField _
         | BoxedLocation _ -> k state
         | ClassField(addr, _) -> doFold folder state addr k
-        | ArrayIndex(addr, idcs, _) ->
+        | ArrayIndex(addr, indices, _) ->
             doFold folder state addr (fun state ->
-            foldSeq folder idcs state k)
+            foldSeq folder indices state k)
         | StructField(addr, _) -> foldAddress folder state addr k
         | ArrayLength(addr, idx, _)
         | ArrayLowerBound(addr, idx, _) ->
@@ -1114,7 +1126,7 @@ module internal Terms =
         | ClassType _
         | InterfaceType _ -> nullRef typ
         | TypeVariable t when isReferenceTypeParameter t -> nullRef typ
-        | TypeVariable t -> __insufficientInformation__ "Cannot instantiate value of undefined type %O" t
+        | TypeVariable t -> __insufficientInformation__ $"Cannot instantiate value of undefined type {t}"
         | StructType _ -> makeStruct false (fun _ _ t -> makeDefaultValue t) typ
         | Pointer typ -> makeNullPtr typ
         | AddressType -> zeroAddress()

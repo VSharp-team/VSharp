@@ -1,6 +1,5 @@
 namespace VSharp.Core
 
-open System.Collections.Generic
 open VSharp
 open System
 open System.Reflection
@@ -248,6 +247,7 @@ module API =
         val Union : evaluationStack -> evaluationStack -> evaluationStack
         val MakeSymbolicActiveFrame : (int -> term -> term) -> evaluationStack -> evaluationStack
         val Length : evaluationStack -> int
+        val FramesCount : evaluationStack -> int
         val ToList : evaluationStack -> term list
         val ClearActiveFrame : evaluationStack -> evaluationStack
         val EmptyStack : evaluationStack
@@ -295,15 +295,14 @@ module API =
         val WriteStackLocation : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteStructFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> term
+        val WriteClassFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> state list
         val WriteClassField : state -> term -> fieldId -> term -> state list
-        val WriteArrayIndex : state -> term -> term list -> term -> Type option -> state list
         val WriteArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> term -> Type option -> state list
         val WriteStaticField : state -> Type -> fieldId -> term -> unit
 
         val DefaultOf : Type -> term
 
         val MakeSymbolicThis : IMethod -> term
-        val MakeSymbolicValue : ISymbolicConstantSource -> string -> Type -> term
 
         val CallStackContainsFunction : state -> IMethod -> bool
         val CallStackSize : state -> int
@@ -334,6 +333,7 @@ module API =
         val LinearizeArrayIndex : state -> term -> term list -> arrayType -> term
 
         val IsSafeContextCopy : arrayType -> arrayType -> bool
+        val IsSafeContextWrite : Type -> Type -> bool
 
         val CopyArray : state -> term -> term -> Type -> term -> term -> Type -> term -> unit
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
@@ -366,13 +366,13 @@ module API =
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
-        val FillClassFieldsRegion : state -> fieldId -> term -> (IHeapAddressKey -> bool) -> unit
-        val FillStaticsRegion : state -> fieldId -> term -> (ISymbolicTypeKey -> bool) -> unit
-        val FillArrayRegion : state -> arrayType -> term -> (IHeapArrayKey -> bool) -> unit
-        val FillLengthRegion : state -> arrayType -> term -> (IHeapVectorIndexKey -> bool) -> unit
-        val FillLowerBoundRegion : state -> arrayType -> term -> (IHeapVectorIndexKey -> bool) -> unit
-        val FillStackBufferRegion : state -> stackKey -> term -> (IStackBufferIndexKey -> bool) -> unit
-        val FillBoxedRegion : state -> Type -> term -> (IHeapAddressKey -> bool) -> unit
+        val FillClassFieldsRegion : state -> fieldId -> term -> unit
+        val FillStaticsRegion : state -> fieldId -> term -> unit
+        val FillArrayRegion : state -> arrayType -> term -> unit
+        val FillLengthRegion : state -> arrayType -> term -> unit
+        val FillLowerBoundRegion : state -> arrayType -> term -> unit
+        val FillStackBufferRegion : state -> stackKey -> term -> unit
+        val FillBoxedRegion : state -> Type -> term -> unit
 
         val ObjectToTerm : state -> obj -> Type -> term
         val TryTermToObject : state -> term -> obj option

@@ -4,30 +4,30 @@ open global.System
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.CilState
 
 module internal Interlocked =
 
-    let exchange (interpreter : IInterpreter) cilState location value =
-        let exchange cilState k =
-            let currentValue = read cilState location
-            let cilStates = write cilState location value
+    let exchange (interpreter : IInterpreter) (cilState : cilState) location value =
+        let exchange (cilState : cilState) k =
+            let currentValue = cilState.Read location
+            let cilStates = cilState.Write location value
             for cilState in cilStates do
-                push currentValue cilState
+                cilState.Push currentValue
             k cilStates
         interpreter.NpeOrInvoke cilState location exchange id
 
-    let commonCompareExchange (interpreter : IInterpreter) cilState location value compared =
-        let compareExchange cilState k =
-            let currentValue = read cilState location
+    let commonCompareExchange (interpreter : IInterpreter) (cilState : cilState) location value compared =
+        let compareExchange (cilState : cilState) k =
+            let currentValue = cilState.Read location
             let cilStates =
-                StatedConditionalExecutionCIL cilState
+                cilState.StatedConditionalExecutionCIL
                     (fun cilState k -> k (currentValue === compared, cilState))
-                    (fun cilState k -> k (write cilState location value))
+                    (fun cilState k -> k (cilState.Write location value))
                     (fun cilState k -> k (List.singleton cilState))
                     id
             for cilState in cilStates do
-                push currentValue cilState
+                cilState.Push currentValue
             k cilStates
         interpreter.NpeOrInvoke cilState location compareExchange id
 
@@ -56,10 +56,10 @@ module internal Interlocked =
         let location, value = args[0], args[1]
         exchange interpreter cilState location value
 
-    let commonExchangeAdd (interpreter : IInterpreter) cilState (args : term list) =
+    let commonExchangeAdd (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 2)
         let location, value = args[0], args[1]
-        let value = Arithmetics.Add (read cilState location) value
+        let value = Arithmetics.Add (cilState.Read location) value
         exchange interpreter cilState location value
 
     let intExchangeAdd (interpreter : IInterpreter) cilState (args : term list) =

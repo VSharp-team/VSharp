@@ -28,7 +28,7 @@ type regionSort =
         match x with
         | HeapFieldSort field
         | StaticFieldSort field -> field.typ
-        | ArrayIndexSort(elementType, _, _) -> elementType
+        | ArrayIndexSort arrayType -> arrayType.elemType
         | ArrayLengthSort _
         | ArrayLowerBoundSort _ -> typeof<int32>
         | StackBufferSort _ -> typeof<int8>
@@ -38,15 +38,15 @@ type regionSort =
         match x with
         | HeapFieldSort field -> $"HeapField {field.FullName}"
         | StaticFieldSort field -> $"StaticField {field.FullName}"
-        | ArrayIndexSort(elementType, dim, isVector) ->
+        | ArrayIndexSort {elemType = elementType; dimension = dim; isVector = isVector} ->
             if isVector then
                 $"VectorIndex to {elementType}[{dim}]"
             else $"ArrayIndex to {elementType}[{dim}]"
-        | ArrayLengthSort(elementType, dim, isVector) ->
+        | ArrayLengthSort {elemType = elementType; dimension = dim; isVector = isVector} ->
             if isVector then
                 $"VectorLength to {elementType}[{dim}]"
             else $"ArrayLength to {elementType}[{dim}]"
-        | ArrayLowerBoundSort(elementType, dim, isVector) ->
+        | ArrayLowerBoundSort {elemType = elementType; dimension = dim; isVector = isVector} ->
             if isVector then
                 $"VectorLowerBound to {elementType}[{dim}]"
             else $"ArrayLowerBound to {elementType}[{dim}]"
@@ -113,7 +113,7 @@ module private MemoryKeyUtils =
 
     let rec keysInListProductRegion keys (region : int points listProductRegion) =
         match region, keys with
-        | NilRegion, Seq.Empty -> (True())
+        | NilRegion, Seq.Empty -> True()
         | ConsRegion products, Seq.Cons(curr, rest) ->
             let keyInPoints = keyInIntPoints curr
             let keyInProduct = keysInListProductRegion rest
@@ -429,11 +429,11 @@ type symbolicTypeKey =
             reg.Map (fun t -> {t = mapper t.t}), {typ = mapper x.typ}
         override x.IsUnion = false
         override x.Unguard = [(True(), x)]
-        override x.InRegionCondition region =
+        override x.InRegionCondition _ =
             // TODO implement some time if need
             True()
 
-        override x.MatchCondition key keyIndexingRegion =
+        override x.MatchCondition key _ =
             Concrete (x.typ = key.typ) typeof<bool>
 
     override x.ToString() = x.typ.ToString()
@@ -514,7 +514,7 @@ module private UpdateTree =
 
 [<CustomEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
-    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : option<term * (IMemoryKey<'key, 'reg> -> bool)>}
+    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : term option}
     with
     override x.Equals(other : obj) =
         match other with
@@ -522,7 +522,7 @@ type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, '
             let compareDefault =
                 lazy(
                     match x.defaultValue, other.defaultValue with
-                    | Some(v1, _), Some(v2, _) -> v1 = v2
+                    | Some v1, Some v2 -> v1 = v2
                     | None, None -> true
                     | _ -> false
                 )
@@ -531,7 +531,7 @@ type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, '
     override x.GetHashCode() =
         let defaultValue =
             match x.defaultValue with
-            | Some(v, _) -> Some v
+            | Some v -> Some v
             | None -> None
         HashCode.Combine(x.typ, x.updates, defaultValue)
 
@@ -540,8 +540,8 @@ module MemoryRegion =
     let empty typ =
         {typ = typ; updates = UpdateTree.empty; defaultValue = None}
 
-    let fillRegion defaultValue (isSuitableKey : IMemoryKey<_,_> -> bool) (region : memoryRegion<_,_>) =
-        { region with defaultValue = Some(defaultValue, isSuitableKey) }
+    let fillRegion defaultValue (region : memoryRegion<_,_>) =
+        { region with defaultValue = Some defaultValue }
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
@@ -550,7 +550,7 @@ module MemoryRegion =
         let makeSymbolic tree = instantiate mr.typ { typ = mr.typ; updates = tree; defaultValue = mr.defaultValue }
         let makeDefault () =
             match mr.defaultValue with
-            | Some (d, isSuitableKey) when isSuitableKey key -> d
+            | Some d -> d
             | _ -> makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
@@ -568,7 +568,7 @@ module MemoryRegion =
     let map (mapTerm : term -> term) (mapType : Type -> Type) (mapTime : vectorTime -> vectorTime) mr =
         let typ = mapType mr.typ
         let updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates
-        let defaultValue = Option.map (fun (v, keys) -> mapTerm v, keys) mr.defaultValue
+        let defaultValue = Option.map mapTerm mr.defaultValue
         {typ = typ; updates = updates; defaultValue = defaultValue}
 
     let mapKeys<'reg, 'key when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> (mapKey : 'reg -> 'key -> 'reg * 'key) mr =

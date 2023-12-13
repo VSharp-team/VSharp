@@ -4,7 +4,7 @@ open global.System
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.CilState
 
 // ------------------------------ System.Unsafe --------------------------------
 
@@ -80,9 +80,9 @@ module internal Unsafe =
         let typ, ref = args[0], args[1]
         let typ = Helpers.unwrapType typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
-        let readByPtr cilState k =
-            let value = read cilState castedPtr
-            push value cilState
+        let readByPtr (cilState : cilState) k =
+            let value = cilState.Read castedPtr
+            cilState.Push value
             List.singleton cilState |> k
         i.NpeOrInvoke cilState castedPtr readByPtr id
 
@@ -91,15 +91,15 @@ module internal Unsafe =
         let typ, ref, value = args[0], args[1], args[2]
         let typ = Helpers.unwrapType typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
-        let writeByPtr cilState k =
-            write cilState castedPtr value |> k
+        let writeByPtr (cilState : cilState) k =
+            cilState.Write castedPtr value |> k
         i.NpeOrInvoke cilState castedPtr writeByPtr id
 
     let WriteUnaligned (i : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 2)
         let ref, value = args[0], args[1]
-        let writeByPtr cilState k =
-            write cilState ref value |> k
+        let writeByPtr (cilState : cilState) k =
+            cilState.Write ref value |> k
         i.NpeOrInvoke cilState ref writeByPtr id
 
     let SizeOf (_ : state) (args : term list) : term =

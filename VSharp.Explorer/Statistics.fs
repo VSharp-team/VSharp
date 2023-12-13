@@ -15,7 +15,7 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 open VSharp.Utils
 
-open CilStateOperations
+open CilState
 open IpOperations
 open CodeLocation
 
@@ -113,7 +113,7 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m : Method, locs) =
         let sb = PrettyPrinting.appendLine sb $"%s{placeHolder}Method = %s{m.FullName}: ["
         let sb = Seq.fold (fun sb (loc : codeLocation) ->
-            PrettyPrinting.appendLine sb (sprintf "%s\t\t%s <- %d" placeHolder ((int loc.offset).ToString("X")) d.[loc])) sb locs
+            PrettyPrinting.appendLine sb (sprintf "%s\t\t%s <- %d" placeHolder ((int loc.offset).ToString("X")) d[loc])) sb locs
         PrettyPrinting.appendLine sb $"%s{placeHolder}]"
 
     let printDict placeHolder sb (d : Dictionary<codeLocation, uint>) =
@@ -158,23 +158,23 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
         |> Seq.tryHead
         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
 
-    member x.TrackStepForward (s : cilState) ip =
+    member x.TrackStepForward (s : cilState) (ip : instructionPointer) =
         stepsCount <- stepsCount + 1u
-        Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
+        Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.internalId}"
 
         let setCoveredIfNeeded (loc : codeLocation) =
             if loc.offset = loc.BasicBlock.FinalOffset then
-                addLocationToHistory s loc
+                s.AddLocationToHistory loc
 
         match s.ipStack with
             // Successfully exiting method, now its call can be considered covered
             | Exit _ :: callerIp :: _ ->
-                match ip2codeLocation callerIp with
+                match callerIp.ToCodeLocation() with
                 | Some callerLoc -> setCoveredIfNeeded callerLoc
                 | None -> __unreachable__()
             | _ -> ()
 
-        let currentLoc = ip2codeLocation ip
+        let currentLoc = ip.ToCodeLocation()
         match currentLoc with
         | Some currentLoc when isHeadOfBasicBlock currentLoc ->
             let mutable totalRef = ref 0u
@@ -227,7 +227,6 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
         if visitedBlocksNotCoveredByTests.TryGetValue(s, blocks) then blocks.Value
         else Set.empty
 
-    // TODO: Generalize methods before tracking coverage
     member x.SetBasicBlocksAsCoveredByTest (blocks : codeLocation seq) =
         let mutable coveredBlocks = ref null
         let mutable hasNewCoverage = false
@@ -279,7 +278,7 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
 
     member x.TrackFinished (s : cilState, isError) =
         testsCount <- testsCount + 1u
-        x.SetBasicBlocksAsCoveredByTest s.history
+        x.SetBasicBlocksAsCoveredByTest s.history |> ignore
         let generatedTestInfo =
             {
                 isError = isError
@@ -288,12 +287,13 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
                 coverage = x.GetCurrentCoverage()
             }
         generatedTestInfos.Add generatedTestInfo
-        Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
+        Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.internalId}"
 
     member x.IsNewError (s : cilState) (errorMessage : string) isFatal =
-        match s.state.exceptionsRegister.Peek with
+        let state = s.state
+        match state.exceptionsRegister.Peek with
         | Unhandled(term, _, stackTrace) ->
-            let exceptionType = MostConcreteTypeOfRef s.state term
+            let exceptionType = MostConcreteTypeOfRef state term
             emittedExceptions.Add(exceptionType, stackTrace, errorMessage, isFatal)
         | _ -> emittedErrors.Add(s.ipStack, errorMessage, isFatal)
 
@@ -303,7 +303,7 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
 
     member x.TrackFork (parent : cilState) (children : cilState seq) =
         for child in children do
-            Logger.traceWithTag Logger.stateTraceTag $"BRANCH: {parent.id} -> {child.id}"
+            Logger.traceWithTag Logger.stateTraceTag $"BRANCH: {parent.internalId} -> {child.internalId}"
 
         let blocks = ref Set.empty
         // TODO: check why 'parent' may not be in 'visitedBlocksNotCoveredByTests'

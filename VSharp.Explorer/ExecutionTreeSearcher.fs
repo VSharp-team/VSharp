@@ -5,6 +5,7 @@ open System.Collections.Generic
 
 open VSharp
 open VSharp.Interpreter.IL
+open CilState
 
 type internal ExecutionTreeSearcher(randomSeed : int option) =
 
@@ -20,10 +21,10 @@ type internal ExecutionTreeSearcher(randomSeed : int option) =
 
     let rec getAllStates() = Seq.collect (fun (t : ExecutionTree<cilState>) -> t.States) trees.Values
 
-    let init initialStates =
+    let init (initialStates : cilState seq) =
         if trees.Count > 0 then
             invalidOp "Trying to init non-empty execution tree searcher"
-        for method, methodStates in initialStates |> Seq.groupBy CilStateOperations.entryMethodOf do
+        for method, methodStates in initialStates |> Seq.groupBy (fun s -> s.EntryMethod) do
             methods.Add method
             if Seq.length methodStates > 1 then
                 invalidOp "Cannot init execution tree searcher with more than 1 initial state for method"
@@ -50,8 +51,8 @@ type internal ExecutionTreeSearcher(randomSeed : int option) =
             // Fallback (inefficient, in case of plain fair searcher should not happen)
             getAllStates() |> Seq.tryFind selector
 
-    let remove state =
-        let entryMethod = CilStateOperations.entryMethodOf state
+    let remove (state : cilState) =
+        let entryMethod = state.EntryMethod
         let tree = ref null
         let treeFound = trees.TryGetValue(entryMethod, tree)
         if treeFound then
@@ -67,8 +68,8 @@ type internal ExecutionTreeSearcher(randomSeed : int option) =
         trees.Clear()
         methods.Clear()
 
-    let update parent newStates =
-        let entryMethod = CilStateOperations.entryMethodOf parent
+    let update (parent : cilState) newStates =
+        let entryMethod = parent.EntryMethod
         let tree = ref null
         let treeFound = trees.TryGetValue(entryMethod, tree)
         if treeFound then

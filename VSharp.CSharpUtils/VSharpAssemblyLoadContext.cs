@@ -11,6 +11,11 @@ namespace VSharp.CSharpUtils
 {
     public class VSharpAssemblyLoadContext : AssemblyLoadContext, IDisposable
     {
+        private static string GetTypeName(Type t)
+        {
+            return t.AssemblyQualifiedName ?? t.FullName ?? t.Name;
+        }
+
         private readonly Dictionary<string, AssemblyDependencyResolver> _resolvers = new();
 
         private readonly Dictionary<string, Assembly> _assemblies = new();
@@ -106,7 +111,7 @@ namespace VSharp.CSharpUtils
                     continue;
                 }
 
-                _types[type.FullName] = type;
+                _types[GetTypeName(type)] = type;
             }
             return asm;
         }
@@ -140,7 +145,7 @@ namespace VSharp.CSharpUtils
                 return normalized.MakeGenericType(fixedGenericTypes);
             }
 
-            var name = t.FullName ?? t.Name;
+            var name = GetTypeName(t);
             if (_types.TryGetValue(name, out var normalizedType))
             {
                 return normalizedType;

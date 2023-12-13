@@ -8,8 +8,8 @@ open FSharpx.Collections
 
 open VSharp
 open VSharp.Core
-open VSharp.Interpreter.IL.CilStateOperations
 open VSharp.Interpreter.IL
+open CilState
 open VSharp.Explorer
 open VSharp.Solver
 
@@ -116,7 +116,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
 
     let reportIncomplete = reporter.ReportIIE
 
-    let reportState (suite : testSuite) cilState =
+    let reportState (suite : testSuite) (cilState : cilState) =
         try
             let isNewHistory() =
                 let methodHistory = Set.filter (fun h -> h.method.InCoverageZone) cilState.history
@@ -127,14 +127,15 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                 | Test -> Set.isEmpty cilState.history || isNewHistory()
                 | Error(msg, isFatal) -> statistics.IsNewError cilState msg isFatal
             if isNewTest then
-                let callStackSize = Memory.CallStackSize cilState.state
-                let entryMethod = entryMethodOf cilState
-                let hasException = isUnhandledException cilState
+                let state = cilState.state
+                let callStackSize = Memory.CallStackSize state
+                let entryMethod = cilState.EntryMethod
+                let hasException = cilState.IsUnhandledException
                 if isError && not hasException then
                     if entryMethod.HasParameterOnStack then
-                        Memory.ForcePopFrames (callStackSize - 2) cilState.state
-                    else Memory.ForcePopFrames (callStackSize - 1) cilState.state
-                match TestGenerator.state2test suite entryMethod cilState.state with
+                        Memory.ForcePopFrames (callStackSize - 2) state
+                    else Memory.ForcePopFrames (callStackSize - 1) state
+                match TestGenerator.state2test suite entryMethod state with
                 | Some test ->
                     statistics.TrackFinished(cilState, isError)
                     match suite with
@@ -144,20 +145,20 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                         isStopped <- true
                 | None -> ()
         with :? InsufficientInformationException as e ->
-            cilState.iie <- Some e
+            cilState.SetIIE e
             reportStateIncomplete cilState
 
     let reportStateInternalFail (state : cilState) (e : Exception) =
         match e with
         | :? InsufficientInformationException as e ->
-            if state.iie.IsNone then
-                state.iie <- Some e
+            if not state.IsIIEState then
+                state.SetIIE e
             reportStateIncomplete state
         | _ ->
             searcher.Remove state
             statistics.InternalFails.Add(e)
             Application.terminateState state
-            reporter.ReportInternalFail (entryMethodOf state) e
+            reporter.ReportInternalFail state.EntryMethod e
 
     let reportInternalFail (method : Method) (e : Exception) =
         match e with
@@ -169,13 +170,13 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
 
     let reportFinished (state : cilState) =
         let result = Memory.StateResult state.state
-        Logger.info $"Result of method %s{(entryMethodOf state).FullName} is {result}"
+        Logger.info $"Result of method {state.EntryMethod.FullName} is {result}"
         Application.terminateState state
         reportState Test state
 
     let wrapOnError isFatal (state : cilState) errorMessage =
         if not <| String.IsNullOrWhiteSpace errorMessage then
-            Logger.info $"Error in {(entryMethodOf state).FullName}: {errorMessage}"
+            Logger.info $"Error in {state.EntryMethod.FullName}: {errorMessage}"
         Application.terminateState state
         let testSuite = Error(errorMessage, isFatal)
         reportState testSuite state
@@ -190,10 +191,11 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
 
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
-            if pi.ParameterType.IsByRef then
+            let parameterType = pi.ParameterType
+            if parameterType.IsByRef then
                 if Memory.CallStackSize initialState = 0 then
                     Memory.NewStackFrame initialState None []
-                let typ = pi.ParameterType.GetElementType()
+                let typ = parameterType.GetElementType()
                 let position = pi.Position + 1
                 let stackRef = Memory.AllocateTemporaryLocalVariableOfType initialState pi.Name position typ
                 Some stackRef
@@ -206,7 +208,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         try
             initialState.model <- Memory.EmptyModel method
             let declaringType = method.DeclaringType
-            let cilState = makeInitialState method initialState
+            let cilState = cilState.CreateInitial method initialState
             let this =
                 if method.HasThis then
                     if Types.IsValueType declaringType then
@@ -262,7 +264,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                 let argsForModel = Memory.AllocateVectorArray modelState (MakeNumber 0) typeof<String>
                 Memory.WriteStackLocation modelState (ParameterKey argsParameter) argsForModel
             Memory.InitializeStaticMembers state method.DeclaringType
-            let initialState = makeInitialState method state
+            let initialState = cilState.CreateInitial method state
             [initialState]
         with
         | e ->
@@ -270,21 +272,21 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
             []
 
     member private x.Forward (s : cilState) =
-        let loc = s.currentLoc
-        let ip = currentIp s
+        let loc = s.approximateLoc
+        let ip = s.CurrentIp
         // TODO: update pobs when visiting new methods; use coverageZone
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         for s in goodStates @ iieStates @ errors do
-            if hasRuntimeExceptionOrError s |> not then
+            if not s.HasRuntimeExceptionOrError then
                 statistics.TrackStepForward s ip
-        let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || isIsolated s)
+        let goodStates, toReportFinished = goodStates |> List.partition (fun s -> s.IsExecutable || s.IsIsolated)
         toReportFinished |> List.iter reportFinished
-        let errors, _ = errors |> List.partition (fun s -> hasReportedError s |> not)
-        let errors, toReportExceptions = errors |> List.partition (fun s -> isIsolated s || not <| stoppedByException s)
-        let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeExceptionOrError
+        let errors, _ = errors |> List.partition (fun s -> not s.HasReportedError)
+        let errors, toReportExceptions = errors |> List.partition (fun s -> s.IsIsolated || not s.IsStoppedByException)
+        let runtimeExceptions, userExceptions = toReportExceptions |> List.partition (fun s -> s.HasRuntimeExceptionOrError)
         runtimeExceptions |> List.iter (fun state -> reportError state null)
         userExceptions |> List.iter reportFinished
-        let iieStates, toReportIIE = iieStates |> List.partition isIsolated
+        let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.IsIsolated)
         toReportIIE |> List.iter reportStateIncomplete
         let mutable sIsStopped = false
         let newStates =
@@ -304,17 +306,17 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         if sIsStopped then
             searcher.Remove s
 
-    member private x.Backward p' s' =
-        assert(currentLoc s' = p'.loc)
-        let sLvl = levelToUnsignedInt s'.level
+    member private x.Backward p' (s' : cilState) =
+        assert(s'.CurrentLoc = p'.loc)
+        let sLvl = s'.Level
         if p'.lvl >= sLvl then
             let lvl = p'.lvl - sLvl
             let pc = Memory.WLP s'.state p'.pc
             match isSat pc with
-            | true when not <| isIsolated s' -> searcher.Answer p' (Witnessed s')
+            | true when not s'.IsIsolated -> searcher.Answer p' (Witnessed s')
             | true ->
                 statistics.TrackStepBackward p' s'
-                let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
+                let p = {loc = s'.StartingLoc; lvl = lvl; pc = pc}
                 Logger.trace $"Backward:\nWas: {p'}\nNow: {p}\n\n"
                 Application.addGoal p.loc
                 searcher.UpdatePobs p' p
@@ -353,7 +355,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         Application.spawnStates (Seq.cast<_> initialStates)
         mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.addGoals
         searcher.Init initialStates mainPobs
-        initialStates |> Seq.filter isIIEState |> Seq.iter reportStateIncomplete
+        initialStates |> Seq.filter (fun s -> s.IsIIEState) |> Seq.iter reportStateIncomplete
         x.BidirectionalSymbolicExecution()
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->
             match status with
@@ -391,7 +393,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                         let entryPointsInitialStates = entryPoints |> List.collect x.FormEntryPointInitialStates
                         let iieStates, initialStates =
                             isolatedInitialStates @ entryPointsInitialStates
-                            |> List.partition (fun state -> state.iie.IsSome)
+                            |> List.partition (fun state -> state.IsIIEState)
                         iieStates |> List.iter reportStateIncomplete
                         statistics.SetStatesGetter(fun () -> searcher.States())
                         statistics.SetStatesCountGetter(fun () -> searcher.StatesCount)
