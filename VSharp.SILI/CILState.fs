@@ -235,7 +235,7 @@ module CilState =
             x.SetCurrentIp ip
 
         member x.ReplaceLastIp (ip : instructionPointer) =
-            let newIp = x.CurrentIp.ReplacePenultimateIp ip
+            let newIp = x.CurrentIp.ReplaceRecIp ip
             x.SetCurrentIp newIp
 
         member x.MarkExit (m : Method) =

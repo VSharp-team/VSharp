@@ -638,7 +638,7 @@ type ILInterpreter() as this =
 
     static member InitFunctionFrameCIL (cilState : cilState) (method : Method) this paramValues =
         Memory.InitFunctionFrame cilState.state method this (paramValues |> Option.bind (List.map Some >> Some))
-        cilState.PushToIp (instruction method 0<offsets>)
+        Instruction(0<offsets>, method) |> cilState.PushToIp
 
     static member CheckDisallowNullAttribute (method : Method) (argumentsOpt : term list option) (cilState : cilState) shouldReportError k =
         if not <| method.CheckAttributes then
@@ -1547,7 +1547,7 @@ type ILInterpreter() as this =
                 cilState.Push errorRef
                 cilState.NewExceptionRegister()
                 let handlerOffset = ehc.handlerOffset
-                let filterHandler = instruction method o
+                let filterHandler = Instruction(o, method)
                 let observed = List.ofSeq observed
                 nextIp <- Some (InFilterHandler(filterHandler, handlerOffset, ehcs, observed, locations, framesToPop))
             | _ -> () // Handler is non-suitable catch or finally

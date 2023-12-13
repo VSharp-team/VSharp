@@ -125,7 +125,6 @@ public readonly record struct VSharpOptions
     /// <param name="releaseBranches">If true and timeout is specified, a part of allotted time in the end is given to execute remaining states without branching.</param>
     /// <param name="randomSeed">Fixed seed for random operations. Used if greater than or equal to zero.</param>
     /// <param name="stepsLimit">Number of symbolic machine steps to stop execution after. Zero value means no limit.</param>
-
     public VSharpOptions(
         int timeout = DefaultTimeout,
         int solverTimeout = DefaultSolverTimeout,

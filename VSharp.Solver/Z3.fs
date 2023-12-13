@@ -176,7 +176,7 @@ module internal Z3 =
                 keySet.Add(key) |> ignore
                 regionAccesses.Add(typ, keySet)
 
-        let regionAccessExists (m : Model) (typ : regionSort * path) (storeKey : Expr[]) =
+        let tryRemoveRegionAccess (m : Model) (typ : regionSort * path) (storeKey : Expr[]) =
             let keySet = encodingCache.regionAccesses[typ]
             let mutable toDelete = None
             for k in keySet do
@@ -1359,7 +1359,7 @@ module internal Z3 =
                         elif arr.IsStore then
                             assert(arr.Args.Length >= 3)
                             let key = arr.Args[1..arr.Args.Length - 2]
-                            let shouldStore = not containsAddress || regionAccessExists m typ key
+                            let shouldStore = not containsAddress || tryRemoveRegionAccess m typ key
                             parseArray arr.Args[0]
                             if shouldStore then
                                 let value = Array.last arr.Args |> x.Decode typeOfLocation

@@ -37,22 +37,24 @@ type instructionPointer =
             SecondBypass(Some (ip.ChangeInnerIp newIp), ehcs, lastBlocks, loc, cl, ftp)
         | _ -> newIp
 
-    member internal x.ReplacePenultimateIp newIp =
-        let (|NonRecIp|_|) = function
-            | Instruction _ -> Some ()
-            | Exit _ -> Some ()
-            | SearchingForHandler _ -> Some ()
-            | SecondBypass(None, _, _, _, _, _) -> Some()
-            | _ -> None
+    member private x.IsNonRecIp with get() =
         match x with
-        | InFilterHandler(NonRecIp, _, _, _, _, _)
-        | Leave(NonRecIp, _, _, _)
-        | SecondBypass(Some NonRecIp, _, _, _, _, _) -> newIp
+        | Instruction _
+        | Exit _
+        | SearchingForHandler _
+        | SecondBypass(None, _, _, _, _, _) -> true
+        | _ -> false
+
+    member internal x.ReplaceRecIp newIp =
+        match x with
+        | InFilterHandler(ip, _, _, _, _, _)
+        | Leave(ip, _, _, _)
+        | SecondBypass(Some ip, _, _, _, _, _) when ip.IsNonRecIp -> newIp
         | InFilterHandler(ip, offset, e, f, lc, l) ->
-            InFilterHandler(ip.ReplacePenultimateIp newIp, offset, e, f, lc, l)
-        | Leave(ip, e, i, m) -> Leave(ip.ReplacePenultimateIp newIp, e, i, m)
+            InFilterHandler(ip.ReplaceRecIp newIp, offset, e, f, lc, l)
+        | Leave(ip, e, i, m) -> Leave(ip.ReplaceRecIp newIp, e, i, m)
         | SecondBypass(Some ip, ehcs, lastBlocks, lastLocation, locations, handlerLoc) ->
-            SecondBypass(Some (ip.ReplacePenultimateIp newIp), ehcs, lastBlocks, lastLocation, locations, handlerLoc)
+            SecondBypass(Some (ip.ReplaceRecIp newIp), ehcs, lastBlocks, lastLocation, locations, handlerLoc)
         | _ -> newIp
 
     member internal x.MoveInstruction (newOffset : offset) =
@@ -162,10 +164,6 @@ type level = pdict<codeLocation, uint32>
 
 module IpOperations =
 
-    let exit m = Exit m
-
-    let instruction m i = Instruction(i, m)
-
     let bypassShouldPopFrame bypassLocations locationToJump currentLoc =
         List.isEmpty bypassLocations |> not ||
         match locationToJump with
@@ -223,9 +221,3 @@ module Level =
     let levelToUnsignedInt (lvl : level) =
         // TODO: remove it when ``level'' subtraction would be generalized
         PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl
-
-    let composeLevel (lvl1 : level) (lvl2 : level) =
-        let composeOne (lvl : level) k v =
-            let oldValue = PersistentDict.tryFind lvl k |> Option.defaultValue 0u
-            PersistentDict.add k (v + oldValue) lvl
-        PersistentDict.fold composeOne lvl1 lvl2
