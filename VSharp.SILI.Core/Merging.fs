@@ -70,6 +70,7 @@ module internal Merging =
         match compress (simplify (|UnionT|_|) gvs) with
         | [(True, v)] -> v
         | [(g, v)] when isBool v -> g &&& v
+        | [(_, v)] -> v
         | gvs' -> Union gvs'
 
     let merge2Terms g h u v =

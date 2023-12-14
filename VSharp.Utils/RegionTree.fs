@@ -3,7 +3,7 @@ namespace VSharp
 type IRegionTreeKey<'a> =
     abstract Hides : 'a -> bool
 
- /// Implementation of region tree. Region tree is a tree indexed by IRegion's and having the following invariants:
+/// Implementation of region tree. Region tree is a tree indexed by IRegion's and having the following invariants:
 /// - all regions of one node are disjoint;
 /// - the parent region includes all child regions.
 type regionTree<'key, 'reg when 'reg :> IRegion<'reg> and 'key : equality and 'reg : equality and 'key :> IRegionTreeKey<'key>> =

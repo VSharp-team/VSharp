@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System
 open System.Text
+open Microsoft.FSharp.Core
 open VSharp
 open VSharp.CSharpUtils
 open TypeUtils
@@ -14,6 +15,7 @@ type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract Unguard : (term * 'a) list
     abstract InRegionCondition : 'reg -> term
     abstract MatchCondition : 'a -> 'reg -> term
+    abstract IsRange : bool
 
 type regionSort =
     | HeapFieldSort of fieldId
@@ -143,9 +145,9 @@ type heapAddressKey =
             MemoryKeyUtils.heapAddressInVectorTimeIntervals x.address region
         override x.MatchCondition key keyIndexingRegion =
             let addressesAreEqual = x.address === key.address
-            let keyInIndexingRegion = (key :> IHeapAddressKey).InRegionCondition keyIndexingRegion
-            addressesAreEqual &&& keyInIndexingRegion
-
+            let xInKeyRegion = (x :> IHeapAddressKey).InRegionCondition keyIndexingRegion
+            addressesAreEqual &&& xInKeyRegion
+        override x.IsRange = false
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -273,17 +275,17 @@ type heapArrayKey =
                 let xInKeyBounds = (indices, List.zip keyLbs keyUbs) ||> List.fold2 inBounds addressesAreEqual
                 // key address and x indices are in key's region
                 // NOTE: checking x indices, because key is range of indices and we can not encode it as Expr[]
-                let combinedKey = OneArrayIndexKey(keyAddress, indices)
-                let xInKeyRegion = (combinedKey :> IHeapArrayKey).InRegionCondition keyIndexingRegion
+                let xInKeyRegion = (x :> IHeapArrayKey).InRegionCondition keyIndexingRegion
                 xInKeyBounds &&& xInKeyRegion
             | RangeArrayIndexKey(address, lbs, ubs), OneArrayIndexKey(keyAddress, keyIndices) ->
                 let addressesAreEqual = address === keyAddress
-                let indexInBound acc (l,u) i = acc &&& (l === u &&& i === l)
+                let indexInBound acc (l,u) i = acc &&& ((l === u) &&& (i === l))
                 let xInKeyBounds = (addressesAreEqual, List.zip lbs ubs, keyIndices) |||> List.fold2 indexInBound
                 let keyInIndexingRegion = (key :> IHeapArrayKey).InRegionCondition keyIndexingRegion
                 xInKeyBounds &&& keyInIndexingRegion
             | RangeArrayIndexKey _, RangeArrayIndexKey _ -> internalfail $"MatchCondition for RangeArrayIndexKey is not implemented: {x} {key}"
-
+        override x.IsRange = match x with | OneArrayIndexKey _ -> false| RangeArrayIndexKey _ -> true
+            
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -344,9 +346,9 @@ type heapVectorIndexKey =
             MemoryKeyUtils.keyInProductRegion addressInVtIntervals indexInPoints region
         override x.MatchCondition key keyIndexingRegion =
             let keysAreEqual = (x.address === key.address) &&& (x.index === key.index)
-            let keyInIndexingRegion = (key :> IHeapVectorIndexKey).InRegionCondition keyIndexingRegion
-            keysAreEqual &&& keyInIndexingRegion
-
+            let xInKeyRegion = (x :> IHeapVectorIndexKey).InRegionCondition keyIndexingRegion
+            keysAreEqual &&& xInKeyRegion
+        override x.IsRange = false
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -385,8 +387,9 @@ type stackBufferIndexKey =
             MemoryKeyUtils.keyInIntPoints x.index region
         override x.MatchCondition key keyIndexingRegion =
             let keysAreEqual = x.index === key.index
-            let keyInIndexingRegion = (key :> IStackBufferIndexKey).InRegionCondition keyIndexingRegion
-            keysAreEqual &&& keyInIndexingRegion
+            let xInKeyRegion = (x :> IStackBufferIndexKey).InRegionCondition keyIndexingRegion
+            keysAreEqual &&& xInKeyRegion
+        override x.IsRange = false
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -432,9 +435,9 @@ type symbolicTypeKey =
         override x.InRegionCondition _ =
             // TODO implement some time if need
             True()
-
         override x.MatchCondition key _ =
             Concrete (x.typ = key.typ) typeof<bool>
+        override x.IsRange = false
 
     override x.ToString() = x.typ.ToString()
     override x.GetHashCode() = x.typ.GetDeterministicHashCode()
@@ -464,7 +467,57 @@ module private UpdateTree =
 
     let isEmpty tree = RegionTree.isEmpty tree
 
-    let read (key : 'key) isDefault makeSymbolic makeDefault (tree : updateTree<'key, 'value, 'reg>) =
+    let rec private splitRead (tree : updateTree<'key, 'value, 'reg>) key predicate notMatchKeys =
+        match tree with
+        | Node tree ->
+            let notMatchPath = List.fold (fun acc (k, reg) -> acc &&& !!((key :> IMemoryKey<'key,'reg>).MatchCondition k reg)) (True()) notMatchKeys
+            let collectUpdates (accUnion, accMst) reg (utKey, subtree) =
+                let subtreeUnion, subtreeMst = splitRead subtree key predicate ((utKey.key, reg)::notMatchKeys)
+                let keysAreEqual = key.MatchCondition utKey.key reg
+                let guard = simplifyAndWithDisjunctions notMatchPath keysAreEqual
+                let union = List.append subtreeUnion accUnion
+                let addTreeToAcc acc tree =
+                    PersistentDict.fold (fun acc k v -> PersistentDict.add k v acc) acc tree
+                if ((predicate utKey) && (guard <> False())) then // skipping utKey to build tree
+                    let makeSymbolicTree =
+                        match accMst, subtreeMst with
+                        | Some (Node acc), Some (Node t) -> Some(addTreeToAcc acc t |> Node)
+                        | Some acc, None -> Some acc
+                        | None, Some t -> Some t
+                        | None, None -> None
+                    (guard,utKey.value)::union, makeSymbolicTree
+                else if (guard <> False()) then // hanging recursive found tree by the utKey
+                    let makeSymbolicTree = 
+                        match accMst, subtreeMst with
+                        | Some (Node acc), Some t -> Some (PersistentDict.add reg (utKey, t) acc |> Node)
+                        | Some (Node acc), None -> Some (PersistentDict.add reg (utKey, PersistentDict.empty |> Node) acc |> Node)
+                        | None, Some t -> Some (PersistentDict.add reg (utKey, t) PersistentDict.empty |> Node) 
+                        | None, None -> Some (PersistentDict.add reg (utKey, PersistentDict.empty |> Node) PersistentDict.empty |> Node)
+                    union, makeSymbolicTree
+                else // skip node with False() read guard
+                    let makeSymbolicTree =
+                        match accMst, subtreeMst with
+                        | Some (Node acc), Some (Node t) -> Some (addTreeToAcc acc t |> Node)
+                        | Some acc, None -> Some acc
+                        | None, Some t -> Some t
+                        | None, None -> None
+                    union, makeSymbolicTree
+            PersistentDict.fold collectUpdates (List.empty, None) tree
+
+    let private splitReadingResult d key value predicate makeSymbolic =
+        let gvs, symbolicTree = splitRead (Node d) key predicate []
+        let symbolicCase =
+            match symbolicTree, value with
+            | Some t, Some v -> makeSymbolic t (Some v)
+            | Some t, None -> makeSymbolic t None
+            | None, Some v -> makeSymbolic (Node PersistentDict.empty) (Some v)
+            | None, None -> makeSymbolic (Node PersistentDict.empty) None
+        let symbolicGuard = List.map (fun (g,_) -> !!g) gvs |> conjunction
+        let result = List.append gvs [(symbolicGuard, symbolicCase)]
+        if List.length result = 1 then List.head result |> snd
+        else Union result
+
+    let read (key : 'key) predicate isDefault makeSymbolic makeDefault (tree : updateTree<'key, term, 'reg>) =
         let reg = key.Region
         let d = RegionTree.localize reg tree
         if PersistentDict.isEmpty d then
@@ -472,9 +525,15 @@ module private UpdateTree =
         elif PersistentDict.size d = 1 then
             match PersistentDict.tryFind d reg with
             | Some({key=key'; value=v}, _) when key' = key -> v
-            | Some(value, _) -> makeSymbolic (Node d) (Some value)
-            | _ -> makeSymbolic (Node d) None
-        else makeSymbolic (Node d) None
+            | Some(value, _) ->
+                if key.IsRange then makeSymbolic (Node d) (Some value)
+                else splitReadingResult d key (Some value) predicate makeSymbolic
+            | _ ->
+                if key.IsRange then makeSymbolic (Node d) None
+                else splitReadingResult d key None predicate makeSymbolic
+        else
+            if key.IsRange then makeSymbolic (Node d) None
+            else splitReadingResult d key None predicate makeSymbolic
 
     let memset (keyAndValues : seq<'key * 'value>) (tree : updateTree<'key, 'value, 'reg>) =
         let keyAndRegions = keyAndValues |> Seq.map (fun (key, value) -> key.Region, {key=key; value=value})
@@ -540,6 +599,15 @@ module MemoryRegion =
     let empty typ =
         {typ = typ; updates = UpdateTree.empty; defaultValue = None}
 
+    let valueIsConcrete key =
+        match key.value.term with
+        | Concrete _ -> true
+        | _ -> false
+    let valueIsConcreteHeapAddress key =
+        match key.value.term with
+        | Concrete(:? concreteHeapAddress as a, AddressType) -> true
+        | _ -> false
+
     let fillRegion defaultValue (region : memoryRegion<_,_>) =
         { region with defaultValue = Some defaultValue }
 
@@ -552,7 +620,7 @@ module MemoryRegion =
             match mr.defaultValue with
             | Some d -> d
             | _ -> makeDefaultValue mr.typ
-        UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
+        UpdateTree.read key valueIsConcrete isDefault makeSymbolic makeDefault mr.updates
 
     let validateWrite value cellType =
         let typ = typeOf value

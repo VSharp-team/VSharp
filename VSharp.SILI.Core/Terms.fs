@@ -408,7 +408,7 @@ module internal Terms =
         commonTypeOf getTypeOfRef term
 
     and typeOf term =
-        let getType term =
+        let rec getType term =
             match term.term with
             | Concrete(_, t)
             | Constant(_, _, t)
@@ -417,6 +417,7 @@ module internal Terms =
             | Struct(_, t) -> t
             | Ref _ -> (typeOfRef term).MakeByRefType()
             | Ptr _ -> (sightTypeOfPtr term).MakePointerType()
+            | Union gvs -> typeOfUnion getType gvs
             | _ -> internalfail $"getting type of unexpected term {term}"
         commonTypeOf getType term
 
@@ -981,6 +982,7 @@ module internal Terms =
             Expression Combine terms t
         let isSolid term typeOfTerm =
             typeOfTerm = t || isRefOrPtr term && (not t.IsValueType || t.IsByRef || isNative t || t.IsPrimitive)
+        // TODO: simplify in single union case
         let simplify p s e pos =
             let typ = typeOf p
             let termSize = lazy (internalSizeOf typ)
@@ -991,6 +993,7 @@ module internal Terms =
                     primitiveCast p t
                 else defaultCase()
             else defaultCase()
+        // TODO: in case of single union propagate guards and make union combine
         match terms with
         // 'ReportError' case
         | _ when List.isEmpty terms ->
@@ -1006,6 +1009,7 @@ module internal Terms =
                 let pos = convert pos typeof<int> :?> int
                 simplify p s e pos
             | _ -> defaultCase()
+        | [{term = Union _}] -> defaultCase()
         | [nonSliceTerm] ->
             simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()

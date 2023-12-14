@@ -7,6 +7,7 @@ open System.Collections.Generic
 open VSharp
 open VSharp.TypeUtils
 open VSharp.Core
+open VSharp.Core.API.Memory
 open VSharp.Core.SolverInteraction
 
 module internal Z3 =
@@ -583,6 +584,7 @@ module internal Z3 =
                     | Constant(name, source, typ) -> x.EncodeConstant name.v source typ
                     | Expression(op, args, typ) -> x.EncodeExpression t op args typ
                     | HeapRef(address, _) -> x.EncodeTerm address
+                    | Union gvs -> x.EncodeUnion gvs
                     | _ -> internalfail $"EncodeTerm: unexpected term: {t}"
                 let typ = TypeOf t
                 let result = if typ.IsEnum then x.AddEnumAssumptions typ result else result
@@ -767,18 +769,49 @@ module internal Z3 =
                 ctx.MkFP(signExpr, expExpr, sigExpr) :> Expr
             else result :> Expr
 
+        member private x.EncodeSlice slice =
+            match slice.term with
+            | Slice(term, cuts) ->
+                let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
+                x.EncodeTerm term, slices
+            | Union gvs ->
+                let extractCuts slice =
+                    match slice.term with
+                    | Slice(t, cuts) -> t, cuts
+                    | _ -> slice, List.empty
+                let unionCuts = GuardedMapWithoutMerge extractCuts gvs
+                let firstGvCutsCount = (List.head >> snd >> snd >> List.length) unionCuts
+                assert(List.forall (fun gv -> (snd >> snd >> List.length) gv = firstGvCutsCount) unionCuts)
+                let encodedTerm = GuardedMapWithoutMerge fst unionCuts |> x.EncodeUnion
+                // slice cuts count are equal in each slice in union
+                // in order to encode i-th cut we consider i-th column in unionCuts as Union
+                let encodeCutChar proj column =
+                    column |> GuardedMapWithoutMerge (fun (_, cuts) -> proj cuts) |> x.EncodeUnion
+                let encodeSlicePart column =
+                    let encodedStarts = encodeCutChar fst3 column
+                    let encodedEnds = encodeCutChar snd3 column
+                    let encodedPoss = encodeCutChar thd3 column
+                    (encodedStarts, encodedEnds, encodedPoss)
+                let rec encodeCuts unionCuts encodedCuts =
+                    let restCuts = (List.head >> snd >> snd) unionCuts
+                    match restCuts with
+                    | [] -> encodedCuts
+                    | _::_ -> 
+                        let firstColumn, rest =
+                            GuardedMapWithoutMerge (fun (t, cuts) -> t, List.head cuts) unionCuts,
+                            GuardedMapWithoutMerge (fun (t, cuts) -> t, List.tail cuts) unionCuts
+                        let encodedPart = encodeSlicePart firstColumn
+                        encodeCuts rest (encodedPart::encodedCuts)
+                encodedTerm, encodeCuts unionCuts []
+            | _ -> x.EncodeTerm slice, List.empty
+
         member private x.EncodeCombine slices typ =
             let size = x.SizeOfBV typ
             let res = ctx.MkBV(0, size)
             let window = res.SortSize
             let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
             let addOneSlice (res, assumptions) slice =
-                let term, cuts =
-                    match slice.term with
-                    | Slice(term, cuts) ->
-                        let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
-                        x.EncodeTerm term, slices
-                    | _ -> x.EncodeTerm slice, List.empty
+                let term, cuts = x.EncodeSlice slice
                 let t =
                     match term.expr with
                     | :? BitVecExpr as bv -> bv
@@ -826,6 +859,17 @@ module internal Z3 =
             let decl = getFuncDecl name argsSort resultSort
             ctx.MkApp(decl, args)
 
+        member private x.EncodeUnion gvs =
+            // can be chosen arbitrary since unreachable
+            let {expr = deepestIteElseValue} = x.EncodeTerm (List.head gvs |> snd)
+            let constructUnion (g, v) (prevIte, assumptions) k =
+                let {expr = guard; assumptions = guardAssumptions} = x.EncodeTerm g
+                let {expr = value; assumptions = valueAssumptions} = x.EncodeTerm v
+                let assumptions = assumptions @ guardAssumptions @ valueAssumptions
+                (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
+            Cps.List.foldrk constructUnion (deepestIteElseValue, []) gvs (fun (ite, assumptions) ->
+            {expr = ite; assumptions = assumptions})
+            
         member private x.EncodeExpression term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with

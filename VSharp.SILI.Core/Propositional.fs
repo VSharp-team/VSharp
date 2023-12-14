@@ -253,6 +253,25 @@ module internal Propositional =
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
         | _ -> False()
+        
+    let simplifyAndWithDisjunctions x y =
+        simplifyAnd x y (fun res ->
+        let isDisjunction = term >> function
+            | Disjunction _ -> true 
+            | _ -> false
+        match res.term with
+        | Conjunction clauses ->
+            let disjunctions, literals = List.partition isDisjunction clauses
+            let filterDisjunction d =
+                match d.term with
+                | Disjunction xs ->
+                    let filtered = List.filter (fun x -> List.contains (simplifyNegation x id) literals |> not ) xs
+                    if List.length filtered = 0 then False() else makeNAry OperationType.LogicalOr filtered bool
+                | _ -> __unreachable__()
+            let simplifiedDisjunctions = List.map filterDisjunction disjunctions
+            conjunction (List.append literals simplifiedDisjunctions)
+        | _ -> res
+        )
 
     let lazyConjunction xs =
         Cps.Seq.foldlk lazyAnd (True()) xs id

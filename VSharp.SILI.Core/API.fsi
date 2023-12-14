@@ -26,6 +26,8 @@ module API =
     val GuardedApplyExpressionWithPC : pathCondition -> term -> (term -> term) -> term
     val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a
     val GuardedStatedApplyk : (state -> term -> ('item -> 'a) -> 'a) -> state -> term -> ('item list -> 'item list) -> ('item list -> 'a) -> 'a
+    val GuardedMapWithoutMerge: ('a -> 'b) -> ('c * 'a) list -> ('c * 'b) list
+    val Merge : (term * term) list -> term
 
     val ReleaseBranches : unit -> unit
     val AcquireBranches : unit -> unit

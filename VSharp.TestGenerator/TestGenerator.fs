@@ -28,6 +28,10 @@ module TestGenerator =
 
     let mutable private maxBufferSize = 128
     let public setMaxBufferSize size = maxBufferSize <- size
+    let private mergeIfUnion t =
+        match t.term with
+        | Union gvs -> Merge gvs
+        | _ -> t
 
     let private addMockToMemoryGraph (indices : Dictionary<concreteHeapAddress, int>) encodeMock evalField (test : UnitTest) addr (mock : ITypeMock) =
         let index = test.MemoryGraph.ReserveRepresentation()
@@ -211,6 +215,7 @@ module TestGenerator =
 
     let rec private term2obj (model : model) state indices mockCache implementations (test : UnitTest) term : obj =
         let term2obj = term2obj model state indices mockCache implementations test
+        let term = mergeIfUnion term
         match term with
         | {term = Concrete(_, TypeUtils.AddressType)} -> __unreachable__()
         | {term = Concrete(v, t)} when t = typeof<IntPtr> ->
