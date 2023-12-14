@@ -1,13 +1,31 @@
 namespace VSharp.Core
 
 open System
+open System.Text
 open VSharp
 open VSharp.Core
 
 // TODO: need type here? we have key.TypeOfLocation
 type private entry = internal { value : term option; typ : Type }
 type private frame = internal { func : IMethod option; entries : pdict<stackKey, entry> }
-type callStack = private { frames : frame stack }
+type callStack =
+    private { frames : frame stack }
+    with
+    override x.ToString() =
+        let mutable sb = StringBuilder()
+        for frame : frame in x.frames do
+            let frameName =
+                match frame.func with
+                | Some m -> $"Frame {m.FullName}"
+                | None -> "Model frame"
+            sb <- sb.AppendLine frameName
+            for stackKey, entry in PersistentDict.toSeq frame.entries do
+                let entryString =
+                    match entry.value with
+                    | Some v -> v.ToString()
+                    | None -> $"Symbolic value of {entry.typ}"
+                sb <- sb.AppendLine $"{stackKey} -> {entryString}"
+        sb.ToString()
 
 module internal CallStack =
 
@@ -60,10 +78,12 @@ module internal CallStack =
         | Some entry -> k entry
         | None -> findFrameAndRead frames key k
 
+    let isModelStack (stack : callStack) =
+        stack.frames.Length = 1 && stack.frames.Head.func = None
+
     let readStackLocation (stack : callStack) key makeSymbolic =
-        let isModel = stack.frames.Length = 1 && stack.frames.Head.func = None
         let notContains = lazy (stack.frames.Head.entries |> PersistentDict.forall (fun (key', _) -> key <> key'))
-        if isModel && notContains.Value then
+        if isModelStack stack && notContains.Value then
             // This state is formed by SMT solver model, just return the default value
             match key with
             | ParameterKey pi -> pi.ParameterType |> makeDefaultValue
@@ -131,15 +151,20 @@ module internal CallStack =
     let size stack = Stack.size stack.frames
 
     let toString (stack : callStack) =
-        let printEntry (k, v) =
-            Option.map (fun v -> sprintf "key = %s, value = %O" k v) v
-        let keysAndValues = fold (fun acc k v _ -> (toString k, v) :: acc) List.empty stack
-        let sorted = List.sortBy fst keysAndValues
-        List.choose printEntry sorted
+        let printEntry acc (k : stackKey) v _ =
+            let value =
+                match v with
+                | Some v -> toString v
+                | None -> "Symbolic"
+            $"{k} -> {value}" :: acc
+        fold printEntry List.empty stack
         |> join "\n"
 
     let stackTrace (stack : callStack) =
         stack.frames |> List.choose (fun frame -> frame.func)
+
+    let entryFunction (stack : callStack) =
+        stackTrace stack |> List.last
 
     let stackTraceString (stack : callStack) =
         stack.frames

@@ -7,6 +7,9 @@ using System.Linq;
 using System.Reflection;
 using ConsoleTables;
 using NUnit.Framework;
+using VSharp.CSharpUtils;
+using VSharp.Explorer;
+using VSharp.TestRenderer;
 
 namespace VSharp.Test.Benchmarks;
 
@@ -17,7 +20,6 @@ internal static class Benchmarks
 
     private static bool TryBuildGeneratedTests()
     {
-
         var testsDir = RenderedTestsDirectory.GetDirectories("*.Tests").Single();
         var info = new ProcessStartInfo
         {
@@ -31,17 +33,38 @@ internal static class Benchmarks
         process.WaitForExit();
         return process.ExitCode == 0;
     }
+    private class Reporter: IReporter
+    {
+        private readonly UnitTests _unitTests;
 
-    public static bool RunBenchmark(
+        public Reporter(UnitTests unitTests)
+        {
+            _unitTests = unitTests;
+        }
+
+        public void ReportFinished(UnitTest unitTest) => _unitTests.GenerateTest(unitTest);
+        public void ReportException(UnitTest unitTest) => _unitTests.GenerateError(unitTest);
+        public void ReportIIE(InsufficientInformationException iie) => TestContext.Progress.WriteLine($"[IIE] {iie.Message}");
+        public void ReportInternalFail(Method? method, Exception exn) => TestContext.Progress.WriteLine($"[ERROR] {method.Name}: {exn}");
+        public void ReportCrash(Exception exn) => TestContext.Progress.WriteLine($"[CRASH] {exn}");
+    }
+
+    // TODO: Add support for fuzzing
+    public static BenchmarkResult Run(
         BenchmarkTarget target,
-        VSharp.SearchStrategy searchStrategy,
-        out Statistics statistics,
+        searchMode searchStrategy,
         int timeoutS = -1,
         uint stepsLimit = 0,
         bool releaseBranches = true,
         int randomSeed = -1,
-        bool renderAndBuildTests = false)
+        bool renderAndBuildTests = false,
+        bool calculateCoverage = false)
     {
+        if (target.Method is null)
+        {
+            throw new NotImplementedException("Running non single method benchmarks is not implemented yet");
+        }
+
         if (RenderedTestsDirectory.Exists)
         {
             Directory.Delete(RenderedTestsDirectory.FullName, true);
@@ -49,89 +72,145 @@ internal static class Benchmarks
 
         Directory.CreateDirectory(RenderedTestsDirectory.FullName);
 
-        var options = new VSharpOptions(
-            Timeout: timeoutS,
-            SearchStrategy: searchStrategy,
-            ReleaseBranches: releaseBranches,
-            Verbosity: Verbosity.Warning,
-            RandomSeed: randomSeed,
-            StepsLimit: stepsLimit,
-            RenderTests: renderAndBuildTests,
-            RenderedTestsDirectory: RenderedTestsDirectory.FullName);
+        var exploredMethodInfo = AssemblyManager.NormalizeMethod(target.Method);
 
-        bool testRunnerResult;
+        Logger.configureWriter(TestContext.Progress);
 
-        if (target.Method is not null)
-        {
-            testRunnerResult = TestGenerator.CoverAndRun(target.Method, out statistics, options);
-        }
-        else if (target.Types.Count == 1)
-        {
-            testRunnerResult = TestGenerator.CoverAndRun(target.Types.Single(), out statistics, options);
-        }
-        else if (target.Types.Count > 1)
-        {
-            testRunnerResult = TestGenerator.CoverAndRun(target.Types, out statistics, options);
-        }
-        else
-        {
-            testRunnerResult = TestGenerator.CoverAndRun(target.Assembly, out statistics, options);
-        }
 
-        var renderResult = true;
-        if (renderAndBuildTests)
-        {
-            renderResult = TryBuildGeneratedTests();
-        }
+        var unitTests = new UnitTests(Directory.GetCurrentDirectory());
 
-        return statistics is { TestsCount: 0u, ErrorsCount: 0u } || (testRunnerResult && renderResult);
-    }
-
-    public static void PrintStatisticsComparison(List<(string Title, Statistics Stats, int coverage)> statistics)
-    {
-        var infos = statistics.SelectMany(ts =>
-            ts.Stats.GeneratedTestInfos
-                .Where(i => !i.IsError)
-                .Select(ti => (ts.Title, ti)))
-                .OrderBy(ti => ti.Item2.StepsCount
+        var svmOptions = new SVMOptions(
+            explorationMode: explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchStrategy),
+            recThreshold: 1,
+            solverTimeout: -1,
+            visualize: false,
+            releaseBranches: releaseBranches,
+            maxBufferSize: 128,
+            prettyChars: true,
+            checkAttributes: false,
+            stopOnCoverageAchieved: -1,
+            randomSeed: randomSeed,
+            stepsLimit: stepsLimit,
+            oracle:null,
+            coverageToSwitchToAI:0,
+            stepsToPlay:0,
+            serialize:false,
+            pathToSerialize:null
         );
 
+        var fuzzerOptions = new FuzzerOptions(
+            isolation: fuzzerIsolation.Process, 
+            coverageZone: coverageZone.MethodZone
+        );
+
+        var explorationModeOptions = Explorer.explorationModeOptions.NewSVM(svmOptions);
+
+        var explorationOptions = new ExplorationOptions(
+            timeout: timeoutS == -1 ? TimeSpanBuilders.Infinite : TimeSpanBuilders.FromSeconds(timeoutS),
+            outputDirectory: unitTests.TestDirectory,
+            explorationModeOptions: explorationModeOptions
+        );
+
+        using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
+
+        explorer.StartExploration(new[] {exploredMethodInfo}, new Tuple<MethodBase, string[]>[] { });
+
+        var result = new BenchmarkResult(false, explorer.Statistics, unitTests, target);
+
+        explorer.Statistics.PrintDebugStatistics(TestContext.Progress);
+        TestContext.Progress.WriteLine($"Test results written to {unitTests.TestDirectory.FullName}");
+
+        TestContext.Progress.WriteLine($"Generated tests count: {unitTests.UnitTestsCount}");
+        TestContext.Progress.WriteLine($"Found errors count: {unitTests.ErrorsCount}");
+
+        if (unitTests is { UnitTestsCount: 0, ErrorsCount: 0 })
+        {
+            return result with { IsSuccessful = true };
+        }
+
+        var testsDir = unitTests.TestDirectory;
+        if (renderAndBuildTests)
+        {
+            var tests = testsDir.EnumerateFiles("*.vst");
+            TestContext.Progress.WriteLine("Starting tests renderer...");
+            try
+            {
+                Renderer.Render(tests, true, false, exploredMethodInfo.DeclaringType, outputDir: RenderedTestsDirectory);
+            }
+            catch (UnexpectedExternCallException)
+            {
+                // TODO: support rendering for extern mocks
+            }
+            catch (Exception e)
+            {
+                TestContext.Progress.WriteLine($"[RENDER ERROR]: {e}");
+                return result;
+            }
+
+            if (!TryBuildGeneratedTests())
+            {
+                TestContext.Progress.WriteLine($"[BUILD]: Cannot build generated tests");
+                return result;
+            }
+        }
+
+        if (!TestRunner.TestRunner.ReproduceTests(unitTests.TestDirectory))
+        {
+            return result;
+        }
+
+        if (calculateCoverage)
+        {
+            return result with { IsSuccessful = true, Coverage = GetMethodCoverage(result) };
+        }
+
+        return result with { IsSuccessful = true };
+    }
+
+    public static void PrintStatisticsComparison(List<(string Title, BenchmarkResult Results)> titleToResults)
+    {
+        var infos = titleToResults.SelectMany(tr =>
+                tr.Results.Statistics.GeneratedTestInfos
+                    .Where(ti => !ti.isError)
+                    .Select(ti => (tr.Title, ti)))
+            .OrderBy(tti => tti.ti.coverage);
+
         var header = new List<string> { "" };
-        header.AddRange(statistics.Select(s => s.Title));
+        header.AddRange(titleToResults.Select(s => s.Title));
         var totalStatsTable = new ConsoleTable(header.ToArray());
 
         var timeRow = new List<string> { "Elapsed time" };
-        timeRow.AddRange(statistics.Select(s => s.Stats.TestGenerationTime.ToString()));
+        timeRow.AddRange(titleToResults.Select(tr => tr.Results.Statistics.CurrentExplorationTime.ToString()));
         totalStatsTable.AddRow(timeRow.ToArray());
 
         var stepsRow = new List<string> { "Steps count" };
-        stepsRow.AddRange(statistics.Select(s => s.Stats.StepsCount.ToString()));
+        stepsRow.AddRange(titleToResults.Select(tr => tr.Results.Statistics.StepsCount.ToString()));
         totalStatsTable.AddRow(stepsRow.ToArray());
 
         var testsCountRow = new List<string> { "Tests generated" };
-        testsCountRow.AddRange(statistics.Select(s => s.Stats.TestsCount.ToString()));
+        testsCountRow.AddRange(titleToResults.Select(tr => tr.Results.Tests.UnitTestsCount.ToString()));
         totalStatsTable.AddRow(testsCountRow.ToArray());
 
         var errorsCountRow = new List<string> { "Errors found" };
-        errorsCountRow.AddRange(statistics.Select(s => s.Stats.ErrorsCount.ToString()));
+        errorsCountRow.AddRange(titleToResults.Select(tr => tr.Results.Tests.ErrorsCount.ToString()));
         totalStatsTable.AddRow(errorsCountRow.ToArray());
 
         var coverageRow = new List<string> { "Total coverage (with tool)" };
-        coverageRow.AddRange(statistics.Select(s => $"{s.coverage}%"));
+        coverageRow.AddRange(titleToResults.Select(tr => $"{tr.Results.Coverage}%"));
         totalStatsTable.AddRow(coverageRow.ToArray());
 
         totalStatsTable.Write();
 
         var testsStatsTableHeader = new List<string> { "Steps count" };
-        testsStatsTableHeader.AddRange(statistics.Select(ts => ts.Title));
+        testsStatsTableHeader.AddRange(titleToResults.Select(tr => tr.Title));
         var testsStatsTable = new ConsoleTable(testsStatsTableHeader.ToArray());
 
         foreach (var (title, info) in infos)
         {
-            var row = new List<string> { info.StepsCount.ToString() };
-            foreach (var (columnHeader, _, _) in statistics)
+            var row = new List<string> { info.stepsCount.ToString() };
+            foreach (var (columnHeader, _) in titleToResults)
             {
-                row.Add(title == columnHeader ? info.Coverage.ToString("0.##") : "");
+                row.Add(title == columnHeader ? info.coverage.ToString("0.##") : "");
             }
 
             testsStatsTable.AddRow(row.ToArray());
@@ -140,15 +219,15 @@ internal static class Benchmarks
         testsStatsTable.Write();
     }
 
-    public static int GetMethodCoverage(BenchmarkTarget target, Statistics result)
+    private static int GetMethodCoverage(BenchmarkResult result)
     {
-        if (target.Method is null)
+        if (result.Target.Method is null)
         {
             throw new Exception("Cannot get coverage of BenchmarkTarget without single method");
         }
 
-        var runnerWithArgs = $"{TestRunnerPath} {result.OutputDir.FullName}";
-        return CoverageRunner.CoverageRunner.RunAndGetCoverage(runnerWithArgs, result.OutputDir, target.Method);
+        var runnerWithArgs = $"{TestRunnerPath} {result.Tests.TestDirectory}";
+        return CoverageRunner.CoverageRunner.RunAndGetCoverage(runnerWithArgs, result.Tests.TestDirectory, result.Target.Method);
     }
 
     public static Assembly LoadBenchmarkAssembly(string suite, string dllFileName)

@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using IntegrationTests.Typecast;
+using NUnit.Framework;
 using VSharp.Test;
 #pragma warning disable CS0693
 
@@ -26,23 +28,26 @@ namespace IntegrationTests
         }
     }
 
-    [TestSvmFixture]
-    public static class GenericInitialize<T, U, P, K, N, Z>
-        where T : U
-        where U : IKeeper<P>
-        where P : struct, IKeeper<T>
-        where K : class, IKeeper<U>
-        where N : IKeeper<K>
-        where Z : List<int>
-    {
-        public static class NonGenericClassInsideGenericClass
-        {
-            public static K GenericMethodOfNonGenericType(K k)
-            {
-                return k;
-            }
-        }
+    public interface IGenericInterface1<out T> { }
 
+    public interface IGenericInterface2<out T> { }
+
+    public interface IInterface2<out T, out U> { }
+
+    public class BothGenericInterface<T> : IGenericInterface1<T>, IGenericInterface2<T>
+        where T: class
+    { }
+
+    public interface IForSpecialConstraints<out T> { }
+
+    public class ForSpecialConstraints<T> : IForSpecialConstraints<T> { }
+    public struct StructForSpecialConstraints<T> : IForSpecialConstraints<T> { }
+
+    public sealed class Sealed<T> { }
+
+    [TestSvmFixture]
+    public static class GenericInitialize
+    {
         [TestSvm]
         public static LinkedList<int> RetDictionary()
         {
@@ -53,12 +58,6 @@ namespace IntegrationTests
         public static List<double> RetList()
         {
             return new List<double>();
-        }
-
-        [TestSvm]
-        public static T RetT(T t)
-        {
-            return t;
         }
     }
 
@@ -83,63 +82,6 @@ namespace IntegrationTests
             if (current.Position > 0)
                 return 0;
             return 42;
-        }
-    }
-
-    [TestSvmFixture]
-    public static class GenericTest<T, U, P, K, N, Z, C>
-        where T : U
-        where U : IKeeper<P>
-        where P : struct, IKeeper<T>
-        where C : class
-        where K : class, IKeeper<U>
-        where N : IKeeper<K>
-        where Z : List<int>
-    {
-        [TestSvm]
-        public static T RetT(T t)
-        {
-            return t;
-        }
-
-        [TestSvm]
-        public static U RetU(U u)
-        {
-            return u;
-        }
-
-        [TestSvm]
-        public static K RetK(K k)
-        {
-            return k;
-        }
-
-        [TestSvm]
-        public static N RetN(N n)
-        {
-            return n;
-        }
-
-        [TestSvm]
-        public static Z RetZ(Z z)
-        {
-            return z;
-        }
-
-        [TestSvm(100)]
-        public static int HardBranch(object o, C t)
-        {
-            if (o is List<T>)
-            {
-                if (t is List<T>)
-                {
-                    return 1;
-                }
-
-                return 2;
-            }
-
-            return 3;
         }
     }
 
@@ -328,6 +270,229 @@ namespace IntegrationTests
         {
             if (f == null) return 0;
             return f.GetFields();
+        }
+    }
+
+    [TestSvmFixture]
+    public static class GenericCandidates
+    {
+        [TestSvm(100)]
+        public static int Subtyping(object o)
+        {
+            if (o is List<int>)
+                return 2;
+            if (o is Dictionary<int, int>)
+                return 3;
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int SubtypingInterface(object o)
+        {
+            if (o is IEnumerable<IMovable>)
+            {
+                if (o is List<Knight>)
+                    return 3;
+                if (o is HashSet<Pawn>)
+                    return 4;
+                if (o is List<Pawn>)
+                    return 5;
+                if (o is HashSet<Knight>)
+                    return 6;
+                if (o is IEnumerable<Piece>)
+                    return 7;
+                return 2;
+            }
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int DeepPropagating1(IEnumerable<IMovable> o)
+        {
+            if (o != null)
+            {
+                if (o is ICollection<Knight>)
+                    return 2;
+                return 1;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int DeepPropagating2(object o)
+        {
+            if (o is IEnumerable<KeyValuePair<Piece, int>>)
+            {
+                if (o is Dictionary<Piece, int>)
+                    return 3;
+                return 2;
+            }
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int DeepPropagating3(IGenericInterface1<IMovable> o)
+        {
+            if (o is IGenericInterface2<Knight>)
+                return 2;
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int StandaloneInterface(object o)
+        {
+            if (o is List<IGenericInterface2<int>>)
+                return 2;
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int NoSolution1(object o)
+        {
+            if (o is IEnumerable<int>)
+            {
+                if (o is List<Knight>)
+                    return 3;
+                return 2;
+            }
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int NoSolution2(object o)
+        {
+            if (o is IInterface2<IMovable, object>)
+            {
+                if (o is IInterface2<Piece, object>)
+                    return 3;
+                return 2;
+            }
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int Nested1(object o)
+        {
+            if (o is IEnumerable<object>)
+            {
+                if (o is IEnumerable<IEnumerable<object>>)
+                {
+                    if (o is IEnumerable<IEnumerable<IEnumerable<object>>>)
+                    {
+                        if (o is IEnumerable<IEnumerable<IEnumerable<IEnumerable<object>>>>)
+                        {
+                            if (o is IEnumerable<IEnumerable<IEnumerable<IEnumerable<IEnumerable<object>>>>>)
+                            {
+                                if (o is List<List<List<List<List<List<List<List<object>>>>>>>>)
+                                    return 228;
+                                return 6;
+                            }
+                            return 5;
+                        }
+                        return 4;
+                    }
+                    return 3;
+                }
+                return 2;
+            }
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int Nested2(object o)
+        {
+            if (o is Sealed<Sealed<Sealed<Sealed<Sealed<Sealed<int>>>>>>)
+                return 2;
+            return 1;
+        }
+    }
+
+    [TestSvmFixture]
+    public static class MockRelocation<T, U> where T: unmanaged, IEquatable<U>
+    {
+        [TestSvm(100)]
+        public static bool Contains(List<T> list, U value)
+        {
+            return true;
+        }
+    }
+
+    [TestSvmFixture]
+    public static class MockRelocation2<T> where T: unmanaged, IComparable<T>
+    {
+        [TestSvm(100)]
+        public static bool Contains(List<T> list)
+        {
+            return true;
+        }
+    }
+
+    [TestSvmFixture]
+    public static class MockRelocation3<T, U>
+        where T : unmanaged, IComparable<T>
+        where U : IComparer<T>
+    {
+        [Ignore("support parameters with cyclic dependencies")]
+        public static bool Contains(List<T> list, U value)
+        {
+            return true;
+        }
+    }
+
+    [TestSvmFixture]
+    public static class MockRelocation4<T, U>
+        where T : unmanaged, IComparable<U>
+        where U : IComparable<T>
+    {
+        [Ignore("support parameters with cyclic dependencies")]
+        public static bool Contains(List<T> list, U value)
+        {
+            return true;
+        }
+    }
+
+    [TestSvmFixture]
+    public static class MethodParameters
+    {
+
+        [TestSvmFixture]
+        public static class MethodParameters1<T>
+            where T : IEnumerable<int>
+        {
+            [TestSvm(100)]
+            public static int Method() => 1;
+        }
+
+        [TestSvmFixture]
+        public static class MethodParameters2<T, U>
+            where T : IEnumerable<IEnumerable<U>>
+        {
+            [TestSvm(100)]
+            public static int Method() => 1;
+        }
+
+        [TestSvmFixture]
+        public static class MethodParameters3<T, U>
+            where T : IGenericInterface1<U>, IGenericInterface2<U>
+        {
+            [TestSvm(100)]
+            public static int Method()
+            {
+                return 1;
+            }
+        }
+
+        [TestSvmFixture]
+        public static class MethodParameters4<T1, T2, U>
+            where T1: class, IForSpecialConstraints<U>, new()
+            where T2: struct, IForSpecialConstraints<U>
+        {
+            [TestSvm(100)]
+            public static int Method()
+            {
+                return 1;
+            }
         }
     }
 

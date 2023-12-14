@@ -11,6 +11,7 @@ open Suave.Sockets.Control
 open Suave.WebSocket
 open VSharp
 open VSharp.Core
+open VSharp.Explorer
 open VSharp.Interpreter.IL
 open VSharp.ML.GameServer.Messages
 open VSharp.ML.GameServer.Maps
@@ -101,7 +102,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                         match settings.CoverageZone with
                         | CoverageZone.Method ->
                             let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                            let options = VSharpOptions(Timeout = 15 * 60, OutputDirectory = outputDirectory, Oracle = oracle, SearchStrategy = SearchStrategy.AI, CoverageToSwitchToAI = uint settings.CoverageToStart, StepsToPlay = gameStartParams.StepsToPlay, SolverTimeout=2)
+                            let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
                             let statistics = TestGenerator.Cover(method, options)
                             let actualCOverage = 
                                 if checkActualCoverage

@@ -201,6 +201,38 @@ namespace IntegrationTests
         private static int field1 = ClassesSimpleExceptionInitializer.Init1(24);
     }
 
+    public abstract class AbstractClass
+    {
+        public int _z = 30;
+        public int Property { get; }
+    }
+
+    public class BaseClass : AbstractClass
+    {
+        private int _field;
+        public int _x = 20;
+        public int _y = 30;
+        public int Property1 { get; }
+        public int Property2 { get; }
+
+        public int F()
+        {
+            if (_field > 0)
+                return _field;
+            return -1;
+        }
+    }
+
+    public class Class : BaseClass
+    {
+        public int _x = 1;
+        public int Property2 { get; }
+        public int F()
+        {
+            return base.F();
+        }
+    }
+
     [TestSvmFixture]
     public static class ClassesSimple
     {
@@ -213,9 +245,25 @@ namespace IntegrationTests
             return n == a.GetN();
         }
 
-        struct MyStruct
+        interface IStruct
+        {
+            public void Mutate(int a);
+            public int Value();
+        }
+
+        struct MyStruct : IStruct
         {
             public int MyValue;
+
+            public void Mutate(int a)
+            {
+                MyValue = a;
+            }
+
+            public int Value()
+            {
+                return MyValue;
+            }
         }
 
         [TestSvm]
@@ -226,10 +274,76 @@ namespace IntegrationTests
             return x.MyValue;
         }
 
+        class MyClass
+        {
+            private IStruct _myStruct = new MyStruct();
+
+            public void Mutate(int a)
+            {
+                _myStruct.Mutate(a);
+            }
+            public int GetValue()
+            {
+                return _myStruct.Value();
+            }
+        }
+
+        [TestSvm(85)]
+        public static int StructureAccess(int newMyValue)
+        {
+            var x = new MyClass();
+            x.Mutate(newMyValue);
+            x.Mutate(3);
+            if (x.GetValue() != 3)
+                return -1;
+            return 0;
+        }
+
         [TestSvm]
         public static int ValueTypeMethod(int x, int y)
         {
             return x.CompareTo(y);
+        }
+
+        [TestSvm(96)]
+        public static int FieldHierarchyTest(Class c)
+        {
+            if (c._y > 30)
+                return 1;
+            if (c._x > 12)
+                return 2;
+            if (((BaseClass)c)._x > 10)
+                return 3;
+            if (((BaseClass)c)._y > 11)
+                return 4;
+            if (c.Property2 != ((BaseClass)c).Property2)
+                return -1;
+            if (c.Property1 > 0)
+                return 5;
+            if (c.Property2 > 0)
+                return 6;
+            if (((BaseClass)c).Property2 > 0)
+                return 8;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int FieldAbstractHierarchyTest(AbstractClass c)
+        {
+            if (c._z > 30)
+                return 1;
+            if (c.Property > 20)
+                return 2;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int FieldHierarchyTest1(Class c)
+        {
+            var a = c.F();
+            if (a > 0)
+                return a;
+            return -1;
         }
     }
 

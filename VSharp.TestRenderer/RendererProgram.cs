@@ -36,9 +36,9 @@ internal static class RendererProgram
         var testPathArgument =
             new Argument<string>("test-path", description: "Path to the tests (.vst)");
         var wrapErrorsOption =
-            new Option("--wrap-errors", description: "Enables exception handling in error suites");
+            new System.CommandLine.Option("--wrap-errors", description: "Enables exception handling in error suites");
         var outputOption =
-            new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
+            new System.CommandLine.Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
                 () => new DirectoryInfo(Directory.GetCurrentDirectory()),
                 "Path where NUnit tests will be generated");
 

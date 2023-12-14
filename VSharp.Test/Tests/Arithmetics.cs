@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using NUnit.Framework;
 using VSharp.Test;
 
@@ -8,7 +9,6 @@ namespace IntegrationTests
     [Ignore("Need exceptions for all tests")]
     public sealed class Arithmetics_CIL
     {
-        // [Ignore("unknown result")]
         [TestSvm]
         public static bool MultiplicationOfFloatsIsNotAssociative()
         {
@@ -20,17 +20,34 @@ namespace IntegrationTests
             return d != e;
         }
 
-        // [Ignore("unknown result")]
         [TestSvm]
-        public static bool MultiplicationOfFloatsIsCommutativity()
+        public static bool MultiplicationOfDoublesIsNotAssociative()
+        {
+            double a = 0.825402526103613;
+            double b = 0.909231618470155;
+            double c = 0.654626872695343;
+            double d = (a * b) * c;
+            double e = a * (b * c);
+            return d != e;
+        }
+
+        [TestSvm]
+        public static bool MultiplicationOfFloatsIsCommutative()
         {
             float a = 0.825402526103613f;
             float b = 0.909231618470155f;
             return Math.Abs(a * b - b * a) <= Single.Epsilon;
         }
 
+        [TestSvm]
+        public static bool MultiplicationOfDoublesIsCommutative()
+        {
+            double a = 0.825402526103613;
+            double b = 0.909231618470155;
+            return Math.Abs(a * b - b * a) <= Single.Epsilon;
+        }
+
         // Overflow exception
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static int DivideWithOverflow()
         {
@@ -55,8 +72,14 @@ namespace IntegrationTests
             return a / 0;
         }
 
+        // NaN
+        [TestSvm]
+        public static double DivideDoubleOnZero(double a)
+        {
+            return a / 0;
+        }
+
         // divide by zero exception
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static float DivideOnZero1()
         {
@@ -66,13 +89,26 @@ namespace IntegrationTests
         }
 
         // divide by zero exception
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static float DivideOnZero2()
         {
             uint x = 8;
             uint y = 0;
             return x / y;
+        }
+
+        // no exceptions
+        [TestSvm]
+        public static float Add(float a, float b)
+        {
+            return a + b;
+        }
+
+        // no exceptions
+        [TestSvm]
+        public static double Add(double a, double b)
+        {
+            return a + b;
         }
 
         // no exceptions
@@ -101,6 +137,20 @@ namespace IntegrationTests
         public static uint Add_Ovf_Un(uint a, uint b)
         {
             return checked(a + b);
+        }
+
+        // no exceptions
+        [TestSvm]
+        public static float Mul(float a, float b)
+        {
+            return a * b;
+        }
+
+        // no exceptions
+        [TestSvm]
+        public static double Mul(double a, double b)
+        {
+            return a * b;
         }
 
         // overflow exceptions possible
@@ -137,7 +187,6 @@ namespace IntegrationTests
             return Mul_Ovf(a, b);
         }
 
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static uint Mul_OverFlow1()
         {
@@ -148,13 +197,26 @@ namespace IntegrationTests
             return Mul_Ovf_Un(c, d);
         }
 
+        // no exceptions
+        [TestSvm]
+        public static float Sub(float a, float b)
+        {
+            return a - b;
+        }
+
+        // no exceptions
+        [TestSvm]
+        public static double Sub(double a, double b)
+        {
+            return a - b;
+        }
+
         [TestSvm]
         public static int Sub_Ovf(int a, int b)
         {
             return checked(a - b);
         }
 
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static int Sub_Overflow1()
         {
@@ -163,7 +225,6 @@ namespace IntegrationTests
             return Sub_Ovf(a, b);
         }
 
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static int Sub_Overflow2()
         {
@@ -172,7 +233,6 @@ namespace IntegrationTests
             return Sub_Ovf(a, b);
         }
 
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static int Sub_Overflow3()
         {
@@ -246,6 +306,18 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        public static float Rem_Floats(float a, float b)
+        {
+            return a % b;
+        }
+
+        [TestSvm]
+        public static double Rem_Concrete_Floats()
+        {
+            return Rem_Floats(10.0f, 6.0f);
+        }
+
+        [TestSvm]
         public static double Rem_Doubles(double a, double b)
         {
             return a % b;
@@ -258,6 +330,12 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        public static float Rem_Always_B(float a)
+        {
+            return Rem_Floats(a, float.PositiveInfinity);
+        }
+
+        [TestSvm]
         public static double Rem_Always_A(double a)
         {
             return Rem_Doubles(a, double.PositiveInfinity);
@@ -267,6 +345,24 @@ namespace IntegrationTests
         public static double Rem_Concrete_Doubles_0()
         {
             return Rem_Always_A(0.0);
+        }
+
+        [TestSvm]
+        public static float Rem_Concrete_Float_Nan1()
+        {
+            return Rem_Always_B(float.PositiveInfinity);
+        }
+
+        [TestSvm]
+        public static float Rem_Concrete_Float_Nan2()
+        {
+            return Rem_Always_B(float.NegativeInfinity);
+        }
+
+        [TestSvm]
+        public static double Rem_Concrete_Float_Nan3()
+        {
+            return Rem_Floats(float.MaxValue, 0.0f);
         }
 
         [TestSvm]
@@ -772,6 +868,28 @@ namespace IntegrationTests
             return Math.Sqrt(-1);
         }
 
+        [TestSvm(90)]
+        public static object SqrtMethod5(object x, object y)
+        {
+            switch (x, y)
+            {
+                case (double d1, double d2) when Math.Sqrt(d1) != Math.Sqrt(d2) && d1 == d2:
+                    throw new ArgumentException();
+                case (double d1, double d2) when Math.Sqrt(d1) != Math.Sqrt(d2) && ReferenceEquals(x, y):
+                    throw new ArgumentException();
+                default:
+                    return null;
+            }
+        }
+
+        [TestSvm(76)]
+        public static object SqrtMethod6(double d1, double d2)
+        {
+            if (Math.Sqrt(d1) != Math.Sqrt(d2) && d1 == d2)
+                return -1;
+            return null;
+        }
+
         // 1
         [TestSvm]
         public static double ExpMethod1()
@@ -1049,6 +1167,22 @@ namespace IntegrationTests
             return Math.Atan2(1, Double.PositiveInfinity);
         }
 
+        [TestSvm(83)]
+        public static int CharTest(char c)
+        {
+            if (c < 128)
+            {
+                if (c < 256u)
+                {
+                    return 1;
+                }
+
+                return -1;
+            }
+
+            return 0;
+        }
+
         [Ignore("Forward exploration does not handle recursion now")]
         public static void Mult(int x, int y)
         {
@@ -1096,6 +1230,260 @@ namespace IntegrationTests
                 <= 10_000_000 => 8,
                 _ => throw new ArgumentOutOfRangeException()
             };
+        }
+
+        [TestSvm(100)]
+        public static int NumericsVectorTest(byte a, byte b)
+        {
+            Vector<byte> vector1 = new Vector<byte>(a);
+            Vector<byte> vector2 = new Vector<byte>(b);
+            if (vector1 == vector2)
+                return 1;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int NumericsVectorTest1(byte[] a, byte[] b)
+        {
+            Vector<byte> vector1 = new Vector<byte>(a);
+            Vector<byte> vector2 = new Vector<byte>(b);
+            if (vector1 == vector2)
+                return 1;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static double ComparePi(double x)
+        {
+            if (x == Math.PI) return x;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static double EncodeDoubleTest(double x)
+        {
+            if (x > 0) return x;
+            return -x;
+        }
+
+        [TestSvm(100)]
+        public static double EncodeDoubleTest1(double x)
+        {
+            if (198.1234 == x) return 1;
+            return 0;
+        }
+
+        [Ignore("Fails on CI for unknown yet reason")]
+        public static double EncodeDoubleTest2(double x)
+        {
+            double epsilon = 1e-10;
+            if (x - 198.234 < epsilon && 198.234 - x < epsilon) return 1;
+            return 0;
+        }
+
+        [TestSvm]
+        public static double EncodeFloatTest(float x)
+        {
+            if (x > 0) return x;
+            return -x;
+        }
+
+        [TestSvm]
+        public static double EncodeFloatTest1(float x)
+        {
+            if (198.1234 == x) return 1;
+            return 0;
+        }
+
+        [TestSvm]
+        public static double CompareDoubleAndFloatTest1(double x, float y)
+        {
+            if (x > y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareDoubleAndFloatTest2(double x, float y)
+        {
+            if (x >= y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareDoubleAndFloatTest3(double x, float y)
+        {
+            if (x < y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareDoubleAndFloatTest4(double x, float y)
+        {
+            if (x <= y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareDoublesTest1(double x, double y)
+        {
+            if (x > y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareDoublesTest2(double x, double y)
+        {
+            if (x >= y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareDoublesTest3(double x, double y)
+        {
+            if (x < y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareDoublesTest4(double x, double y)
+        {
+            if (x <= y) return x;
+            return y;
+        }
+        [TestSvm]
+        public static double CompareFloatsTest1(float x, float y)
+        {
+            if (x > y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareFloatsTest2(float x, float y)
+        {
+            if (x >= y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareFloatsTest3(float x, float y)
+        {
+            if (x < y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static double CompareFloatsTest4(float x, float y)
+        {
+            if (x <= y) return x;
+            return y;
+        }
+
+        [TestSvm]
+        public static int CastRealToIntegral(float x)
+        {
+            int i = (int) x;
+            if (x == 123.0 && i != 123)
+                return -1;
+            return i;
+        }
+
+        [TestSvm]
+        public static byte CastRealToIntegral1(float x)
+        {
+            byte i = (byte) x;
+            if (x == 123.0 && i != 123)
+                throw new ArgumentException();
+            return i;
+        }
+
+        [TestSvm]
+        public static long CastRealToIntegral2(float x)
+        {
+            long i = (long) x;
+            if (x == 123.0 && i != 123)
+                return -1;
+            return i;
+        }
+
+        [TestSvm]
+        public static int CastRealToIntegral3(double x)
+        {
+            int i = (int) x;
+            if (x == 123.0 && i != 123)
+                return -1;
+            return i;
+        }
+
+        [TestSvm]
+        public static byte CastRealToIntegral4(double x)
+        {
+            byte i = (byte) x;
+            if (x == 123.0 && i != 123)
+                throw new ArgumentException();
+            return i;
+        }
+
+        [TestSvm]
+        public static long CastRealToIntegral5(double x)
+        {
+            long i = (long) x;
+            if (x == 123.0 && i != 123)
+                return -1;
+            return i;
+        }
+
+        [TestSvm]
+        public static int CastIntegralToReal(int i)
+        {
+            float x = i;
+            if (i == 123 && x != 123.0)
+                return -1;
+            return i;
+        }
+
+        [TestSvm]
+        public static byte CastIntegralToReal1(byte i)
+        {
+            float x = i;
+            if (i == 123 && x != 123.0)
+                throw new ArgumentException();
+            return i;
+        }
+
+        [TestSvm]
+        public static long CastIntegralToReal2(long i)
+        {
+            float x = i;
+            if (i == 123 && x != 123.0)
+                return -1;
+            return i;
+        }
+
+        [TestSvm]
+        public static int CastIntegralToReal3(int i)
+        {
+            double x = i;
+            if (i == 123 && x != 123.0)
+                return -1;
+            return i;
+        }
+
+        [TestSvm]
+        public static byte CastIntegralToReal4(byte i)
+        {
+            double x = i;
+            if (i == 123 && x != 123.0)
+                throw new ArgumentException();
+            return i;
+        }
+
+        [TestSvm]
+        public static long CastIntegralToReal5(long i)
+        {
+            double x = i;
+            if (i == 123 && x != 123.0)
+                return -1;
+            return i;
         }
     }
 }

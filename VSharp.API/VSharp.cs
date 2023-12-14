@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.WebSockets;
@@ -10,6 +9,7 @@ using System.Text;
 using VSharp.CSharpUtils;
 using VSharp.IL;
 using VSharp.Interpreter.IL;
+using VSharp.Explorer;
 
 namespace VSharp
 {
@@ -80,6 +80,7 @@ namespace VSharp
         {
             writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", TestGenerationTime.Hours,
                 TestGenerationTime.Minutes, TestGenerationTime.Seconds, TestGenerationTime.Milliseconds);
+            writer.WriteLine("Total coverage: {0}", GeneratedTestInfos.LastOrDefault().Coverage);
             var count = IncompleteBranches.Count();
             if (count > 0)
             {
@@ -106,54 +107,29 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private static Statistics StartExploration(
-            IEnumerable<MethodBase> methods,
-            coverageZone coverageZone,
-            VSharpOptions options,
-            string[]? mainArguments = null)
+        private class Reporter: IReporter
         {
-            Logger.currentLogLevel = options.Verbosity.ToLoggerLevel();
+            private readonly UnitTests _unitTests;
+            private readonly bool _isQuiet;
 
-            var unitTests = new UnitTests(options.OutputDirectory);
-            var baseSearchMode = options.SearchStrategy.ToSiliMode();
-            // TODO: customize search strategies via console options
-            var siliOptions =
-                new SiliOptions(
-                    explorationMode: explorationMode.NewTestCoverageMode(
-                        coverageZone,
-                        //timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
-                        baseSearchMode
-                    ),
-                    outputDirectory: unitTests.TestDirectory,
-                    recThreshold: options.RecursionThreshold,
-                    timeout: options.Timeout,
-                    solverTimeout: options.SolverTimeout,
-                    visualize: false,
-                    releaseBranches: options.ReleaseBranches,
-                    maxBufferSize: 128,
-                    checkAttributes: true,
-                    stopOnCoverageAchieved: 100,
-                    randomSeed: options.RandomSeed,
-                    stepsLimit: options.StepsLimit,
-                    oracle: options.Oracle,
-                    coverageToSwitchToAI:options.CoverageToSwitchToAI,
-                    stepsToPlay:options.StepsToPlay,
-                    serialize:false,
-                    pathToSerialize:"");
-
-            using var explorer = new SILI(siliOptions);
-            var statistics = explorer.Statistics;
-
-            void HandleInternalFail(Method? method, Exception exception)
+            public Reporter(UnitTests unitTests, bool isQuiet)
             {
-                if (options.Verbosity == Verbosity.Quiet)
-                {
-                    return;
-                }
+                _unitTests = unitTests;
+                _isQuiet = isQuiet;
+            }
 
-                if (exception is UnknownMethodException unknownMethodException)
+            public void ReportFinished(UnitTest unitTest) => _unitTests.GenerateTest(unitTest);
+            public void ReportException(UnitTest unitTest) => _unitTests.GenerateError(unitTest);
+            public void ReportIIE(InsufficientInformationException iie) {}
+
+            public void ReportInternalFail(Method? method, Exception exn)
+            {
+                if (_isQuiet) return;
+
+                if (exn is UnknownMethodException unknownMethodException)
                 {
-                    Logger.printLogString(Logger.Error, $"Unknown method: {unknownMethodException.Method.FullName}");
+                    Logger.printLogString(Logger.Error, $"Unknown method: {unknownMethodException.Method.FullName}, {unknownMethodException.Message}");
+                    Logger.printLogString(Logger.Error, $"StackTrace: {unknownMethodException.InterpreterStackTrace}");
                     return;
                 }
 
@@ -164,30 +140,82 @@ namespace VSharp
                     messageBuilder.AppendLine($"Explored method: {method.DeclaringType}.{method.Name}");
                 }
 
-                messageBuilder.Append($"Exception: {exception.GetType()} {exception.Message}");
+                messageBuilder.AppendLine($"Exception: {exn.GetType()} {exn.Message}");
 
-                var trace = new StackTrace(exception, true);
-                var frame = trace.GetFrame(0);
-
-                if (frame is not null)
+                var trace = exn.StackTrace;
+                if (trace is not null)
                 {
-                    messageBuilder.AppendLine();
-                    messageBuilder.Append($"At: {frame.GetFileName()}, {frame.GetFileLineNumber()}");
+                    messageBuilder.AppendLine(trace);
                 }
 
                 Logger.printLogString(Logger.Error, messageBuilder.ToString());
             }
 
-            void HandleCrash(Exception exception)
+            public void ReportCrash(Exception exn)
             {
-                if (options.Verbosity == Verbosity.Quiet)
-                {
-                    return;
-                }
-
-                Logger.printLogString(Logger.Critical, $"{exception}");
+                if (_isQuiet) return;
+                Logger.printLogString(Logger.Critical, $"{exn}");
             }
+        }
 
+        private static Statistics StartExploration(
+            IEnumerable<MethodBase> methods,
+            coverageZone coverageZone,
+            VSharpOptions options,
+            string[]? mainArguments = null)
+        {
+            Logger.changeVerbosityTuple(Logger.defaultTag, options.Verbosity.ToLoggerLevel());
+
+            var unitTests = new UnitTests(options.OutputDirectory);
+            var baseSearchMode = options.SearchStrategy.ToSiliMode();
+            // TODO: customize search strategies via console options
+
+            var siliOptions =
+                new SVMOptions(
+                    explorationMode: explorationMode.NewTestCoverageMode(
+                        coverageZone,
+                        //timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
+                        baseSearchMode
+                    ),
+                    recThreshold: options.RecursionThreshold,
+                    solverTimeout: options.SolverTimeout,
+                    visualize: false,
+                    releaseBranches: options.ReleaseBranches,
+                    maxBufferSize: 128,
+                    prettyChars: true,
+                    checkAttributes: true,
+                    stopOnCoverageAchieved: 100,
+                    randomSeed: options.RandomSeed,
+                    stepsLimit: options.StepsLimit,
+                    oracle: options.Oracle,
+                    coverageToSwitchToAI:options.CoverageToSwitchToAI,
+                    stepsToPlay:options.StepsToPlay,
+                    serialize:false,
+                    pathToSerialize:"");
+
+            var fuzzerOptions =
+                new FuzzerOptions(
+                    isolation: fuzzerIsolation.Process,
+                    coverageZone: coverageZone
+                );
+
+            var explorationModeOptions = options.ExplorationMode switch
+            {
+                ExplorationMode.Fuzzing => Explorer.explorationModeOptions.NewFuzzing(fuzzerOptions),
+                ExplorationMode.Sili => Explorer.explorationModeOptions.NewSVM(siliOptions),
+                ExplorationMode.Interleaving => Explorer.explorationModeOptions.NewCombined(siliOptions, fuzzerOptions),
+                _ => throw new ArgumentOutOfRangeException($"StartExploration: unexpected exploration mode {options.ExplorationMode}")
+            };
+
+            var explorationOptions = new ExplorationOptions(
+                timeout: options.Timeout == -1 ? TimeSpanBuilders.Infinite : TimeSpanBuilders.FromSeconds(options.Timeout),
+                outputDirectory: unitTests.TestDirectory,
+                explorationModeOptions: explorationModeOptions
+            );
+
+            using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests, options.Verbosity == Verbosity.Quiet));
+
+            var statistics = explorer.Statistics;
             var isolated = new List<MethodBase>();
             var entryPoints = new List<Tuple<MethodBase, string[]?>>();
 
@@ -204,24 +232,16 @@ namespace VSharp
                 }
             }
 
-            var testInfos = new List<GeneratedTestInfo>();
+            explorer.StartExploration(isolated, entryPoints);
 
-            void OnTest(UnitTest test)
-            {
-                var coverage = statistics.GetCurrentCoverage();
-                testInfos.Add(new GeneratedTestInfo(false, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
-                unitTests.GenerateTest(test);
-            }
-
-            void OnError(UnitTest test)
-            {
-                var coverage = statistics.GetCurrentCoverage();
-                testInfos.Add(new GeneratedTestInfo(true, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
-                unitTests.GenerateError(test);
-            }
-
-            explorer.Interpret(isolated, entryPoints, OnTest, OnError, _ => { },
-                HandleInternalFail, HandleCrash);
+            var generatedTestInfos = statistics.GeneratedTestInfos.Select(i =>
+                new GeneratedTestInfo(
+                    IsError: i.isError,
+                    ExecutionTime: i.executionTime,
+                    StepsCount: i.stepsCount,
+                    Coverage: i.coverage
+                )
+            );
 
             var result = new Statistics(
                 statistics.CurrentExplorationTime,
@@ -229,8 +249,8 @@ namespace VSharp
                 unitTests.UnitTestsCount,
                 unitTests.ErrorsCount,
                 statistics.StepsCount,
-                statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct(),
-                testInfos);
+                statistics.IncompleteStates.Select(s => s.iie.Value.Message).Distinct(),
+                generatedTestInfos);
             unitTests.WriteReport(statistics.PrintStatistics);
 
             return result;

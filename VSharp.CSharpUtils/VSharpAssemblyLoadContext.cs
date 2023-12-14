@@ -11,7 +11,14 @@ namespace VSharp.CSharpUtils
 {
     public class VSharpAssemblyLoadContext : AssemblyLoadContext, IDisposable
     {
+        private static string GetTypeName(Type t)
+        {
+            return t.AssemblyQualifiedName ?? t.FullName ?? t.Name;
+        }
+
         private readonly Dictionary<string, AssemblyDependencyResolver> _resolvers = new();
+
+        private readonly Dictionary<string, Assembly> _assemblies = new();
 
         private readonly Dictionary<string, Type> _types = new();
 
@@ -82,20 +89,29 @@ namespace VSharp.CSharpUtils
 
         public new Assembly LoadFromAssemblyPath(string path)
         {
+            if (_assemblies.TryGetValue(path, out var assembly))
+            {
+                return assembly;
+            }
+
             if (!_resolvers.ContainsKey(path))
             {
                 _resolvers[path] = new AssemblyDependencyResolver(path);
             }
 
             var asm = base.LoadFromAssemblyPath(path);
+            _assemblies.Add(path, asm);
+
             foreach (var t in asm.GetTypesChecked())
             {
-                if (t.FullName is null)
+                var type = t.IsGenericType ? t.GetGenericTypeDefinition() : t;
+                if (type.FullName is null)
                 {
+                    // Case for types, that contains open generic parameters
                     continue;
                 }
 
-                _types[t.FullName] = t;
+                _types[GetTypeName(type)] = type;
             }
             return asm;
         }
@@ -105,31 +121,56 @@ namespace VSharp.CSharpUtils
         // We have to rebuild them using the twin types from VSharpAssemblyLoadContext.
         public Type NormalizeType(Type t)
         {
-            if (t.IsGenericType)
+            if (t.IsArray)
             {
-                var fixedGenericTypes = t.GetGenericArguments().Select(NormalizeType).ToArray();
-                return t.GetGenericTypeDefinition().MakeGenericType(fixedGenericTypes);
+                var elementType = t.GetElementType();
+                Debug.Assert(elementType != null);
+                var normalized = NormalizeType(elementType);
+                var rank = t.GetArrayRank();
+                return t.IsSZArray ? normalized.MakeArrayType() : normalized.MakeArrayType(rank);
             }
 
-            return _types.GetValueOrDefault(t.FullName, t);
+            if (t.IsPointer)
+            {
+                var elementType = t.GetElementType();
+                Debug.Assert(elementType != null);
+                var normalized = NormalizeType(elementType);
+                return normalized.MakePointerType();
+            }
+
+            if (t is { IsGenericType: true, IsGenericTypeDefinition: false })
+            {
+                var normalized = NormalizeType(t.GetGenericTypeDefinition());
+                var fixedGenericTypes = t.GetGenericArguments().Select(NormalizeType).ToArray();
+                return normalized.MakeGenericType(fixedGenericTypes);
+            }
+
+            var name = GetTypeName(t);
+            if (_types.TryGetValue(name, out var normalizedType))
+            {
+                return normalizedType;
+            }
+
+            _types.Add(name, t);
+            return t;
         }
 
         public MethodBase NormalizeMethod(MethodBase originMethod)
         {
             const BindingFlags bindingFlags =
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-            // Moving this loading into 'if (reflectedType is null)' causes KeyNotFoundException (on integration tests)
-            var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
             var reflectedType = originMethod.ReflectedType;
             if (reflectedType is null)
             {
+                // Case for dynamic methods
+                var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
                 return asm.Modules
                     .SelectMany(m => m.GetMethods(bindingFlags))
                     .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken, originMethod);
             }
 
-            Debug.Assert(reflectedType.FullName != null);
-            var type = _types[reflectedType.FullName];
+            LoadFromAssemblyPath(reflectedType.Assembly.Location);
+            var type = NormalizeType(reflectedType);
             var method = type.GetMethods(bindingFlags)
                 .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken,
                     type.GetConstructors(bindingFlags)

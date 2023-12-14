@@ -137,7 +137,7 @@ namespace IntegrationTests
             return c.Rank;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public int ReadByFuncResult(string[] str, Func<int> d)
         {
             str[0] = "abc";
@@ -237,6 +237,40 @@ namespace IntegrationTests
             return a;
         }
 
+        [TestSvm(95)]
+        public static int DoubleWriteAfterCopy(int[] a, int i, int[] b)
+        {
+            if (a.Length == b.Length)
+            {
+                a[i] = 1;
+                Array.Copy(b, a, a.Length - 1);
+                a[i] = 3;
+                a[i] = 3;
+                if (a[0] != b[0] && i > 0)
+                    return -1;
+                return 1;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(95)]
+        public static int DoubleWriteAfterCopy1(int[] a, int k, int i, int j, int[] b)
+        {
+            if (a.Length == b.Length)
+            {
+                a[k] = 1;
+                Array.Copy(b, a, a.Length - 1);
+                a[i] = 3;
+                a[j] = 3;
+                if (a[0] != b[0] && i > 0 && j > 0)
+                    return -1;
+                return 1;
+            }
+
+            return 0;
+        }
+
         [TestSvm(100)]
         public static int[] CopySymbolicIndicesToConcreteArray(int srcI, int dstI, int len)
         {
@@ -294,11 +328,12 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        public static int TestSolvingCopy1(int[] a, int[] b)
+        public static int TestSolvingCopy1(int[] a, int i, int[] b)
         {
             if (a != null && b != null && a.Length > b.Length)
             {
                 a[0] = 42;
+                b[i] = 4;
                 Array.Copy(a, 0, b, 0, b.Length);
                 b[0] = 31;
                 var x = b.Length == 3;
@@ -418,6 +453,31 @@ namespace IntegrationTests
             return 3;
         }
 
+        [TestSvm(98)]
+        public static int TestSolvingCopy7(int[] a, int i, int[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                a[0] = 42;
+                b[i] = 4;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+                b[0] = 31;
+
+                a[0] = 12;
+                a[3] = 31;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+
+                if (i == b.Length - 1 && b[i] != 4 && i > 0)
+                    return -1;
+
+                if (b.Length == 4 && a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3])
+                    return 12;
+
+                return 10;
+            }
+            return 3;
+        }
+
         [TestSvm(93)]
         public static int TestOverlappingCopy(int[] a)
         {
@@ -454,6 +514,59 @@ namespace IntegrationTests
                 if (a[i] != 42)
                     return 42;
 
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(95)]
+        public static int TestSolvingCopy8(object[] a, object[] b, int i)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                Array.Fill(a, 1);
+                Array.Copy(a, b, b.Length);
+
+                if (b[i] == b[i + 1])
+                    return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(97)]
+        public static int TestSolvingCopy9(object[] a, int i, object[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                var x = (object)4;
+                var y = (object)31;
+                a[0] = 42;
+                b[i] = x;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+                b[0] = y;
+
+                a[0] = 12;
+                a[3] = y;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+
+                if (i == b.Length - 1 && b[i] != x && i > 0)
+                    return -1;
+
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(100)]
+        public static int TestSolvingCopy10(string[] a, int i, string[] b)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                Array.Copy(a, b, b.Length);
+
+                if (b[i][0] == b[i + 1][0])
+                    return 42;
                 return 10;
             }
             return 3;
@@ -702,23 +815,46 @@ namespace IntegrationTests
             return -12;
         }
 
-        [Ignore("Fix core")]
-        public static int HashtableTest(int a)
+        [Ignore("fix concrete memory (check fully concreteness) and concrete invoke (by ref parameters)")]
+        public static int ConcreteDictionaryTest(int v)
         {
-            Hashtable dataHashtable = new Hashtable();
-            dataHashtable[0] = 0;
-            dataHashtable[1] = 1;
-            dataHashtable[2] = a;
-            dataHashtable[a] = 0;
-            int data = (int) dataHashtable[2];
-            int[] array = null;
-            if (data > 0)
+            var d = new Dictionary<int, int>();
+            d.Add(1, v);
+            if (d.TryGetValue(1, out var value))
             {
-                array = new int[data];
+                if (value != v)
+                {
+                    return -1;
+                }
+
+                return value;
             }
 
-            array[0] = 5;
-            return array[0];
+            return 0;
+        }
+
+        [Ignore("fix composition with concrete memory")]
+        public static int ConcreteDictionaryTest1(int a, int b)
+        {
+            var d = new Dictionary<int, List<int>>();
+            d.Add(1, new List<int> {2, 3});
+            d.Add(4, new List<int> {5, 6});
+            if (d.TryGetValue(a, out var res))
+            {
+                if (res.Contains(b))
+                    return 1;
+                return 0;
+            }
+            return 2;
+        }
+
+        [TestSvm(100)]
+        public static int ListContains(int a, int b)
+        {
+            var l = new List<int> {2, 3, b, 5};
+            if (l.Contains(a))
+                return 1;
+            return 0;
         }
 
         [Ignore("Support rendering recursive arrays")]
@@ -863,6 +999,149 @@ namespace IntegrationTests
             }
 
             return arr;
+        }
+
+        public struct Bucket
+        {
+            object _key;
+            object _value;
+
+            public Bucket(object key, object value)
+            {
+                _key = key;
+                _value = value;
+            }
+        }
+
+        [TestSvm(91)]
+        public static object ConcreteArrayChange()
+        {
+            var a = new Bucket[3];
+            var b = new Bucket("major", 0);
+            a[0] = b;
+            var c = a[0];
+            if (!Equals(c, b))
+                return -1;
+            a[1] = new Bucket("minor", 1);
+            a[2] = new Bucket("patch", 2);
+            b = new Bucket("major", 3);
+            a[0] = b;
+            a[1] = new Bucket("minor", 4);
+            a[2] = new Bucket("patch", 5);
+            if (!Equals(a[0], b))
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int ListTest(decimal d1, decimal d2)
+        {
+            var l = new List<object>();
+            l.Add(d1);
+            var i = l.LastIndexOf(d2);
+            if (i >= 0)
+                return i;
+            return -1;
+        }
+
+        [TestSvm(100)]
+        public static int ListTest1(List<object> l, object e)
+        {
+            var i = l.LastIndexOf(e);
+            if (i >= 0)
+                return i;
+            return -1;
+        }
+
+        [Ignore("implement splitting")]
+        public static int HashtableTest(int a)
+        {
+            Hashtable dataHashtable = new Hashtable();
+            dataHashtable[0] = 0;
+            dataHashtable[1] = 1;
+            dataHashtable[2] = a;
+            dataHashtable[a] = 0;
+            int data = (int) dataHashtable[2];
+            int[] array = null;
+            if (data > 0)
+            {
+                array = new int[data];
+            }
+
+            array[0] = 5;
+            return array[0];
+        }
+
+        [TestSvm(96)]
+        public static int ConcreteHashtableTest()
+        {
+            var dataHashtable = new Hashtable(3)
+            {
+                ["major"] = 0,
+                ["minor"] = 1,
+                ["patch"] = 2
+            };
+
+            dataHashtable["major"] = 3;
+            dataHashtable["minor"] = 4;
+            dataHashtable["patch"] = 5;
+            dataHashtable[3] = "string4";
+            dataHashtable[4] = "string1";
+            dataHashtable[5] = "string2";
+
+
+            if ((int)dataHashtable["major"] != 3)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(86)]
+        public static int LazyDict()
+        {
+            var d = new Lazy<Dictionary<int, int>>();
+            d.Value.Add(1, 42);
+            if (d.Value[1] != 42)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(85)]
+        public static int ConcurrentDict(int a, int b)
+        {
+            var d = new System.Collections.Concurrent.ConcurrentDictionary<int, int>();
+            d.TryAdd(a, b);
+            if (d[a] != b)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(83)]
+        public static int VolatileWrite()
+        {
+            var x = 1;
+            System.Threading.Volatile.Write(ref x, 42);
+            if (x != 42)
+                return -1;
+            return 0;
+        }
+    }
+
+    [TestSvmFixture]
+    public static class SpanTests
+    {
+        [TestSvm(96)]
+        public static unsafe byte SpanTest(int[] a, byte b, int i)
+        {
+            fixed (void* ptr = a)
+            {
+                var span = new ReadOnlySpan<byte>(ptr, i);
+                var tmp = span[i - 1];
+                if (i - 1 == 0 && *(byte*)ptr != tmp)
+                    throw new ArgumentException();
+                if (tmp > b)
+                    return span[3];
+                return span[1];
+            }
         }
     }
 
@@ -1015,7 +1294,6 @@ namespace IntegrationTests
         }
 
         // Test on tracking current heap address during access to heap for filtering possible locations
-        // [Ignore("Exceptions handling")]
         [TestSvm(100)]
         public static int MemoryTest(LinkedList<int> l)
         {
@@ -1044,6 +1322,41 @@ namespace IntegrationTests
             if (sum > 15)
                 return 1;
             return 2;
+        }
+    }
+
+    [TestSvmFixture]
+    public class EnumerableTests<T> : IEnumerable<T>
+        where T : IComparable<T>
+    {
+        private List<T> _items;
+
+        public EnumerableTests(List<T> items)
+        {
+            _items = items;
+        }
+
+        IEnumerator<T> IEnumerable<T>.GetEnumerator()
+        {
+            return _items.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return _items.GetEnumerator();
+        }
+
+        [TestSvm(100, timeout:5)]
+        public T Max()
+        {
+            var max = this.First();
+            foreach (var elem in this)
+            {
+                if (elem.CompareTo(max) > 0)
+                    max = elem;
+            }
+
+            return max;
         }
     }
 
@@ -1731,7 +2044,7 @@ namespace IntegrationTests
         private readonly Content[] _arr = new Content[10];
 
 
-        [TestSvm]
+        [TestSvm(100)]
         public int GetValue(int index)
         {
             if (index < 0 || index > 10)
@@ -1739,7 +2052,7 @@ namespace IntegrationTests
             return _arr[index].X;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public void SetValue(int index, int value)
         {
             if (index < 0 || index > 10)
@@ -1759,7 +2072,7 @@ namespace IntegrationTests
         private readonly Content[,] _arr = new Content[1,1];
 
 
-        [TestSvm]
+        [TestSvm(100)]
         public int GetValue(int index1, int index2)
         {
             if (_arr[index1, index2].X == 100 && _arr[index2, index1].X != 100)

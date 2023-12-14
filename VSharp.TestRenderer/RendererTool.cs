@@ -20,7 +20,26 @@ public static class Renderer
         pi?.WaitForExit();
     }
 
-    private static void AddUnderTestProjectReference(FileInfo testProject, FileInfo testingProject)
+    private static void ManuallyAddReferences(FileInfo testProject, IEnumerable<Assembly> assemblies)
+    {
+        var text = File.ReadAllText(testProject.FullName);
+        foreach (var assembly in assemblies)
+        {
+            var location = $"<HintPath>{assembly.Location}</HintPath>";
+
+            if (text.Contains(location)) continue;
+
+            // TODO: add ItemGroup if need
+            var reference = $"<Reference Include=\"{assembly.FullName}\">{NewLine}{location}{NewLine}</Reference>";
+            text = text.Replace("</ItemGroup>", $"{reference}{NewLine}</ItemGroup>");
+        }
+        File.WriteAllText(testProject.FullName, text);
+    }
+
+    private static void AddUnderTestProjectReferences(
+        FileInfo testProject,
+        FileInfo testingProject,
+        IEnumerable<Assembly> usedAssemblies)
     {
         if (testingProject.Extension == ".csproj")
         {
@@ -29,20 +48,15 @@ public static class Renderer
                 WorkingDirectory = testProject.DirectoryName,
                 Arguments = $"add reference {testingProject.FullName}",
             });
+            ManuallyAddReferences(testProject, usedAssemblies);
         }
         else
         {
             // TODO: try to add reference via 'dotnet add reference' (like with '.csproj' reference)
             Debug.Assert(testingProject.Extension == ".dll");
             var assembly = AssemblyManager.LoadFromAssemblyPath(testingProject.FullName);
-            var text = File.ReadAllText(testProject.FullName);
-            var location = $"<HintPath>{assembly.Location}</HintPath>";
-            if (!text.Contains(location))
-            {
-                var reference = $"<Reference Include=\"{assembly.FullName}\">{NewLine}{location}{NewLine}</Reference>";
-                text = text.Replace("</ItemGroup>", $"{reference}{NewLine}</ItemGroup>");
-                File.WriteAllText(testProject.FullName, text);
-            }
+            var references = new List<Assembly>(usedAssemblies) { assembly };
+            ManuallyAddReferences(testProject, references);
         }
     }
 
@@ -62,7 +76,7 @@ public static class Renderer
 
     private static void AddProjectToSolution(DirectoryInfo? solutionPath, FileInfo testProject)
     {
-        if (solutionPath != null && solutionPath.Exists)
+        if (solutionPath is { Exists: true })
         {
             RunDotnet(new ProcessStartInfo
             {
@@ -81,6 +95,10 @@ public static class Renderer
             ReadFromResource("VSharp.TestExtensions.Allocator.cs"));
 
         File.WriteAllText(
+            Path.Combine(extensionsFolder.FullName, "GeneratedAttribute.cs"),
+            ReadFromResource("VSharp.TestExtensions.GeneratedAttribute.cs"));
+
+        File.WriteAllText(
             Path.Combine(extensionsFolder.FullName, "ObjectsComparer.cs"),
             ReadFromResource("VSharp.TestExtensions.ObjectsComparer.cs"));
     }
@@ -92,11 +110,16 @@ public static class Renderer
         var allocatorComp = CSharpSyntaxTree.ParseText(allocatorProgram).GetCompilationUnitRoot();
         var comparerProgram = ReadFromResource("VSharp.TestExtensions.ObjectsComparer.cs");
         var comparerComp = CSharpSyntaxTree.ParseText(comparerProgram).GetCompilationUnitRoot();
+        var generatedAttrProgram = ReadFromResource("VSharp.TestExtensions.GeneratedAttribute.cs");
+        var generatedAttrComp = CSharpSyntaxTree.ParseText(generatedAttrProgram).GetCompilationUnitRoot();
 
         return
             MergeCompilations(
                 testsComp,
-                MergeCompilations(allocatorComp, comparerComp)
+                MergeCompilations(
+                    allocatorComp,
+                    MergeCompilations(comparerComp, generatedAttrComp)
+                )
             );
     }
 
@@ -105,15 +128,6 @@ public static class Renderer
         using var stream = typeof(TestExtensions.Allocator<>).Assembly.GetManifestResourceStream(resourceName);
         using var reader = new StreamReader(stream!);
         return reader.ReadToEnd();
-    }
-
-    private static void AddMoqReference(DirectoryInfo testProjectPath)
-    {
-        RunDotnet(new ProcessStartInfo
-        {
-            WorkingDirectory = testProjectPath.FullName,
-            Arguments = "add package Moq -v 4.8.0",
-        });
     }
 
     private static DirectoryInfo CreateTestProject(
@@ -140,7 +154,7 @@ public static class Renderer
         }
 
         // TODO: parse testing project '.csproj' and get target version from there
-        targetFramework ??= "net6.0";
+        targetFramework ??= "net7.0";
 
         // Creating nunit project
         RunDotnet(new ProcessStartInfo
@@ -162,15 +176,19 @@ public static class Renderer
         DirectoryInfo outputDir,
         FileInfo testingProject,
         FileInfo? solution,
+        IEnumerable<Assembly> references,
         string? targetFramework = null,
         bool singleFile = false)
     {
         // Creating nunit project
         var testProjectPath = CreateTestProject(outputDir, testingProject, targetFramework);
-        var testProject = testProjectPath.EnumerateFiles("*.csproj").First();
+        var testProject =
+            testProjectPath
+                .EnumerateFiles($"{testProjectPath.Name}.csproj")
+                .Single();
 
         // Adding testing project reference to it
-        AddUnderTestProjectReference(testProject, testingProject);
+        AddUnderTestProjectReferences(testProject, testingProject, references);
         // Allowing unsafe code inside project
         AddTestProjectProperties(testProject);
         // Adding it to solution
@@ -246,6 +264,8 @@ public static class Renderer
             {
                 return namespaceDecl.Name.ToString();
             }
+            case IncompleteMemberSyntax syntax:
+                return syntax.ToString();
             default:
             {
                 Logger.printLogString(Logger.Error, $"NameOfMember: unexpected case {member}");
@@ -488,7 +508,7 @@ public static class Renderer
         return deserializedTests;
     }
 
-    private static (List<(CompilationUnitSyntax, string)>, Assembly) RunTestsRenderer(
+    private static (TestsRenderer.ProgramsBuilder, Assembly) RunTestsRenderer(
         IEnumerable<FileInfo> tests,
         Type? declaringType,
         string? testProjectName,
@@ -501,6 +521,9 @@ public static class Renderer
         unitTests = unitTests.FindAll(ut => !ut.HasExternMocks);
         if (unitTests.Count == 0)
             throw new UnexpectedExternCallException("Render is not supported for tests with extern mocks. Nothing to render.");
+        unitTests = unitTests.FindAll(ut => !ut.HasOutMocks);
+        if (unitTests.Count == 0)
+            throw new UnexpectedExternCallException("Render is not supported for tests with out mocks. Nothing to render.");
         var originAssembly = unitTests.First().Method.Module.Assembly;
         var exploredAssembly = AssemblyManager.LoadCopy(originAssembly);
 
@@ -533,18 +556,21 @@ public static class Renderer
     public static (DirectoryInfo, List<string>) Render(
         IEnumerable<FileInfo> tests,
         FileInfo testingProject,
+        FileInfo solutionForTests,
         Type? declaringType = null,
-        FileInfo? solutionForTests = null,
         string? targetFramework = null)
     {
-        var outputDir = solutionForTests?.Directory;
+        var outputDir = solutionForTests.Directory;
         Debug.Assert(outputDir is { Exists: true });
-        var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests, targetFramework);
+        // TODO: update and refactor, when plugin is released
+        var references = new List<Assembly>();
+        var testProjectPath =
+            GenerateTestProject(outputDir, testingProject, solutionForTests, references, targetFramework);
 
         var (testsPrograms, _) =
-            RunTestsRenderer(tests, declaringType, testProjectPath.Name, false, false);
+            RunTestsRenderer(tests, declaringType, testProjectPath.Name);
 
-        var renderedFiles = WriteResults(testProjectPath, testsPrograms);
+        var renderedFiles = WriteResults(testProjectPath, testsPrograms.Programs);
 
         return (testProjectPath, renderedFiles);
     }
@@ -560,6 +586,8 @@ public static class Renderer
         var testProjectName = outputDir == null ? "VSharp.Test.GeneratedTests" : null;
         var (testsPrograms, assembly) =
             RunTestsRenderer(tests, declaringType, testProjectName, wrapErrors, singleFile);
+        var programs = testsPrograms.Programs;
+        var references = testsPrograms.References;
 
         if (outputDir == null)
         {
@@ -573,16 +601,17 @@ public static class Renderer
             // API or console runner case
             if (!outputDir.Exists) outputDir.Create();
             var testingProject = new FileInfo(assembly.Location);
-            outputDir = GenerateTestProject(outputDir, testingProject, null, singleFile:singleFile);
+
+            outputDir = GenerateTestProject(outputDir, testingProject, null, references, singleFile:singleFile);
             if (singleFile)
             {
-                var (testsProgram, programName) = testsPrograms.Single();
+                var (testsProgram, programName) = programs.Single();
                 testsProgram = AddHelpersToTests(testsProgram);
-                testsPrograms.Clear();
-                testsPrograms.Add((testsProgram, programName));
+                programs.Clear();
+                programs.Add((testsProgram, programName));
             }
         }
 
-        WriteResults(outputDir, testsPrograms);
+        WriteResults(outputDir, programs);
     }
 }

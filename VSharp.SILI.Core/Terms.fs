@@ -17,10 +17,15 @@ type IMethod =
     abstract Parameters : Reflection.ParameterInfo[]
     abstract LocalVariables : IList<Reflection.LocalVariableInfo>
     abstract HasThis : bool
+    abstract HasParameterOnStack : bool
     abstract IsConstructor : bool
     abstract IsExternalMethod : bool
+    abstract ContainsGenericParameters : bool
     abstract GenericArguments : Type[]
     abstract SubstituteTypeVariables : (Type -> Type) -> IMethod
+    abstract ResolveOverrideInType : Type -> IMethod
+    abstract CanBeOverriddenInType : Type -> bool
+    abstract IsImplementedInType : Type -> bool
     abstract MethodBase : System.Reflection.MethodBase
 
 [<CustomEquality;CustomComparison>]
@@ -34,14 +39,14 @@ type stackKey =
         | ThisKey _ -> "this"
         | ParameterKey pi -> if String.IsNullOrEmpty pi.Name then "#" + toString pi.Position else pi.Name
         | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
-        | TemporaryLocalVariableKey (typ, index) -> sprintf "__tmp__%s%d" (Reflection.getFullTypeName typ) index
+        | TemporaryLocalVariableKey (typ, index) -> $"__tmp__%s{Reflection.getFullTypeName typ}%d{index}"
     override x.GetHashCode() =
         let fullname =
             match x with
-            | ThisKey m -> sprintf "%s##this" m.FullName
-            | ParameterKey pi -> sprintf "%O##%O##%d" pi.Member pi pi.Position
-            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" m.FullName (lvi.ToString())
-            | TemporaryLocalVariableKey (typ, index) -> sprintf "temporary##%s%d" (Reflection.getFullTypeName typ) index
+            | ThisKey m -> $"%s{m.FullName}##this"
+            | ParameterKey pi -> $"{pi.Member}##{pi}##%d{pi.Position}"
+            | LocalVariableKey (lvi, m) -> $"{m.FullName}##%s{lvi.ToString()}"
+            | TemporaryLocalVariableKey (typ, index) -> $"temporary##%s{Reflection.getFullTypeName typ}%d{index}"
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
@@ -72,14 +77,25 @@ type stackKey =
         | ParameterKey p -> ParameterKey (Reflection.concretizeParameter p typeSubst)
         | LocalVariableKey(l, m) ->
             let m' = m.SubstituteTypeVariables typeSubst
-            let l' = m.LocalVariables.[l.LocalIndex]
+            let l' = m.LocalVariables[l.LocalIndex]
             LocalVariableKey(l', m')
         | TemporaryLocalVariableKey (typ, index) ->
             // TODO: index may become inconsistent here
             TemporaryLocalVariableKey((Reflection.concretizeType typeSubst typ), index)
 
 type concreteHeapAddress = vectorTime
-type arrayType = Type * int * bool // Element type * dimension * is vector
+
+type arrayType =
+    { elemType : Type; dimension : int; isVector : bool }
+    with
+    static member CreateVector (elemType : Type) =
+        { elemType = elemType; dimension = 1; isVector = true }
+
+    static member CharVector = { elemType = typeof<char>; dimension = 1; isVector = true }
+
+    member x.IsVector = x.isVector && (assert(x.dimension = 1); true)
+
+    member x.IsCharVector = x.IsVector && x.elemType = typeof<char>
 
 [<StructuralEquality;NoComparison>]
 type operation =
@@ -129,10 +145,10 @@ type termNode =
             | Nop -> k "<VOID>"
             | Constant(name, _, _) -> k name.v
             | Concrete(_, (ClassType(t, _) as typ)) when isSubtypeOrEqual t typedefof<Delegate> ->
-                sprintf "<Lambda Expression %O>" typ |> k
+                $"<Lambda Expression {typ}>" |> k
             | Concrete(obj, AddressType) when (obj :?> int32 list) = [0] -> k "null"
             | Concrete(c, Char) when c :?> char = '\000' -> k "'\\000'"
-            | Concrete(c, Char) -> sprintf "'%O'" c |> k
+            | Concrete(c, Char) -> k $"'{c}'"
             | Concrete(:? concreteHeapAddress as addr, AddressType) -> VectorTime.print addr |> k
             | Concrete(value, _) -> value.ToString() |> k
             | Expression(operation, operands, _) ->
@@ -154,7 +170,7 @@ type termNode =
                 | Cast(_, dest) ->
                     assert (List.length operands = 1)
                     toStr operation.priority indent (List.head operands).term (fun term ->
-                    sprintf "(%O %s)" dest term
+                    $"({dest} %s{term})"
                         |> checkExpression operation.priority parentPriority
                         |> k)
                 | Application f ->
@@ -169,16 +185,19 @@ type termNode =
                 let guardedToString (guard, term) k =
                     toStringWithParentIndent indent guard (fun guardString ->
                     toStringWithParentIndent indent term (fun termString ->
-                    sprintf "| %s ~> %s" guardString termString |> k))
+                    $"| %s{guardString} ~> %s{termString}" |> k))
                 Cps.Seq.mapk guardedToString guardedTerms (fun guards ->
                 let printed = guards |> Seq.sort |> join ("\n" + indent)
                 formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]" |> k)
             | HeapRef({term = Concrete(obj, AddressType)}, _) when (obj :?> int32 list) = [0] -> k "NullRef"
-            | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType |> k
-            | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address |> k
-            | Ptr(address, typ, shift) ->
-                let offset = ", offset = " + shift.ToString()
-                sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
+            | HeapRef(address, baseType) -> $"(HeapRef {address} to {baseType})" |> k
+            | Ref address -> $"({address.Zone()}Ref {address})" |> k
+            | Ptr(HeapLocation(address, _), typ, shift) ->
+                $"(HeapPtr {address} as {typ}, offset = {shift})" |> k
+            | Ptr(StackLocation loc, typ, shift) ->
+                $"(StackPtr {loc} as {typ}, offset = {shift})" |> k
+            | Ptr(StaticLocation t, typ, shift) ->
+                $"(StaticsPtr {t} as {typ}, offset = {shift})" |> k
             | Slice(term, slices) ->
                 let slices = List.map (fun (s, e, _) -> $"[{s} .. {e}]") slices |> join ", "
                 $"Slice({term}, {slices})" |> k
@@ -218,14 +237,14 @@ and address =
     override x.ToString() =
         match x with
         | PrimitiveStackLocation key -> toString key
-        | ClassField(addr, field) -> sprintf "%O.%O" addr field
-        | ArrayIndex(addr, idcs, _) -> sprintf "%O[%s]" addr (List.map toString idcs |> join ", ")
-        | StaticField(typ, field) -> sprintf "%O.%O" typ field
-        | StructField(addr, field) -> sprintf "%O.%O" addr field
-        | ArrayLength(addr, dim, _) -> sprintf "Length(%O, %O)" addr dim
+        | ClassField(addr, field) -> $"{addr}.{field}"
+        | ArrayIndex(addr, indices, _) -> sprintf "%O[%s]" addr (List.map toString indices |> join ", ")
+        | StaticField(typ, field) -> $"{typ}.{field}"
+        | StructField(addr, field) -> $"{addr}.{field}"
+        | ArrayLength(addr, dim, _) -> $"Length({addr}, {dim})"
         | BoxedLocation(addr, typ) -> $"{typ}^{addr}"
-        | StackBufferIndex(key, idx) -> sprintf "%O[%O]" key idx
-        | ArrayLowerBound(addr, dim, _) -> sprintf "LowerBound(%O, %O)" addr dim
+        | StackBufferIndex(key, idx) -> $"{key}[{idx}]"
+        | ArrayLowerBound(addr, dim, _) -> $"LowerBound({addr}, {dim})"
     member x.Zone() =
         match x with
         | PrimitiveStackLocation _
@@ -237,6 +256,17 @@ and address =
         | ArrayLowerBound  _ -> "Heap"
         | StaticField _ -> "Statics"
         | StructField(addr, _) -> addr.Zone()
+    member x.TypeOfLocation with get() =
+        match x with
+        | ClassField(_, field)
+        | StructField(_, field)
+        | StaticField(_, field) -> field.typ
+        | ArrayIndex(_, _, { elemType = elementType }) -> elementType
+        | BoxedLocation(_, typ) -> typ
+        | ArrayLength _
+        | ArrayLowerBound  _ -> lengthType
+        | StackBufferIndex _ -> typeof<int8>
+        | PrimitiveStackLocation loc -> loc.TypeOfLocation
 
 and
     [<CustomEquality;NoComparison>]
@@ -254,6 +284,15 @@ and
         abstract SubTerms : term seq
         abstract Time : vectorTime
         abstract TypeOfLocation : Type
+
+and delegateInfo =
+    {
+        methodInfo : System.Reflection.MethodInfo
+        target : term
+        delegateType : Type
+    }
+    static member Create(methodInfo, target, t) =
+        { methodInfo = methodInfo; target = target; delegateType = t }
 
 type INonComposableSymbolicConstantSource =
     inherit ISymbolicConstantSource
@@ -274,6 +313,11 @@ module HashMap =
 [<AutoOpen>]
 module internal Terms =
 
+    let mutable charsArePretty = true
+
+    let configureChars arePretty =
+        charsArePretty <- arePretty
+
     let term (term : term) = term.term
 
 // --------------------------------------- Primitives ---------------------------------------
@@ -287,12 +331,12 @@ module internal Terms =
         HashMap.addTerm (HeapRef(address, baseType))
     let Ref address =
         match address with
-        | ArrayIndex(_, indices, (_, dim, _)) -> assert(List.length indices = dim)
+        | ArrayIndex(_, indices, { dimension = dim }) -> assert(List.length indices = dim)
         | _ -> ()
         HashMap.addTerm (Ref address)
     let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
     let Slice term slices = HashMap.addTerm (Slice(term, slices))
-    let ConcreteHeapAddress addr = Concrete addr addressType
+    let ConcreteHeapAddress (addr : concreteHeapAddress) = Concrete addr addressType
     let Union gvs =
         if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
         HashMap.addTerm (Union gvs)
@@ -319,15 +363,15 @@ module internal Terms =
 
     let operationOf = term >> function
         | Expression(op, _, _) -> op
-        | term -> internalfailf "expression expected, %O received" term
+        | term -> internalfail $"expression expected, {term} received"
 
     let argumentsOf = term >> function
         | Expression(_, args, _) -> args
-        | term -> internalfailf "expression expected, %O received" term
+        | term -> internalfail $"expression expected, {term} received"
 
     let fieldsOf = term >> function
         | Struct(fields, _) -> fields
-        | term -> internalfailf "struct or class expected, %O received" term
+        | term -> internalfail $"struct or class expected, {term} received"
 
     let private typeOfUnion getType gvs =
         let types = List.map (snd >> getType) gvs
@@ -337,7 +381,7 @@ module internal Terms =
             let allSame =
                 List.forall ((=) t) ts
             if allSame then t
-            else internalfailf "evaluating type of unexpected union %O!" gvs
+            else internalfail $"evaluating type of unexpected union {gvs}!"
 
     let commonTypeOf getType term =
         match term.term with
@@ -345,34 +389,23 @@ module internal Terms =
         | Union gvs -> typeOfUnion getType gvs
         | _ -> getType term
 
-    let typeOfAddress = function
-        | ClassField(_, field)
-        | StructField(_, field)
-        | StaticField(_, field) -> field.typ
-        | ArrayIndex(_, _, (elementType, _, _)) -> elementType
-        | BoxedLocation(_, typ) -> typ
-        | ArrayLength _
-        | ArrayLowerBound  _ -> lengthType
-        | StackBufferIndex _ -> typeof<int8>
-        | PrimitiveStackLocation loc -> loc.TypeOfLocation
-
-    let typeOfRef =
-        let getTypeOfRef = term >> function
-            | HeapRef(_, t) -> t
-            | Ref address -> typeOfAddress address
-            | Ptr(_, sightType, _) -> sightType
-            | term -> internalfailf "expected reference, but got %O" term
-        commonTypeOf getTypeOfRef
-
     let sightTypeOfPtr =
         let getTypeOfPtr = term >> function
             | Ptr(_, typ, _) -> typ
-            | term -> internalfailf "expected pointer, but got %O" term
+            | term -> internalfail $"expected pointer, but got {term}"
         commonTypeOf getTypeOfPtr
 
-    let baseTypeOfPtr = typeOfRef
+    let rec typeOfRef term =
+        let getTypeOfRef term =
+            match term.term with
+            | HeapRef(_, t) -> t
+            | Ref address -> address.TypeOfLocation
+            | Ptr(_, sightType, _) -> sightType
+            | _ when typeOf term |> isNative -> typeof<byte>
+            | term -> internalfail $"expected reference, but got {term}"
+        commonTypeOf getTypeOfRef term
 
-    let typeOf =
+    and typeOf term =
         let getType term =
             match term.term with
             | Concrete(_, t)
@@ -382,20 +415,20 @@ module internal Terms =
             | Struct(_, t) -> t
             | Ref _ -> (typeOfRef term).MakeByRefType()
             | Ptr _ -> (sightTypeOfPtr term).MakePointerType()
-            | _ -> internalfailf "getting type of unexpected term %O" term
-        commonTypeOf getType
+            | _ -> internalfail $"getting type of unexpected term {term}"
+        commonTypeOf getType term
 
     let symbolicTypeToArrayType = function
         | ArrayType(elementType, dim) ->
             match dim with
-            | Vector -> (elementType, 1, true)
-            | ConcreteDimension d -> (elementType, d, false)
+            | Vector -> arrayType.CreateVector elementType
+            | ConcreteDimension d -> { elemType = elementType; dimension = d; isVector = false }
             | SymbolicDimension -> __insufficientInformation__ "Cannot process array of unknown dimension!"
-        | typ -> internalfailf "symbolicTypeToArrayType: expected array type, but got %O" typ
+        | typ -> internalfail $"symbolicTypeToArrayType: expected array type, but got {typ}"
 
-    let arrayTypeToSymbolicType (elemType : Type, dim, isVector) =
-        if isVector then elemType.MakeArrayType()
-        else elemType.MakeArrayType(dim)
+    let arrayTypeToSymbolicType arrayType =
+        if arrayType.isVector then arrayType.elemType.MakeArrayType()
+        else arrayType.elemType.MakeArrayType(arrayType.dimension)
 
     let sizeOf = typeOf >> internalSizeOf
 
@@ -518,11 +551,12 @@ module internal Terms =
     let rec private makeCast term fromType toType =
         match term, toType with
         | _ when fromType = toType -> term
-        | CastExpr(x, xType, Numeric t), Numeric toType when not <| isLessForNumericTypes t toType ->
-            makeCast x xType toType
+        | CastExpr(x, xType, Numeric t), Numeric toType
+            when not (isLessForNumericTypes t toType) && numericSameSign t toType ->
+                makeCast x xType toType
         | CastExpr(x, Numeric xType, Numeric t), Numeric toType
-            when not <| isLessForNumericTypes t xType && not <| isLessForNumericTypes toType t ->
-            makeCast x xType toType
+            when not <| isLessForNumericTypes t xType && not <| isLessForNumericTypes toType t && numericSameSign t toType ->
+                makeCast x xType toType
         | _ -> Expression (Cast(fromType, toType)) [term] toType
 
     let rec primitiveCast term targetType =
@@ -583,6 +617,14 @@ module internal Terms =
     and negate term =
         assert(isBool term)
         makeUnary OperationType.LogicalNot term typeof<bool>
+
+    and createCombinedDelegate (delegates : term list) typ =
+        assert(List.isEmpty delegates |> not)
+        if List.length delegates = 1 then List.head delegates
+        else Concrete delegates typ
+
+    and concreteDelegate methodInfo target delegateType =
+        Concrete (delegateInfo.Create(methodInfo, target, delegateType)) delegateType
 
     and (|True|_|) term = if isTrue term then Some True else None
     and (|False|_|) term = if isFalse term then Some False else None
@@ -655,36 +697,33 @@ module internal Terms =
         | _ -> None
 
     and (|ShiftRightThroughCast|_|) = function
-        | CastExpr(ShiftRight(a, b, Numeric t, _), _, (Numeric castType as t')) when not <| isLessForNumericTypes castType t ->
-            Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
+        | CastExpr(ShiftRight(a, b, Numeric t, _), _, Numeric castType) when not <| isLessForNumericTypes castType t ->
+            Some(ShiftRightThroughCast(primitiveCast a castType, b, castType))
         | _ -> None
 
     and (|CombinedTerm|_|) = term >> (|Combined|_|)
+
+    and (|CombinedDelegate|_|) = function
+        | Concrete(:? list<term> as delegates, t) ->
+            assert(t.IsAssignableTo typeof<Delegate>)
+            CombinedDelegate delegates |> Some
+        | _ -> None
+
+    and (|ConcreteDelegate|_|) (termNode : termNode) =
+        match termNode with
+        | Concrete(:? delegateInfo as d, t) ->
+            assert(t.IsAssignableTo typeof<Delegate>)
+            ConcreteDelegate d |> Some
+        | _ -> None
 
     and (|ConcreteHeapAddress|_|) = function
         | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
         | _ -> None
 
-    and getConcreteHeapAddress = term >> function
-        | ConcreteHeapAddress(addr) -> addr
+    and getConcreteHeapAddress term =
+        match term.term with
+        | ConcreteHeapAddress(address) -> address
         | _ -> __unreachable__()
-
-    and tryPtrToArrayInfo (typeOfBase : Type) sightType offset =
-        match offset.term with
-        | Concrete(:? int as offset, _) ->
-            let checkType() =
-                typeOfBase.IsSZArray && typeOfBase.GetElementType() = sightType
-                || typeOfBase = typeof<string> && sightType = typeof<char>
-            let mutable elemSize = 0
-            let checkOffset() =
-                elemSize <- internalSizeOf sightType
-                (offset % elemSize) = 0
-            if not typeOfBase.ContainsGenericParameters && checkType() && checkOffset() then
-                let arrayType = (sightType, 1, true)
-                let index = int (offset / elemSize)
-                Some ([makeNumber index], arrayType)
-            else None
-        | _ -> None
 
     and tryIntListFromTermList (termList : term list) =
         let addElement term concreteList k =
@@ -704,6 +743,28 @@ module internal Terms =
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
+    and private structToBytes (s : ValueType) =
+        let t = s.GetType()
+        let size = internalSizeOf t
+        let array : byte array = Array.zeroCreate size
+        if t.IsGenericType then
+            let fields = Reflection.fieldsOf false t
+            for _, fi in fields do
+                let fieldValue = fi.GetValue s
+                let fieldBytes = concreteToBytes fieldValue
+                let fieldOffset = LayoutUtils.GetFieldOffset fi
+                Array.Copy(fieldBytes, 0, array, fieldOffset, Array.length fieldBytes)
+        else
+            assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            let mutable ptr = IntPtr.Zero
+            try
+                ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
+                System.Runtime.InteropServices.Marshal.StructureToPtr(s, ptr, true)
+                System.Runtime.InteropServices.Marshal.Copy(ptr, array, 0, size)
+            finally
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
+        array
+
     and private concreteToBytes (obj : obj) =
         match obj with
         | _ when obj = null -> internalSizeOf typeof<obj> |> Array.zeroCreate
@@ -722,22 +783,53 @@ module internal Terms =
         | _ when obj.GetType().IsEnum ->
             let i = Convert.ChangeType(obj, getEnumUnderlyingTypeChecked (obj.GetType()))
             concreteToBytes i
-        | :? ValueType as o ->
-            let t = o.GetType()
+        | :? ValueType as o -> structToBytes o
+        | _ -> internalfail $"getting bytes from concrete: unexpected obj {obj}"
+
+    and private bytesToNullable (bytes : byte[]) (t : Type) =
+        let fields = Reflection.fieldsOf false t
+        assert(Array.length fields = 2)
+        let hasValueField = fields |> Array.find (fun (f, _) -> f.name = "hasValue") |> snd
+        assert(hasValueField.FieldType = typeof<bool>)
+        let hasValueOffset = LayoutUtils.GetFieldOffset hasValueField
+        let hasValueSize = internalSizeOf typeof<bool>
+        let hasValueBytes = bytes[hasValueOffset .. hasValueOffset + hasValueSize - 1]
+        let hasValue = bytesToObj hasValueBytes typeof<bool> :?> bool
+        if hasValue then
+            let valueField = fields |> Array.find (fun (f, _) -> f.name = "value") |> snd
+            let underlyingType = Nullable.GetUnderlyingType t
+            assert(valueField.FieldType = underlyingType)
+            let valueOffset = LayoutUtils.GetFieldOffset valueField
+            let valueSize = internalSizeOf underlyingType
+            bytesToObj bytes[valueOffset .. valueOffset + valueSize - 1] underlyingType
+        else null
+
+    and private bytesToStruct (bytes : byte[]) (t : Type) =
+        if t.IsGenericType then
+            let fields = Reflection.fieldsOf false t
+            assert(fields |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            if isNullable t then bytesToNullable bytes t
+            else
+                let obj = Reflection.defaultOf t
+                for _, fi in fields do
+                    let offset = LayoutUtils.GetFieldOffset fi
+                    let fieldType = fi.FieldType
+                    let size = internalSizeOf fieldType
+                    let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
+                    fi.SetValue(obj, value)
+                obj
+        else
             assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
             let size = internalSizeOf t
-            let array : byte array = Array.zeroCreate size
             let mutable ptr = IntPtr.Zero
             try
                 ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
-                System.Runtime.InteropServices.Marshal.StructureToPtr(o, ptr, true)
-                System.Runtime.InteropServices.Marshal.Copy(ptr, array, 0, size)
+                System.Runtime.InteropServices.Marshal.Copy(bytes, 0, ptr, size)
+                System.Runtime.InteropServices.Marshal.PtrToStructure(ptr, t)
             finally
                 System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
-            array
-        | _ -> internalfailf "getting bytes from concrete: unexpected obj %O" obj
 
-    and private bytesToObj (bytes : byte[]) t =
+    and private bytesToObj (bytes : byte[]) t : obj =
         let span = ReadOnlySpan<byte>(bytes)
         match t with
         | _ when t = typeof<byte> -> Array.head bytes :> obj
@@ -752,19 +844,31 @@ module internal Terms =
         | _ when t = typeof<double> -> BitConverter.ToDouble span :> obj
         | _ when t = typeof<bool> -> BitConverter.ToBoolean span :> obj
         | _ when t = typeof<char> -> BitConverter.ToChar span :> obj
+        | _ when t = typeof<IntPtr> ->
+            if sizeof<IntPtr> = sizeof<int> then
+                BitConverter.ToInt32 span |> IntPtr :> obj
+            elif sizeof<IntPtr> = sizeof<int64> then
+                BitConverter.ToInt64 span |> IntPtr :> obj
+            else internalfail "bytesToObj: unexpected IntPtr size"
+        | _ when t = typeof<UIntPtr> ->
+            if sizeof<UIntPtr> = sizeof<uint> then
+                BitConverter.ToUInt32 span |> UIntPtr :> obj
+            elif sizeof<UIntPtr> = sizeof<uint64> then
+                BitConverter.ToUInt64 span |> UIntPtr :> obj
+            else internalfail "bytesToObj: unexpected UIntPtr size"
+        | _ when t = typeof<Reflection.Pointer> ->
+            let intPtr =
+                if sizeof<IntPtr> = sizeof<int> then
+                    BitConverter.ToInt32 span |> IntPtr
+                elif sizeof<IntPtr> = sizeof<int64> then
+                    BitConverter.ToInt64 span |> IntPtr
+                else internalfail "bytesToObj: unexpected IntPtr size"
+            Reflection.Pointer.Box(intPtr.ToPointer(), typeof<Void>.MakePointerType())
         | _ when t.IsEnum ->
             let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
-        | StructType _ ->
-            assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
-            let size = internalSizeOf t
-            let mutable ptr = IntPtr.Zero
-            try
-                ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
-                System.Runtime.InteropServices.Marshal.Copy(bytes, 0, ptr, size)
-                System.Runtime.InteropServices.Marshal.PtrToStructure(ptr, t)
-            finally
-                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
+        | StructType _ -> bytesToStruct bytes t
+        | _ when not t.IsValueType && Array.forall (fun b -> b = 0uy) bytes -> null
         | _ -> internalfailf $"Creating object from bytes: unexpected object type {t}"
 
     and reinterpretConcretes (sliceTerms : term list) t =
@@ -874,7 +978,7 @@ module internal Terms =
         let defaultCase() =
             Expression Combine terms t
         let isSolid term typeOfTerm =
-            typeOfTerm = t || isRefOrPtr term
+            typeOfTerm = t || isRefOrPtr term && (not t.IsValueType || t.IsByRef || isNative t || t.IsPrimitive)
         let simplify p s e pos =
             let typ = typeOf p
             let termSize = lazy (internalSizeOf typ)
@@ -885,8 +989,10 @@ module internal Terms =
                     primitiveCast p t
                 else defaultCase()
             else defaultCase()
-        assert(List.isEmpty terms |> not)
         match terms with
+        // 'ReportError' case
+        | _ when List.isEmpty terms ->
+            makeDefaultValue t
         | _ when allSlicesAreConcrete terms -> Concrete (reinterpretConcretes terms t) t
         | [{term = Slice(p, cuts)}] ->
             match cuts with
@@ -900,22 +1006,22 @@ module internal Terms =
             simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()
 
-    let rec timeOf (address : heapAddress) =
+    and timeOf (address : heapAddress) =
         match address.term with
         | ConcreteHeapAddress addr -> addr
         | Constant(_, source, _) -> source.Time
         | HeapRef(address, _) -> timeOf address
         | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
-        | _ -> internalfailf "timeOf : expected heap address, but got %O" address
+        | _ -> internalfail $"timeOf : expected heap address, but got {address}"
 
-    let compareTerms t1 t2 =
+    and compareTerms t1 t2 =
         match t1.term, t2.term with
         | Concrete(:? IComparable as x, _), Concrete(:? IComparable as y, _) -> x.CompareTo y
         | Concrete(:? IComparable, _), _ -> -1
         | _, Concrete(:? IComparable, _) -> 1
         | _ -> compare (toString t1) (toString t2)
 
-    let rec private foldChildren folder state term k =
+    and private foldChildren folder state term k =
         match term.term with
         | Constant(_, source, _) ->
             foldSeq folder source.SubTerms state k
@@ -950,9 +1056,9 @@ module internal Terms =
         | StaticField _
         | BoxedLocation _ -> k state
         | ClassField(addr, _) -> doFold folder state addr k
-        | ArrayIndex(addr, idcs, _) ->
+        | ArrayIndex(addr, indices, _) ->
             doFold folder state addr (fun state ->
-            foldSeq folder idcs state k)
+            foldSeq folder indices state k)
         | StructField(addr, _) -> foldAddress folder state addr k
         | ArrayLength(addr, idx, _)
         | ArrayLowerBound(addr, idx, _) ->
@@ -969,16 +1075,16 @@ module internal Terms =
     and private foldSeq folder terms state k =
         Cps.Seq.foldlk (doFold folder) state terms k
 
-    let fold folder state terms =
+    and fold folder state terms =
         foldSeq folder terms state id
 
-    let iter action term =
+    and iter action term =
         doFold action () term id
 
-    let iterSeq action terms =
+    and iterSeq action terms =
         Cps.Seq.foldlk (doFold action) () terms id
 
-    let discoverConstants terms =
+    and discoverConstants terms =
         let result = HashSet<term>()
         let addConstant _ t _ into =
             match t.term with
@@ -987,29 +1093,31 @@ module internal Terms =
         Seq.iter (iter addConstant) terms
         result :> ISet<term>
 
-    let private foldFields isStatic folder acc typ =
+    and private foldFields isStatic folder acc typ =
         let fields = Reflection.fieldsOf isStatic typ
         let addField heap (fieldId, fieldInfo : Reflection.FieldInfo) =
             folder heap fieldInfo fieldId fieldInfo.FieldType
         FSharp.Collections.Array.fold addField acc fields
 
-    let private makeFields isStatic makeField typ =
+    and private makeFields isStatic makeField typ =
         let folder fields fieldInfo field termType =
             let value = makeField fieldInfo field termType
             PersistentDict.add field value fields
         foldFields isStatic folder PersistentDict.empty typ
 
-    let makeStruct isStatic makeField typ =
+    and makeStruct isStatic makeField typ =
         let fields = makeFields isStatic makeField typ
         Struct fields typ
 
-    let rec makeDefaultValue typ =
+    and makeDefaultValue typ =
         match typ with
         | Bool -> False()
         | Numeric t when t.IsEnum -> castConcrete (getEnumDefaultValue t) t
         // NOTE: XML serializer does not support special char symbols, so creating test with char > 32 #XMLChar
         // TODO: change serializer
-        | Numeric t when t = typeof<char> -> makeNumber (char 33)
+        | Numeric t when t = typeof<char> ->
+            if charsArePretty then makeNumber (char 33)
+            else makeNumber '\000'
         | Numeric t -> castConcrete 0 t
         | _ when typ = typeof<IntPtr> -> makeIntPtr (makeNumber 0)
         | _ when typ = typeof<UIntPtr> -> makeUIntPtr (makeNumber 0)
@@ -1018,7 +1126,7 @@ module internal Terms =
         | ClassType _
         | InterfaceType _ -> nullRef typ
         | TypeVariable t when isReferenceTypeParameter t -> nullRef typ
-        | TypeVariable t -> __insufficientInformation__ "Cannot instantiate value of undefined type %O" t
+        | TypeVariable t -> __insufficientInformation__ $"Cannot instantiate value of undefined type {t}"
         | StructType _ -> makeStruct false (fun _ _ t -> makeDefaultValue t) typ
         | Pointer typ -> makeNullPtr typ
         | AddressType -> zeroAddress()

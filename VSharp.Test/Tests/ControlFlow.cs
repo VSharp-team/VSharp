@@ -55,132 +55,132 @@ namespace IntegrationTests
             return sum;
         }
 
-//        // x > 10 && x >= 95 => x + 5
-//        // x > 10 && x < 95 && (x + 3) != 0 (mod 5) => x + 3
-//        // x > 10 && x < 95 && (x + 3) == 0 (mod 5) && (x + 8) >= 100 => x + 8
-//        // x > 10 && x < 95 && (x + 3) == 0 (mod 5) && (x + 8) < 100 => x + 6
-//        // x <= 10 && (x - 2) != 0 (mod 5) => x - 2
-//        // x <= 10 && (x - 2) == 0 (mod 5) => x + 1  //(x + 3) < 100 && (x + 1) != 0 (mod 5)
-//        [TestSvm]
-//        public static int Gotos1(int x)
-//        {
-//            if (x <= 10)
-//            {
-//                goto labelB;
-//            }
-//
-//            labelA:
-//                x += 5;
-//                if (x >= 100)
-//                {
-//                    goto exit;
-//                }
-//
-//            labelB:
-//                x -= 2;
-//                if (x % 5 == 0)
-//                {
-//                    goto labelA;
-//                }
-//
-//            exit:
-//            return x;
-//        }
-//
-//        [TestSvm]
-//        public static int Gotos2(int x)
-//        {
-//            if (x <= 10)
-//            {
-//                goto labelB;
-//            }
-//
-//            labelA:
-//            x += 5;
-//            if (x >= 100)
-//            {
-//                goto exit;
-//            }
-//
-//            if (x > 50)
-//            {
-//                x *= 3;
-//                goto labelA;
-//            }
-//
-//            labelB:
-//            x -= 2;
-//            if (x % 5 == 0)
-//            {
-//                x *= 2;
-//                goto labelA;
-//            }
-//
-//            if (x % 5 == 1)
-//            {
-//                goto labelB;
-//            }
-//
-//            exit:
-//            return x;
-//        }
+        // x > 10 && x >= 95 => x + 5
+        // x > 10 && x < 95 && (x + 3) != 0 (mod 5) => x + 3
+        // x > 10 && x < 95 && (x + 3) == 0 (mod 5) && (x + 8) >= 100 => x + 8
+        // x > 10 && x < 95 && (x + 3) == 0 (mod 5) && (x + 8) < 100 => x + 6
+        // x <= 10 && (x - 2) != 0 (mod 5) => x - 2
+        // x <= 10 && (x - 2) == 0 (mod 5) => x + 1  //(x + 3) < 100 && (x + 1) != 0 (mod 5)
+        [TestSvm]
+        public static int Gotos1(int x)
+        {
+            if (x <= 10)
+            {
+                goto labelB;
+            }
 
-//        [TestSvm]
-//        public static int InfiniteCycle1(int x)
-//        {
-//            label:
-//            x += 10;
-//
-//            goto label;
-//        }
+            labelA:
+                x += 5;
+                if (x >= 100)
+                {
+                    goto exit;
+                }
 
-//        [TestSvm]
-//        public static int GotosWithinSwitch(int x)
-//        {
-//            switch (x)
-//            {
-//                case 0:
-//                    x += 2;
-//                    x *= 3;
-//                    goto case 2;
-//
-//                case 1:
-//                    x *= 10;
-//                    goto case 5;
-//
-//                case 2:
-//                    x %= 50;
-//                    goto case 4;
-//
-//                case 4:
-//                    x += 34;
-//                    if (x > 50)
-//                    {
-//                        goto case 5;
-//                    }
-//                    else
-//                    {
-//                        goto case 2;
-//                    }
-//
-//                case 5:
-//                    x -= 15;
-//                    goto default;
-//
-//                default:
-//                    if (x == 28)
-//                    {
-//                        break;
-//                    }
-//                    else
-//                    {
-//                        x += 100;
-//                        goto case 0;
-//                    }
-//            }
-//
-//            return x;
-//        }
+            labelB:
+                x -= 2;
+                if (x % 5 == 0)
+                {
+                    goto labelA;
+                }
+
+            exit:
+            return x;
+        }
+
+        [TestSvm]
+        public static int Gotos2(int x)
+        {
+            if (x <= 10)
+            {
+                goto labelB;
+            }
+
+            labelA:
+            x += 5;
+            if (x >= 100)
+            {
+                goto exit;
+            }
+
+            if (x > 50)
+            {
+                x *= 3;
+                goto labelA;
+            }
+
+            labelB:
+            x -= 2;
+            if (x % 5 == 0)
+            {
+                x *= 2;
+                goto labelA;
+            }
+
+            if (x % 5 == 1)
+            {
+                goto labelB;
+            }
+
+            exit:
+            return x;
+        }
+
+        [Ignore("Infinite cycle")]
+        public static int InfiniteCycle1(int x)
+        {
+            label:
+            x += 10;
+
+            goto label;
+        }
+
+        [Ignore("Takes too much time")]
+        public static int GotosWithinSwitch(int x)
+        {
+            switch (x)
+            {
+                case 0:
+                    x += 2;
+                    x *= 3;
+                    goto case 2;
+
+                case 1:
+                    x *= 10;
+                    goto case 5;
+
+                case 2:
+                    x %= 50;
+                    goto case 4;
+
+                case 4:
+                    x += 34;
+                    if (x > 50)
+                    {
+                        goto case 5;
+                    }
+                    else
+                    {
+                        goto case 2;
+                    }
+
+                case 5:
+                    x -= 15;
+                    goto default;
+
+                default:
+                    if (x == 28)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        x += 100;
+                        goto case 0;
+                    }
+            }
+
+            return x;
+        }
 
 
         [TestSvm(100)]
@@ -247,28 +247,28 @@ namespace IntegrationTests
         }
 
 
-//        [TestSvm]
-//        public static int GotoOutwardsNestedCycle(int x)
-//        {
-//            int sum = 42;
-//            for (int i = 1; i < x; i++)
-//            {
-//                sum += i;
-//                for (int j = 0; j < i; j++)
-//                {
-//                    sum--;
-//                    if (x == 42)
-//                    {
-//                        goto exit;
-//                    }
-//                }
-//            }
-//
-//            exit:
-//            x += sum;
-//
-//            return x;
-//        }
+        [Ignore("Takes too much time")]
+        public static int GotoOutwardsNestedCycle(int x)
+        {
+            int sum = 42;
+            for (int i = 1; i < x; i++)
+            {
+                sum += i;
+                for (int j = 0; j < i; j++)
+                {
+                    sum--;
+                    if (x == 42)
+                    {
+                        goto exit;
+                    }
+                }
+            }
+
+            exit:
+            x += sum;
+
+            return x;
+        }
 
         // NOTE: this test works fine with configuration Debug and Release, but DebugTailRec
         //       doesn't work, because dotnet generates non optimized IL, so there appears
@@ -377,7 +377,6 @@ namespace IntegrationTests
         }
 
         [Ignore("Looping due to non-terminating paths")]
-//       [TestSvm(78)]
         public static int NestedForsHard(int x)
         {
             for (int i = 0; i < x; i++)
@@ -418,10 +417,8 @@ namespace IntegrationTests
 
             if (lo < 0) throw new ArgumentException("lo < 0");
             if (lo > hi) throw new ArgumentException("lo > hi");
-            // if (hi >= a.Length) throw new ArgumentException("hi >= a.length");
 
             var m = lo + (hi - lo) / 2;
-//        if (m < 0) throw new RuntimeException("");
 
             while (lo < hi)
                 if (a[m] == x)
@@ -455,397 +452,446 @@ namespace IntegrationTests
             return 0;
         }
 
-//        [TestSvm]
-//        public static int CycleWith3EntryPoints(int x)
-//        {
-//            if (x == 1)
-//                goto lab1;
-//            if (x == 2)
-//                goto lab2;
-//            goto lab3;
-//
-//            lab1:
-//            x += 100500;
-//            goto lab4;
-//
-//            lab2:
-//            x *= 10;
-//            goto lab4;
-//
-//            lab3:
-//            x++;
-//
-//            lab4:
-//            if (x == 123)
-//                goto lab1;
-//            if (x == 234)
-//                goto lab2;
-//            if (x == 345)
-//                goto lab3;
-//
-//            return x;
-//        }
+        [TestSvm]
+        public static int CycleWith3EntryPoints(int x)
+        {
+            if (x == 1)
+                goto lab1;
+            if (x == 2)
+                goto lab2;
+            goto lab3;
 
-//        public static int DivideWithException(int x)
-//        {
-//            try
-//            {
-//                return 100 / x;
-//            }
-//            catch (DivideByZeroException e)
-//            {
-//                Console.WriteLine(e.Message);
-//                return 0;
-//            }
-//        }
+            lab1:
+            x += 100500;
+            goto lab4;
 
-//        public static int TryInsideCatch(int x, string s)
-//        {
-//            // some code outside try block
-//            x++;
-//
-//            try
-//            {
-//                x = s.Length;
-//            }
-//            catch (NullReferenceException)
-//            {
-//                try
-//                {
-//                    x = 100 / x;
-//                }
-//                catch (Exception e) when (e is DivideByZeroException)
-//                {
-//                    x = 1;
-//                }
-//            }
-//
-//            return x;
-//        }
-//
-//
-//
-//        public static int TryWithFinally(int x, string s)
-//        {
-//
-//            x += 2;
-//            try
-//            {
-//                x = s.Length;
-//            }
-//            finally
-//            {
-//                try
-//                {
-//                    x = 100 / x;
-//                }
-//                catch (Exception e) when (e is DivideByZeroException)
-//                {
-//                    x = 1;
-//                }
-//            }
-//
-//            return x;
-//        }
-//
-//
-//
-//        public static int TryInsideWhile(int x)
-//        {
-//            int y = x;
-//            int res = -1;
-//            while (y > 0)
-//            {
-//                y--;
-//                try
-//                {
-//                    res = 100 / y;
-//                }
-//                catch (DivideByZeroException)
-//                {
-//                    res = 100;
-//                }
-//            }
-//
-//            return res;
-//        }
-//
-//
-//        public static int RethrownInstructionIsNotCaughtByNextHandler(int x, string s)
-//        {
-//            Console.WriteLine("Method: CatchImplicitExceptionFromCatch");
-//            try
-//            {
-//                x = s.Length / x;
-//            }
-//            catch (NullReferenceException nre)
-//            {
-//                Console.WriteLine($"Got NullReferenceException = {nre.Message}");
-//                throw;
-//            }
-//            catch (DivideByZeroException divideByZeroException)
-//            {
-//                Console.WriteLine($"Got DivideByZeroException = {divideByZeroException.Message}");
-//                x = 42;
-//            }
-//            catch
-//            {
-//                Console.WriteLine($"Got Exception");
-//                x = 43;
-//            }
-//
-//            return x;
-//        }
-//
-//
-//        public static int CantCatchExplicitExceptionFromCatch(int x, string s)
-//        {
-//            Console.WriteLine("Method: CatchExplicitExceptionFromCatch");
-//            try
-//            {
-//                x = s.Length / x;
-//            }
-//            catch (NullReferenceException nre)
-//            {
-//                Console.WriteLine($"Got NullReferenceException = {nre.Message}");
-//                throw new DivideByZeroException("Exception was thrown explicitly");
-//            }
-//            catch (DivideByZeroException divideByZeroException)
-//            {
-//                Console.WriteLine($"Got DivideByZeroException = {divideByZeroException.Message}");
-//                x = 42;
-//            }
-//
-//
-//            Console.WriteLine("Code without exceptions");
-//
-//            return x;
-//        }
-//
-//        public static bool FilterWithException(NullReferenceException nre)
-//        {
-//            throw new DivideByZeroException("Exception was thrown explicitly");
-//        }
-//
-//        public static int ExceptionThrownInFilter(int x, string s)
-//        {
-//            Console.WriteLine("Method: ExceptionThrownInFilter");
-//            try
-//            {
-//                x = s.Length;
-//            }
-//            catch (NullReferenceException nre) when (FilterWithException(nre))
-//            {
-//                Console.WriteLine($"Got NullReferenceException = {nre.Message}");
-//            }
-//            catch (NullReferenceException nre)
-//            {
-//                Console.WriteLine($"Got NullReferenceException = {nre.Message}");
-//            }
-//
-//            Console.WriteLine("Code without exceptions");
-//            return x;
-//        }
-//
-//
-//        public static bool FilterWithTryCatch(NullReferenceException nre)
-//        {
-//            try
-//            {
-//                return (100 / nre.Message.Length) < 5;
-//            }
-//            catch
-//            {
-//                Console.WriteLine("Exception occured in FilterWithTryCatch");
-//                return true;
-//            }
-//        }
-//
-//        public static int FilterCanHaveExceptionHandler(int x, string s)
-//        {
-//            var nullReferenceExceptionWithEmptyMessage = new NullReferenceException("");
-//            Console.WriteLine("Method: FilterCanNotHaveExceptionHandler");
-//            try
-//            {
-//                x = s.Length;
-//            }
-//            catch (NullReferenceException nre) when (FilterWithTryCatch(nullReferenceExceptionWithEmptyMessage))
-//            {
-//                Console.WriteLine($"Got NullReferenceException in catch with filter\n{nre.Message}");
-//            }
-//            catch (NullReferenceException nre)
-//            {
-//                Console.WriteLine($"Got NullReferenceException in catch\n{nre.Message}");
-//            }
-//
-//            return x;
-//        }
-//
-//        public static int OnlyFilter(int x, string s)
-//        {
-//            try
-//            {
-//                x = s.Length;
-//            }
-//            catch (NullReferenceException nre) when(nre.Message == "")
-//            {
-//                x = 123;
-//                Console.WriteLine($"Got NullReferenceException in catch\n{nre.Message}");
-//            }
-//
-//            return x;
-//        }
-//
-//        public static int FunctionWithFinallyThrowingException()
-//        {
-//            try
-//            {
-//                throw new SystemException("Explicitly thrown");
-//            }
-//            finally
-//            {
-//                Console.WriteLine("Finally was executed");
-//            }
-//        }
-//
-//        public static int FunctionWithHandler(int x)
-//        {
-//            try
-//            {
-//                x = FunctionWithFinallyThrowingException();
-//            }
-//            catch (SystemException)
-//            {
-//                x = 123;
-//                Console.WriteLine($"Got SystemException");
-//            }
-//
-//            return x;
-//        }
-//
-//        public static int NestedTryBlocks(int x, string s)
-//        {
-//            try
-//            {
-//                try
-//                {
-//                    x = 100 / s.Length;
-//                }
-//                catch (NullReferenceException nre)
-//                {
-//                    Console.WriteLine(nre);
-//                }
-//                catch (Exception e) when (e is DivideByZeroException && s.Length > 0)
-//                {
-//                    Console.WriteLine(e.Message);
-//                }
-//                finally
-//                {
-//                    x++;
-//                }
-//            }
-//            catch (Exception)
-//            {
-//                x = 1000;
-//                Console.WriteLine();
-//            }
-//
-//            return x;
-//        }
-//
-//
-//        public static int TryCatchFinally(int x, string s)
-//        {
-//            try
-//            {
-//                x = 100 / s.Length;
-//            }
-//            catch (NullReferenceException nre)
-//            {
-//                Console.WriteLine(nre);
-//            }
-//            finally
-//            {
-//                x++;
-//            }
-//
-//            return x;
-//        }
-//
-//        public static int ReturnFromTryWithFinally(int x, string s)
-//        {
-//            try
-//            {
-//                x = 100 / s.Length;
-//                return x;
-//            }
-//            finally
-//            {
-//                Console.WriteLine("Finally");
-//            }
-//        }
-//
-//
-//        public static int ManyFinallyBlocks(int x, string s)
-//        {
-//            try
-//            {
-//                try
-//                {
-//                    x = 100 / s.Length;
-//                }
-//                finally
-//                {
-//                    Console.WriteLine("Inner finally");
-//                }
-//
-//            }
-//            catch (System.Exception)
-//            {
-//                Console.WriteLine("Catch");
-//            }
-//            finally
-//            {
-//                Console.WriteLine("Outer Finally");
-//            }
-//
-//            return x;
-//        }
-//
-//        public static int TryCatchFilter(int x, string s)
-//        {
-//            try
-//            {
-//                x = 100 / s.Length;
-//            }
-//            catch (NullReferenceException)
-//            {
-//                Console.WriteLine("Catch {0}", 1);
-//            }
-//            catch (DivideByZeroException) when (x == 56)
-//            {
-//                Console.WriteLine("Filter {0}", 0);
-//            }
-//            return x;
-//        }
-//
-//
-//        public int CycleReturningValueAndException(int x)
-//        {
-//            int sum = 0;
-//            for (int i = 0; i < x; i++)
-//            {
-//                if (i == 42)
-//                    throw new Exception("42");
-//                if (2 * i + x == 42)
-//                {
-//                    return 42;
-//                }
-//
-//                sum++;
-//            }
-//
-//            return sum;
-//        }
+            lab2:
+            x *= 10;
+            goto lab4;
+
+            lab3:
+            x++;
+
+            lab4:
+            if (x == 123)
+                goto lab1;
+            if (x == 234)
+                goto lab2;
+            if (x == 345)
+                goto lab3;
+
+            return x;
+        }
+
+        [TestSvm(100)]
+        public static int DivideWithException(int x)
+        {
+            try
+            {
+                return 100 / x;
+            }
+            catch (DivideByZeroException e)
+            {
+                Console.WriteLine(e.Message);
+                return 0;
+            }
+        }
+
+        [TestSvm(90)]
+        public static int TryInsideCatch(int x, string s)
+        {
+            // some code outside try block
+            x++;
+
+            try
+            {
+                x = s.Length;
+            }
+            catch (NullReferenceException)
+            {
+                try
+                {
+                    x = 100 / x;
+                }
+                catch (Exception e) when (e is DivideByZeroException)
+                {
+                    x = 1;
+                }
+            }
+
+            return x;
+        }
+
+        [TestSvm(90, strat:SearchStrategy.DFS)]
+        public static int TryInsideFinally(int x, string s)
+        {
+            x += 2;
+            try
+            {
+                x = s.Length;
+            }
+            finally
+            {
+                try
+                {
+                    x = 100 / x;
+                }
+                catch (Exception e) when (e is DivideByZeroException)
+                {
+                    x = 1;
+                }
+            }
+
+            return x;
+        }
+
+        [TestSvm(100)]
+        public static int TryInsideWhile(int x)
+        {
+            int y = x;
+            int res = -1;
+            while (y > 0)
+            {
+                y--;
+                try
+                {
+                    res = 100 / y;
+                }
+                catch (DivideByZeroException)
+                {
+                    res = 100;
+                }
+            }
+
+            return res;
+        }
+
+        [TestSvm(80)]
+        public static int RethrownInstructionIsNotCaughtByNextHandler(int x, string s)
+        {
+            try
+            {
+                x = s.Length / x;
+            }
+            catch (NullReferenceException nre)
+            {
+                x += nre.HResult;
+                throw;
+            }
+            catch (DivideByZeroException divideByZeroException)
+            {
+                x += 42 + divideByZeroException.HResult;
+            }
+            catch
+            {
+                x += 43;
+            }
+
+            return x;
+        }
+
+        [TestSvm(100)]
+        public static int CantCatchExplicitExceptionFromCatch(int x, string s)
+        {
+            try
+            {
+                x = s.Length / x;
+            }
+            catch (NullReferenceException nre)
+            {
+                throw new DivideByZeroException("Exception was thrown explicitly " + nre.Message);
+            }
+            catch (DivideByZeroException divideByZeroException)
+            {
+                x = 42 + divideByZeroException.HResult;
+            }
+
+            return x;
+        }
+
+        public static bool FilterWithException(NullReferenceException nre)
+        {
+            throw new DivideByZeroException("Exception was thrown explicitly");
+        }
+
+        [TestSvm(60)]
+        public static int ExceptionThrownInFilter(int x, string s)
+        {
+            Console.WriteLine("Method: ExceptionThrownInFilter");
+            try
+            {
+                x = s.Length;
+            }
+            catch (NullReferenceException nre) when (FilterWithException(nre))
+            {
+                x += nre.HResult;
+            }
+            catch (NullReferenceException nre)
+            {
+                x += nre.HResult;
+                return x + 1;
+            }
+
+            return x;
+        }
+
+        public static bool FilterWithException1(string s)
+        {
+            var x = 0;
+            try
+            {
+                x += s.Length;
+            }
+            catch (NullReferenceException nre) when (FilterWithException(nre))
+            {
+                return true;
+            }
+
+            return x > 0;
+        }
+
+        [TestSvm(57)]
+        public static int ExceptionThrownInFilter1(int x, string s)
+        {
+            try
+            {
+                x = s.Length;
+            }
+            catch (NullReferenceException nre) when (FilterWithException1(s))
+            {
+                x += nre.HResult;
+            }
+            catch (NullReferenceException nre)
+            {
+                x += nre.HResult;
+                return x + 1;
+            }
+
+            return x;
+        }
+
+        public static bool FilterWithTryCatch(NullReferenceException nre)
+        {
+            try
+            {
+                return 100 / nre.Message.Length < 5;
+            }
+            catch
+            {
+                Console.WriteLine("Exception occured in FilterWithTryCatch");
+                return true;
+            }
+        }
+
+        [TestSvm(72)]
+        public static int FilterCanHaveExceptionHandler(int x, string s)
+        {
+            var nullReferenceExceptionWithEmptyMessage = new NullReferenceException("");
+            try
+            {
+                x = s.Length;
+            }
+            catch (NullReferenceException nre) when (FilterWithTryCatch(nullReferenceExceptionWithEmptyMessage))
+            {
+                x += 1 + nre.HResult;
+            }
+            catch (NullReferenceException nre)
+            {
+                x += nre.HResult;
+            }
+
+            return x;
+        }
+
+        [TestSvm(62)]
+        public static int OnlyFilter(int x, string s)
+        {
+            try
+            {
+                x = s.Length;
+            }
+            catch (NullReferenceException nre) when (nre.Message == "")
+            {
+                x += nre.HResult;
+            }
+
+            return x;
+        }
+
+        public static int FunctionWithFinallyThrowingException()
+        {
+            try
+            {
+                throw new SystemException("Explicitly thrown");
+            }
+            finally
+            {
+                Console.WriteLine("Finally was executed");
+            }
+        }
+
+        [TestSvm(77)]
+        public static int FunctionWithHandler(int x)
+        {
+            try
+            {
+                x = FunctionWithFinallyThrowingException();
+            }
+            catch (SystemException)
+            {
+                x = 123;
+            }
+
+            return x;
+        }
+
+        [TestSvm(80)]
+        public static int NestedTryBlocks(int x, string s)
+        {
+            try
+            {
+                try
+                {
+                    x = 100 / s.Length;
+                }
+                catch (NullReferenceException nre)
+                {
+                    x += 1;
+                }
+                catch (Exception e) when (e is DivideByZeroException && s.Length > 0)
+                {
+                    x += 2;
+                }
+                finally
+                {
+                    x++;
+                }
+            }
+            catch (Exception)
+            {
+                x += 1000;
+            }
+
+            return x;
+        }
+
+        [TestSvm(100)]
+        public static int TryCatchFinally(int x, string s)
+        {
+            var res = 0;
+            try
+            {
+                x = 100 / s.Length;
+                res += 1;
+            }
+            catch (NullReferenceException nre)
+            {
+                res += nre.HResult;
+            }
+            finally
+            {
+                x++;
+                res += 2;
+            }
+
+            return res + x;
+        }
+
+        [TestSvm(100)]
+        public static int ReturnFromTryWithFinally(int x, string s)
+        {
+            var res = 0;
+            try
+            {
+                x = 100 / s.Length;
+                res += 1;
+            }
+            finally
+            {
+                res += 2;
+            }
+
+            return res + x;
+        }
+
+        [TestSvm(100)]
+        public static int ManyFinallyBlocks(int x, string s)
+        {
+            var res = 0;
+            try
+            {
+                try
+                {
+                    x = 100 / s.Length;
+                    res += 1;
+                }
+                finally
+                {
+                    res += 2;
+                }
+
+            }
+            catch (Exception)
+            {
+                res += 3;
+            }
+            finally
+            {
+                res += 4;
+            }
+
+            return x + res;
+        }
+
+        [TestSvm(90)]
+        public static int TryCatchFilter(int x, string s)
+        {
+            try
+            {
+                x = 100 / s.Length;
+            }
+            catch (NullReferenceException)
+            {
+                return 0;
+            }
+            catch (DivideByZeroException) when (x == 56)
+            {
+                return 1;
+            }
+            return x;
+        }
+
+        [TestSvm(53)]
+        public static int ExceptionInsideFilter(int x, string s)
+        {
+            try
+            {
+                x = 100 / s.Length;
+            }
+            catch (NullReferenceException) when (s.Length == 0)
+            {
+                return -1;
+            }
+            return x;
+        }
+
+        [TestSvm(100)]
+        public int CycleReturningValueAndException(int x)
+        {
+            int sum = 0;
+            for (int i = 0; i < x; i++)
+            {
+                if (i == 42)
+                    throw new Exception("42");
+                if (2 * i + x == 42)
+                {
+                    return 42;
+                }
+
+                sum++;
+            }
+
+            return sum;
+        }
     }
 }

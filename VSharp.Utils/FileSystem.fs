@@ -16,13 +16,13 @@ module FileSystem =
         assert started
         cmd.WaitForExit()
 
-    let private createSymlinkWindows target link =
-        run "cmd.exe" (sprintf "/c if exist %s ( rmdir %s )" link link)
-        run "cmd.exe" (sprintf "/c mklink /d %s %s" link target)
+    let private createSymlinkWindows (target : string) (link : string) =
+        run "cmd.exe" $"/c if exist {link} ( rmdir {link} )"
+        run "cmd.exe" $"/c mklink /d {link} {target}"
 
-    let private createSymlinkUnix target link =
-        run "unlink" link
-        run "ln" (sprintf "-s \"%s\" \"%s\"" target link)
+    let private createSymlinkUnix (target : string) (link : string) =
+        if System.IO.Path.Exists link then run "unlink" link
+        run "ln" $"-s \"{target}\" \"{link}\""
 
     let createSymlink =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then createSymlinkWindows

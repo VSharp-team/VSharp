@@ -88,7 +88,7 @@ namespace VSharp.CoverageRunner
             return RunWithLogging(info);
         }
 
-        private static CoverageLocation[][]? GetHistory(DirectoryInfo workingDirectory)
+        private static CoverageReport[]? GetHistory(DirectoryInfo workingDirectory)
         {
             byte[] covHistory;
             try
@@ -102,7 +102,8 @@ namespace VSharp.CoverageRunner
                 return null;
             }
 
-            return CoverageDeserializer.getHistory(covHistory);
+            var raw = CoverageDeserializer.getRawReports(covHistory);
+            return CoverageDeserializer.reportsFromRawReports(raw);
         }
 
         private static void PrintCoverage(
@@ -127,11 +128,11 @@ namespace VSharp.CoverageRunner
             Logger.writeLine(sb.ToString());
         }
 
-        private static int ComputeCoverage(CfgInfo cfg, CoverageLocation[][] visited, MethodBase methodInfo)
+        private static int ComputeCoverage(CfgInfo cfg, CoverageReport[] visited, MethodBase methodInfo)
         {
             // filtering coverage records that are only relevant to this method
             var visitedInMethod =
-                visited.SelectMany(x => x)
+                visited.SelectMany(x => x.coverageLocations)
                     .Where(x => x.methodToken == methodInfo.MetadataToken &&
                                 x.moduleName == methodInfo.Module.FullyQualifiedName);
             var visitedBlocks = new HashSet<BasicBlock>();
@@ -153,6 +154,7 @@ namespace VSharp.CoverageRunner
 
         public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodBase methodInfo)
         {
+            // TODO: delete non-main methods from serialization
             var success = StartCoverageTool(args, workingDirectory, methodInfo);
             if (!success)
             {
@@ -169,14 +171,13 @@ namespace VSharp.CoverageRunner
                 return 100;
             }
 
-            var visited = GetHistory(workingDirectory);
-            if (visited is null)
+            var reports = GetHistory(workingDirectory);
+            if (reports is null)
             {
                 Logger.printLogString(Logger.Error, "CoverageRunner could not deserialize coverage history");
                 return -1;
             }
-
-            return ComputeCoverage(method.CFG, visited, methodInfo);
+            return ComputeCoverage(method.CFG, reports, methodInfo);
         }
     }
 }

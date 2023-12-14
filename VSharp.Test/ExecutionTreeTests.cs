@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.FSharp.Core;
 using NUnit.Framework;
-using VSharp.Interpreter.IL;
+using VSharp.Explorer;
 
 namespace VSharp.Test;
 

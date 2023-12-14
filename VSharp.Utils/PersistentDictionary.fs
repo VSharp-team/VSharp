@@ -1,7 +1,7 @@
 namespace VSharp
 
+open System.Text
 open FSharpx.Collections
-open VSharp
 open VSharp
 
 // TODO: migrate on System.Collections.Immutable?
@@ -25,6 +25,13 @@ type public pdict<'key, 'value> when 'key : equality and 'value : equality =
         | :? pdict<'key, 'value> as h ->
             x.GetHashCode() = h.GetHashCode() && Seq.forall2 (=) x.impl h.impl
         | _ -> false
+
+    override x.ToString() =
+        let mutable sb = StringBuilder()
+        let dict = Seq.sortBy (fst >> toString) (x.impl :> seq<'key * 'value>)
+        for k, v in dict do
+            sb <- sb.AppendLine($"{k} => {v}")
+        sb.ToString()
 
 module public PersistentDict =
 
@@ -99,11 +106,12 @@ module public PersistentDict =
         unify2 d1 d1 d2 (fun s k v1 v2 -> add k (resolve k v1 v2) s)
 
     let private commonToString format separator sort keyMapper valueMapper (d : pdict<'a, 'b>) =
-        d
-        |> toSeq
-        |> sort
-        |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v))
-        |> join separator
+        let sorted = toSeq d |> sort
+        let mutable sb = StringBuilder()
+        for k, v in sorted do
+            let string : string = sprintf format (keyMapper k) (valueMapper v)
+            sb <- sb.Append(string + separator)
+        sb.ToString()
 
     let public toString format separator sorter keyMapper valueMapper (d : pdict<'a, 'b>) =
         commonToString format separator (Seq.sortBy (fst >> sorter)) keyMapper valueMapper d

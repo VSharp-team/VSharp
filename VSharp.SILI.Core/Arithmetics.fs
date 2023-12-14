@@ -313,6 +313,170 @@ module ILCalculator =
         let compare = compare.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
         compare.Invoke(x, y)
 
+    let equality(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let equality = DynamicMethod("Equality", typeof<int>, args)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let il = equality.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Ceq)
+        il.Emit(OpCodes.Ret)
+        let equality = equality.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        equality.Invoke(x, y) = 1
+
+    let less(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let less = DynamicMethod("Less", typeof<int>, args)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let il = less.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Clt)
+        il.Emit(OpCodes.Ret)
+        let less = less.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        less.Invoke(x, y) = 1
+
+    let lessOrEq(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let lessOrEq = DynamicMethod("LessOrEq", typeof<int>, args)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let il = lessOrEq.GetILGenerator(256)
+        let success = il.DefineLabel()
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Ble_S, success)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ret)
+        il.MarkLabel(success)
+        il.Emit(OpCodes.Ldc_I4_1)
+        il.Emit(OpCodes.Ret)
+        let lessOrEq = lessOrEq.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        lessOrEq.Invoke(x, y) = 1
+
+    let lessUn(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let lessUn = DynamicMethod("LessUn", typeof<int>, args)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let il = lessUn.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Clt_Un)
+        il.Emit(OpCodes.Ret)
+        let lessUn = lessUn.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        lessUn.Invoke(x, y) = 1
+
+    let lessOrEqUn(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let lessOrEqUn = DynamicMethod("LessOrEqUn", typeof<int>, args)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let il = lessOrEqUn.GetILGenerator(256)
+        let success = il.DefineLabel()
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Ble_Un_S, success)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ret)
+        il.MarkLabel(success)
+        il.Emit(OpCodes.Ldc_I4_1)
+        il.Emit(OpCodes.Ret)
+        let lessOrEqUn = lessOrEqUn.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        lessOrEqUn.Invoke(x, y) = 1
+
+    let greater(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let greater = DynamicMethod("Greater", typeof<int>, args)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let il = greater.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Cgt)
+        il.Emit(OpCodes.Ret)
+        let greater = greater.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        greater.Invoke(x, y) = 1
+
+    let greaterOrEq(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let greaterOrEq = DynamicMethod("GreaterOrEq", typeof<int>, args)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let il = greaterOrEq.GetILGenerator(256)
+        let success = il.DefineLabel()
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Bge_S, success)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ret)
+        il.MarkLabel(success)
+        il.Emit(OpCodes.Ldc_I4_1)
+        il.Emit(OpCodes.Ret)
+        let greaterOrEq = greaterOrEq.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        greaterOrEq.Invoke(x, y) = 1
+
+    let greaterUn(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let greaterUn = DynamicMethod("GreaterUn", typeof<int>, args)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let il = greaterUn.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Cgt_Un)
+        il.Emit(OpCodes.Ret)
+        let greaterUn = greaterUn.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        greaterUn.Invoke(x, y) = 1
+
+    let greaterOrEqUn(x : obj, y : obj) : bool =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let greaterOrEqUn = DynamicMethod("GreaterOrEqUn", typeof<int>, args)
+        let il = greaterOrEqUn.GetILGenerator(256)
+        let xType = x.GetType()
+        let yType = y.GetType()
+        let success = il.DefineLabel()
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Bge_Un_S, success)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ret)
+        il.MarkLabel(success)
+        il.Emit(OpCodes.Ldc_I4_1)
+        il.Emit(OpCodes.Ret)
+        let greaterOrEqUn = greaterOrEqUn.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        greaterOrEqUn.Invoke(x, y) = 1
+
     let private floatIsZero x =
         assert(isValidOperand x)
         let typ = x.GetType()
@@ -749,7 +913,6 @@ module internal Arithmetics =
                     simplifyShift OperationType.ShiftRight_Un t x n k
                 // (a >> b) / 2^n = a >> (b + n) if unchecked, b is concrete, b + n < (size of a) * 8
                 // (a >> b) / 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
-//                | CastExpr(ShiftRight(a, b, Numeric(Id t2)), (Numeric(Id t1) as t)) when not <| typeIsLessType t1 t2 -> Some(ShiftRight(primitiveCast x t, y, t)) ->
                 | ShiftRightThroughCast(a, ConcreteT(b, bt), _), ConcreteT(powOf2, _)
                 | ShiftRight(a, ConcreteT(b, bt), _, _), ConcreteT(powOf2, _)
                     when ILCalculator.isPowOfTwo(powOf2) && a |> typeOf |> isUnsigned ->
@@ -915,37 +1078,63 @@ module internal Arithmetics =
         elif isConcrete n && isConcrete m then False()
         else makeBinary OperationType.Equal n m bool
 
-    and private simplifyConcreteComparison operator _ x y =
-        let bx = box x
-        let by = box y
-        if (bx :? int32 list) && (by :? int32 list) then
-            Concrete (List.compareWith compare (bx :?> int32 list) (by :?> int32 list) |> operator) bool
-        else
-            Concrete (ILCalculator.compare(bx, by) |> operator) bool
+    and private concreteAddressComparison op (x : concreteHeapAddress) (y : concreteHeapAddress) =
+        let result =
+            match op with
+            | OperationType.Equal -> VectorTime.equals x y
+            | OperationType.Less -> VectorTime.less x y
+            | OperationType.Greater -> VectorTime.greater x y
+            | OperationType.GreaterOrEqual -> VectorTime.greaterOrEqual x y
+            | OperationType.LessOrEqual -> VectorTime.lessOrEqual x y
+            | _ -> internalfail $"concreteAddressComparison: unexpected operation {op}"
+        Concrete result typeof<bool>
 
-    and private simplifyComparison op x y comparator sameIsTrue k =
+    and private concreteNumericComparison op x y =
+        let result =
+            match op with
+            | OperationType.Equal -> ILCalculator.equality(x, y)
+            | OperationType.Less -> ILCalculator.less(x, y)
+            | OperationType.Less_Un -> ILCalculator.lessUn(x, y)
+            | OperationType.LessOrEqual -> ILCalculator.lessOrEq(x, y)
+            | OperationType.LessOrEqual_Un -> ILCalculator.lessOrEqUn(x, y)
+            | OperationType.Greater -> ILCalculator.greater(x, y)
+            | OperationType.Greater_Un -> ILCalculator.greaterUn(x, y)
+            | OperationType.GreaterOrEqual -> ILCalculator.greaterOrEq(x, y)
+            | OperationType.GreaterOrEqual_Un -> ILCalculator.greaterOrEqUn(x, y)
+            | _ -> internalfail $"concreteNumericComparison: unexpected operation {op}"
+        Concrete result typeof<bool>
+
+    and private simplifyConcreteComparison op _ x y =
+        match box x, box y with
+        | :? concreteHeapAddress as a1, (:? concreteHeapAddress as a2) ->
+            concreteAddressComparison op a1 a2
+        | _ -> concreteNumericComparison op x y
+
+    and private simplifyComparisonExt op x y resultIfSame k =
+        match x, y with
+        | _ when x = y -> Concrete resultIfSame bool |> k
+        | Add(ConcreteT(_, t) as c, x, _), y when x = y && (op = OperationType.Equal || op = OperationType.NotEqual) ->
+            simplifyComparison op c (castConcrete 0 t) resultIfSame k
+        | x, Add(ConcreteT(_, t) as c, y, _) when x = y && (op = OperationType.Equal || op = OperationType.NotEqual) ->
+            simplifyComparison op (castConcrete 0 t) c resultIfSame k
+        | _ -> makeBinary op x y bool |> k
+
+    and private simplifyComparison op x y resultIfSame k =
         simplifyGenericBinary "comparison" x y k
-            (simplifyConcreteBinary (simplifyConcreteComparison comparator) bool)
-            (fun x y k ->
-                match x, y with
-                | _ when x = y -> Concrete sameIsTrue bool |> k
-                | Add(ConcreteT(_, t) as c, x, _), y when x = y && (op = OperationType.Equal || op = OperationType.NotEqual) ->
-                    simplifyComparison op c (castConcrete 0 t) comparator sameIsTrue k
-                | x, Add(ConcreteT(_, t) as c, y, _) when x = y && (op = OperationType.Equal || op = OperationType.NotEqual) ->
-                    simplifyComparison op (castConcrete 0 t) c comparator sameIsTrue k
-                | _ -> makeBinary op x y bool |> k)
-            (fun x y -> simplifyComparison op x y comparator sameIsTrue)
+            (simplifyConcreteBinary (simplifyConcreteComparison op) bool)
+            (fun x y k -> simplifyComparisonExt op x y resultIfSame k)
+            (fun x y -> simplifyComparison op x y resultIfSame)
 
-    and simplifyEqual x y k = simplifyComparison OperationType.Equal x y ((=) 0) true k
+    and simplifyEqual x y k = simplifyComparison OperationType.Equal x y true k
     and simplifyNotEqual x y k = simplifyEqual x y ((!!) >> k)
-    and simplifyLess x y k = simplifyComparison OperationType.Less x y ((>) 0) false k
-    and simplifyLessUn x y k = simplifyComparison OperationType.Less_Un x y ((>) 0) false k
-    and simplifyLessOrEqual x y k = simplifyComparison OperationType.LessOrEqual x y ((>=) 0) true k
-    and simplifyLessOrEqualUn x y k = simplifyComparison OperationType.LessOrEqual_Un x y ((>=) 0) true k
-    and simplifyGreater x y k = simplifyLessOrEqual x y ((!!) >> k)
-    and simplifyGreaterUn x y k = simplifyLessOrEqualUn x y ((!!) >> k)
-    and simplifyGreaterOrEqual x y k = simplifyLess x y ((!!) >> k)
-    and simplifyGreaterOrEqualUn x y k = simplifyLessUn x y ((!!) >> k)
+    and simplifyLess x y k = simplifyComparison OperationType.Less x y false k
+    and simplifyLessUn x y k = simplifyComparison OperationType.Less_Un x y false k
+    and simplifyLessOrEqual x y k = simplifyComparison OperationType.LessOrEqual x y true k
+    and simplifyLessOrEqualUn x y k = simplifyComparison OperationType.LessOrEqual_Un x y true k
+    and simplifyGreater x y k = simplifyComparison OperationType.Greater x y false k
+    and simplifyGreaterUn x y k = simplifyComparison OperationType.Greater_Un x y false k
+    and simplifyGreaterOrEqual x y k = simplifyComparison OperationType.GreaterOrEqual x y true k
+    and simplifyGreaterOrEqualUn x y k = simplifyComparison OperationType.GreaterOrEqual_Un x y true k
 
 // ------------------------------- Simplification of no overflow check -------------------------------
 
@@ -1038,13 +1227,13 @@ module internal Arithmetics =
         | OperationType.BitwiseXor -> simplifyBitwise op x y t k
         | OperationType.AddNoOvf -> simplifyAddNoOvf x y |> k
         | OperationType.MultiplyNoOvf -> simplifyMultiplyNoOvf x y |> k
-        | _ -> internalfailf "%O is not a binary arithmetical operator" op
+        | _ -> internalfailf $"{op} is not a binary arithmetical operator"
 
     let simplifyUnaryOperation op x t k =
         match op with
         | OperationType.BitwiseNot -> simplifyBinaryNot t x k
         | OperationType.UnaryMinus -> simplifyUnaryMinus t x k
-        | _ -> internalfailf "%O is not an unary arithmetical operator" op
+        | _ -> internalfailf $"{op} is not an unary arithmetical operator"
 
     let isArithmeticalOperation op t1 t2 =
         (isNumeric t1 || t1 = addressType) && (isNumeric t2 || t2 = addressType) &&
@@ -1103,7 +1292,7 @@ module internal Arithmetics =
             | Constant(_, _, t)
             | Expression(_, _, t) ->
                 Expression (Application standFunc) [term] t
-            | term -> internalfailf "expected number, but %O got!" term)
+            | term -> internalfailf $"expected number, but {term} got!")
 
     let powImpl<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete b p =
         let mkPowExpr args typ = Expression (Application StandardFunction.Power) args typ
@@ -1157,7 +1346,7 @@ module internal Arithmetics =
                             else Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm);
                                         (!!pIsZero &&& !!pIsLessZero, infTerm)])
                         | _ -> mkPowExpr [bConc; p] t
-                    | term -> internalfailf "expected number for power, but %O got!" term)
+                    | term -> internalfailf $"expected number for power, but {term} got!")
             | Constant(_, _, t) | Expression(_, _, t) ->
                 let b = term
                 p |> Merging.guardedApply (fun term ->
@@ -1186,8 +1375,8 @@ module internal Arithmetics =
                         | _ -> mkPowExpr [b; pConc] t
                     | Constant(_, _, t) | Expression(_, _, t) ->
                         mkPowExpr [b; term] t
-                    | term -> internalfailf "expected number for power, but %O got!" term)
-            | term -> internalfailf "expected number for base, but %O got!" term)
+                    | term -> internalfailf $"expected number for power, but {term} got!")
+            | term -> internalfailf $"expected number for base, but {term} got!")
 
     let atan2Impl<'a when 'a : comparison> convert isNan isInf concrete y x =
         let atanOp = Application StandardFunction.Arctangent2
@@ -1212,7 +1401,7 @@ module internal Arithmetics =
                               let xIsInf = x === makeNumber inf
                               Union([(xIsInf, makeNumber Nan); (!!xIsInf, exp)])
                         | _ -> exp
-                    | term -> internalfailf "expected number for x, but %O got!" term)
+                    | term -> internalfailf $"expected number for x, but {term} got!")
             | Constant(_, _, t)
             | Expression(_, _, t) ->
                 let y = term
@@ -1231,8 +1420,8 @@ module internal Arithmetics =
                     | Constant(_, _, t)
                     | Expression(_, _, t) ->
                         Expression atanOp [y; term] t
-                    | term -> internalfailf "expected number for x, but %O got!" term)
-            | term -> internalfailf "expected number for y, but %O got!" term)
+                    | term -> internalfailf $"expected number for x, but {term} got!")
+            | term -> internalfailf $"expected number for y, but {term} got!")
 
     let acos x = impl<double> System.Math.Acos StandardFunction.Arccosine x
     let asin x = impl<double> System.Math.Asin StandardFunction.Arcsine x

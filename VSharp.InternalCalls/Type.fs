@@ -8,10 +8,8 @@ open VSharp.Core
 
 module internal Type =
 
-    let systemRuntimeType = typeof<Object>.GetType()
-
     let fieldWithTypeInfo : fieldId =
-        {declaringType = systemRuntimeType; name = "typeInfo"; typ = systemRuntimeType}
+        {declaringType = TypeUtils.systemRuntimeType; name = "typeInfo"; typ = TypeUtils.systemRuntimeType}
 
     let getActualType state runtimeType =
         let field = Memory.ReadField state runtimeType fieldWithTypeInfo
@@ -21,7 +19,7 @@ module internal Type =
 
     let private allocateType state (typeToAllocate : Type) =
         // NOTE: allocating empty RuntimeType
-        let ref = Memory.AllocateConcreteObject state typeToAllocate systemRuntimeType
+        let ref = Memory.AllocateConcreteObject state typeToAllocate TypeUtils.systemRuntimeType
 //        let value = Concrete typeToAllocate systemRuntimeType
 //        // NOTE: add field with information about actual type
 //        let states = Memory.WriteClassField state ref fieldWithTypeInfo value
@@ -38,7 +36,7 @@ module internal Type =
             allocateType state runtimeType
         // NOTE: created via reflection case
         | _ when IsStruct handle ->
-            let typeField = {declaringType = typeof<RuntimeTypeHandle>; name = "m_type"; typ = systemRuntimeType}
+            let typeField = {declaringType = typeof<RuntimeTypeHandle>; name = "m_type"; typ = TypeUtils.systemRuntimeType}
             let typeRef = Memory.ReadField state handle typeField
             List.singleton (typeRef, state)
         | _ -> __notImplemented__()

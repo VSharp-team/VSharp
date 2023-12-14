@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
+using Microsoft.FSharp.Collections;
 using NUnit.Framework;
 using VSharp.CSharpUtils;
 using VSharp;
+using VSharp.Core;
 
 namespace UnitTests
 {
@@ -70,7 +73,7 @@ namespace UnitTests
             where J : INothing
         {}
 
-        private Type[] GetGenericArguments()
+        private static Type[] GetGenericArguments()
         {
             var constructedType = typeof(GenericParametersKeeper<Nothing, Nothing, int, Nothing, object, Nothing, Nothing, Nothing, object, Nothing>);
             return constructedType.GetGenericTypeDefinition().GetGenericArguments();
@@ -131,6 +134,120 @@ namespace UnitTests
             var g = ts[1].ReturnType;
             Assert.AreNotEqual(f, g);
             Assert.AreNotEqual(f.GetDeterministicHashCode(), g.GetDeterministicHashCode());
+        }
+
+        [TestFixture]
+        public sealed class TypeSolverUtilsTests
+        {
+            private static FSharpList<T> ToFSharpList<T>(IEnumerable<T> collection)
+            {
+                var list = FSharpList<T>.Empty;
+                foreach (var e in collection)
+                {
+                    list = FSharpList<T>.Cons(e, list);
+                }
+
+                return ListModule.Reverse(list);
+            }
+
+            private static typeConstraints ConstraintsFrom(
+                IEnumerable<Type> supertypes,
+                IEnumerable<Type> subtypes,
+                IEnumerable<Type> notSupertypes,
+                IEnumerable<Type> notSubtypes)
+            {
+                var empty = FSharpList<Type>.Empty;
+                var supertypesFs = ToFSharpList(supertypes);
+                var subtypesFs = ToFSharpList(subtypes);
+                var notSupertypesFs = ToFSharpList(notSupertypes);
+                var notSubtypesFs = ToFSharpList(notSubtypes);
+                return typeConstraints.Create(empty, supertypesFs, subtypesFs, empty, notSupertypesFs, notSubtypesFs);
+            }
+
+            private static typeConstraints ConstraintsFrom(IEnumerable<Type> supertypes, IEnumerable<Type> subtypes)
+            {
+                var empty = FSharpList<Type>.Empty;
+                return ConstraintsFrom(supertypes, subtypes, empty, empty);
+            }
+
+            private static typeConstraints ConstraintsFrom(IEnumerable<Type> supertypes)
+            {
+                var empty = FSharpList<Type>.Empty;
+                return ConstraintsFrom(supertypes, empty);
+            }
+
+            [Test]
+            public void IsContradictingGenericTest1()
+            {
+                Type[] supertypes = { typeof(object), typeof(List<int>).GetGenericTypeDefinition() };
+                Type[] subtypes = { typeof(object) };
+                var constraints = ConstraintsFrom(supertypes, subtypes);
+
+                Assert.IsTrue(constraints.IsContradicting());
+            }
+
+            [Test]
+            public void IsContradictingGenericTest2()
+            {
+                Type[] supertypes = { typeof(object), typeof(IEnumerable<int>).GetGenericTypeDefinition() };
+                Type[] subtypes = { typeof(object) };
+                var constraints = ConstraintsFrom(supertypes, subtypes);
+
+                Assert.IsTrue(constraints.IsContradicting());
+            }
+
+            [Test]
+            public void IsContradictingGenericTest3()
+            {
+                Type[] supertypes = { typeof(IEnumerable<int>).GetGenericTypeDefinition() };
+                Type[] subtypes = { typeof(List<int>).GetGenericTypeDefinition() };
+                var constraints = ConstraintsFrom(supertypes, subtypes);
+
+                Assert.IsFalse(constraints.IsContradicting());
+            }
+
+            [Test]
+            public void IsContradictingGenericTest4()
+            {
+                Type[] supertypes = { typeof(List<int>).GetGenericTypeDefinition() };
+                Type[] subtypes = { typeof(IEnumerable<int>).GetGenericTypeDefinition() };
+                var constraints = ConstraintsFrom(supertypes, subtypes);
+
+                Assert.IsTrue(constraints.IsContradicting());
+            }
+
+            [Test]
+            public void IsContradictingSpecialConstraintsTest1()
+            {
+                Type[] supertypes = { typeof(List<int>).GetGenericTypeDefinition() };
+                var constraints = ConstraintsFrom(supertypes);
+                var parameter = GetGenericArguments()[2]; // C
+                var parameterConstraints = new typeParameterConstraints(parameter, constraints);
+
+                Assert.IsTrue(parameterConstraints.IsContradicting());
+            }
+
+            [Test]
+            public void IsContradictingSpecialConstraintsTest2()
+            {
+                Type[] supertypes = { typeof(IEnumerable<int>).GetGenericTypeDefinition() };
+                var constraints = ConstraintsFrom(supertypes);
+                var parameter = GetGenericArguments()[2]; // C
+                var parameterConstraints = new typeParameterConstraints(parameter, constraints);
+
+                Assert.IsFalse(parameterConstraints.IsContradicting());
+            }
+
+            [Test]
+            public void IsContradictingSpecialConstraintsTest3()
+            {
+                Type[] supertypes = { typeof(int) };
+                var constraints = ConstraintsFrom(supertypes);
+                var parameter = GetGenericArguments()[8]; // I
+                var parameterConstraints = new typeParameterConstraints(parameter, constraints);
+
+                Assert.IsTrue(parameterConstraints.IsContradicting());
+            }
         }
     }
 }

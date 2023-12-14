@@ -23,6 +23,14 @@ namespace IntegrationTests
             return sizeof(char); // sizeof() = 2; Marshal.SizeOf() = 1; we should be 2
         }
 
+        [TestSvm(100)]
+        public static int PointerComparison(int* ptr)
+        {
+            if (ptr == (int*)0)
+                return 1;
+            return 2;
+        }
+
         struct FixedSizedBuffer
         {
             public fixed char buf[20];
@@ -822,6 +830,82 @@ namespace IntegrationTests
                 *ptr = v;
                 *(byte*)ptr = v2;
                 return *ptr;
+            }
+        }
+
+        [TestSvm(100)]
+        public static int EncodeLongToIntReinterpretation(long x)
+        {
+            int r = *(int*)&x;
+            if (r > 10) return *(int*) &x;
+            return -10;
+        }
+
+        [TestSvm(100)]
+        public static int EncodeDoubleReinterpretation1(double x)
+        {
+            int r = *(int*)&x;
+            if (r > 10) return *(int*) &x;
+            return -10;
+        }
+
+        [TestSvm(88)]
+        public static int EncodeDoubleReinterpretation2(double x)
+        {
+            byte* a = (byte*)&x;
+            int y = *(int*) (a + 1); //-219902326
+            if (x == 198.1234 && y != -219902326) return -1;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int EncodeDoubleReinterpretation3(double x)
+        {
+            byte* a = (byte*)&x;
+            var b = *(long*) a;
+            if (b == 175767216L) return 0;
+            return -1;
+        }
+
+        [TestSvm(86)]
+        public static int EncodeDoubleReinterpretation4(double x)
+        {
+            byte* a = (byte*)&x + 1;
+            int y = *(int*) a;
+            if (x == 256.0 && y != 0) return -1;
+            return 0;
+        }
+
+        [TestSvm(87)]
+        public static int EncodeDoubleReinterpretation5(double x)
+        {
+            byte* a = (byte*)&x + 1;
+            int y = *(int*) a;
+            if (x == 3483.34347 && y != -1344582462) return -1;
+            return 0;
+        }
+
+        [TestSvm(87)]
+        public static int EncodeDoubleReinterpretation6(double x)
+        {
+            byte* a = (byte*)&x + 1;
+            int y = *(int*) a;
+            if (x == 7831.455 && y != 1954210119) return -1;
+            return 0;
+        }
+
+        [TestSvm(94)]
+        public static int CombineIntoDouble(int[] arr)
+        {
+            fixed (int* p = arr)
+            {
+                var ptr = (double*) p;
+                if (arr[0] == 1 && arr[1] == 3 && *ptr != 6.3659873734E-314)
+                {
+                    return -1;
+                }
+
+                return arr[1];
             }
         }
 

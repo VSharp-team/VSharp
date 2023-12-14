@@ -26,10 +26,13 @@ type MethodWithBody internal (m : MethodBase) =
     let name = m.Name
     let fullName = Reflection.getFullMethodName m
     let fullGenericMethodName = lazy(Reflection.fullGenericMethodName m)
+    let declaringType = m.DeclaringType
     let returnType = Reflection.getMethodReturnType m
     let parameters = m.GetParameters()
     let hasThis = Reflection.hasThis m
-    let metadataToken = m.MetadataToken
+    let hasNonVoidResult = lazy(Reflection.hasNonVoidResult m)
+    let isDynamic = m :? DynamicMethod
+    let metadataToken = if isDynamic then m.GetHashCode() else m.MetadataToken
     let isStatic = m.IsStatic
     let isAbstract = m.IsAbstract
     let isVirtual = m.IsVirtual
@@ -37,17 +40,29 @@ type MethodWithBody internal (m : MethodBase) =
     let isStaticConstructor = lazy(Reflection.isStaticConstructor m)
     let isConstructor = m.IsConstructor
     let isGenericMethod = m.IsGenericMethod
+    let isGenericMethodDefinition = m.IsGenericMethodDefinition
     let genericArguments = lazy(if m.IsGenericMethod && not m.IsConstructor then m.GetGenericArguments() else Array.empty)
     let attributes = m.Attributes
-    let customAttributes = m.CustomAttributes
+    let customAttributes = if isDynamic then Seq.empty else m.CustomAttributes
     let methodImplementationFlags = lazy m.GetMethodImplementationFlags()
     let isDelegateConstructor = lazy(Reflection.isDelegateConstructor m)
     let isDelegate = lazy(Reflection.isDelegate m)
-    let isFSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.FSharpImplementations)
+    let tryFSharpInternalCall = lazy(Map.tryFind fullGenericMethodName.Value Loader.FSharpImplementations)
+    let isFSharpInternalCall = lazy(Option.isSome tryFSharpInternalCall.Value)
     let isCSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.CSharpImplementations)
-    let isCilStateInternalCall = lazy(Seq.contains fullGenericMethodName.Value Loader.CilStateImplementations)
+    let isShimmed = lazy(Loader.isShimmed fullGenericMethodName.Value)
+    let isConcreteCall = lazy(Loader.isInvokeInternalCall fullGenericMethodName.Value)
+    let isRuntimeException = lazy(Loader.isRuntimeExceptionsImplementation fullGenericMethodName.Value)
+    let runtimeExceptionImpl = lazy(Map.tryFind fullGenericMethodName.Value Loader.runtimeExceptionsConstructors)
+    let isNotImplementedIntrinsic =
+        lazy(
+            let isIntrinsic =
+                let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
+                customAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
+            isIntrinsic && (Array.contains fullGenericMethodName.Value Loader.trustedIntrinsics |> not)
+        )
     let isImplementedInternalCall =
-        lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value || isCilStateInternalCall.Value)
+        lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value)
     let isInternalCall =
         lazy (
             int (m.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0
@@ -58,7 +73,7 @@ type MethodWithBody internal (m : MethodBase) =
         if not isCSharpInternalCall.Value then m
         else Loader.CSharpImplementations[fullGenericMethodName.Value]
     let methodBodyBytes =
-        if isFSharpInternalCall.Value || isCilStateInternalCall.Value then null
+        if isFSharpInternalCall.Value then null
         else actualMethod.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables
     let methodBody = lazy(
@@ -70,16 +85,30 @@ type MethodWithBody internal (m : MethodBase) =
             let assemblyName = methodModule.Assembly.FullName
             let ehcs = System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
             let props : rawMethodProperties =
-                {token = uint actualMethod.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBodyBytes.MaxStackSize; signatureTokensLength = 0u}
+                {
+                    token = uint actualMethod.MetadataToken
+                    ilCodeSize = uint ilBytes.Length
+                    assemblyNameLength = 0u
+                    moduleNameLength = 0u
+                    maxStackSize = uint methodBodyBytes.MaxStackSize
+                    signatureTokensLength = 0u
+                }
             let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<signatureTokens>) :?> signatureTokens
             let createEH (eh : System.Reflection.ExceptionHandlingClause) : rawExceptionHandler =
                 let matcher = if eh.Flags = ExceptionHandlingClauseOptions.Filter then eh.FilterOffset else eh.HandlerOffset // TODO: need catch type token?
                 ehcs.Add(matcher, eh)
-                {flags = int eh.Flags; tryOffset = uint eh.TryOffset; tryLength = uint eh.TryLength; handlerOffset = uint eh.HandlerOffset; handlerLength = uint eh.HandlerLength; matcher = uint matcher}
+                {
+                    flags = int eh.Flags
+                    tryOffset = uint eh.TryOffset
+                    tryLength = uint eh.TryLength
+                    handlerOffset = uint eh.HandlerOffset
+                    handlerLength = uint eh.HandlerLength
+                    matcher = uint matcher
+                }
             let ehs = methodBodyBytes.ExceptionHandlingClauses |> Seq.map createEH |> Array.ofSeq
             let body : rawMethodBody =
                 {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = tokens; il = ilBytes; ehs = ehs}
-            let rewriter = ILRewriter(body)
+            let rewriter = ILRewriter(body, actualMethod)
             rewriter.Import()
             let result = rewriter.Export()
             let parseEH (eh : rawExceptionHandler) =
@@ -89,11 +118,13 @@ type MethodWithBody internal (m : MethodBase) =
                     elif oldEH.Flags = ExceptionHandlingClauseOptions.Finally then Finally
                     elif oldEH.Flags = ExceptionHandlingClauseOptions.Fault then Fault
                     else Catch oldEH.CatchType
-                {tryOffset = eh.tryOffset |> int |> Offset.from
-                 tryLength = eh.tryLength |> int |> Offset.from
-                 handlerOffset = eh.handlerOffset |> int |> Offset.from
-                 handlerLength = eh.handlerLength |> int |> Offset.from
-                 ehcType = ehcType }
+                {
+                    tryOffset = eh.tryOffset |> int |> Offset.from
+                    tryLength = eh.tryLength |> int |> Offset.from
+                    handlerOffset = eh.handlerOffset |> int |> Offset.from
+                    handlerLength = eh.handlerLength |> int |> Offset.from
+                    ehcType = ehcType
+                }
             Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some rewriter.Instructions)
 
     member x.Name = name
@@ -101,10 +132,15 @@ type MethodWithBody internal (m : MethodBase) =
     member x.FullGenericMethodName with get() = fullGenericMethodName.Force()
     member x.Id = desc.GetHashCode()
     member x.ReturnType = returnType
-    member x.Module = m.Module
-    member x.DeclaringType = m.DeclaringType
+    member x.Module =
+        if isCSharpInternalCall.Value then Loader.CSharpImplementations[fullGenericMethodName.Value].Module
+        else m.Module
+    member x.DeclaringType = declaringType
     member x.ReflectedType = m.ReflectedType
     member x.Parameters = parameters
+    member x.HasParameterOnStack =
+        x.ReflectedType.IsValueType && not x.IsStatic
+        || x.Parameters |> Array.exists (fun p -> p.ParameterType.IsByRef)
     member x.LocalVariables = localVariables
     member x.HasThis = hasThis
     member x.MetadataToken = metadataToken
@@ -113,12 +149,16 @@ type MethodWithBody internal (m : MethodBase) =
     member x.IsVirtual = isVirtual
     member x.IsFinal = isFinal
     member x.IsStaticConstructor with get() = isStaticConstructor.Force()
+    member x.IsConstructor with get() = isConstructor
 
+    member x.ContainsGenericParameters =
+        declaringType.ContainsGenericParameters || m.ContainsGenericParameters
     member x.IsGenericMethod = isGenericMethod
+    member x.IsGenericMethodDefinition = isGenericMethodDefinition
     member x.GenericArguments with get() = genericArguments.Force()
     member x.GetGenericMethodDefinition() =
         match m with
-        | :? MethodInfo as m -> if isGenericMethod then m.GetGenericMethodDefinition() else m
+        | :? MethodInfo as m -> if isGenericMethod then Reflection.getGenericMethodDefinition m else m
         | _ -> internalfailf $"Asking generic method definition for non-method {x}"
     member x.GetGenericArguments() =
         match m with
@@ -195,6 +235,8 @@ type MethodWithBody internal (m : MethodBase) =
     member x.IsExternalMethod with get() = Reflection.isExternalMethod m
     member x.IsQCall with get() = DllManager.isQCall m
 
+    member x.HasNonVoidResult = hasNonVoidResult.Value
+
     interface VSharp.Core.IMethod with
         override x.Name = name
         override x.FullName = fullName
@@ -204,8 +246,10 @@ type MethodWithBody internal (m : MethodBase) =
         override x.Parameters = parameters
         override x.LocalVariables = localVariables
         override x.HasThis = hasThis
+        override x.HasParameterOnStack = x.HasParameterOnStack
         override x.IsConstructor = isConstructor
         override x.IsExternalMethod with get() = x.IsExternalMethod
+        override x.ContainsGenericParameters with get() = x.ContainsGenericParameters
         override x.GenericArguments with get() = genericArguments.Value
         override x.SubstituteTypeVariables subst =
             Reflection.concretizeMethodBase m subst |> MethodWithBody.InstantiateNew :> VSharp.Core.IMethod
@@ -213,6 +257,10 @@ type MethodWithBody internal (m : MethodBase) =
             match y with
             | :? MethodWithBody as y -> Reflection.compareMethods (x :> Core.IMethod).MethodBase (y :> Core.IMethod).MethodBase
             | _ -> -1
+        override x.ResolveOverrideInType t = x.ResolveOverrideInType t
+        override x.CanBeOverriddenInType t = x.CanBeOverriden t
+        override x.IsImplementedInType t = x.IsImplementedInType t
+
         // TODO: make it private!
         override x.MethodBase : MethodBase = m
 
@@ -229,6 +277,27 @@ type MethodWithBody internal (m : MethodBase) =
 
     member x.IsInternalCall with get() = isInternalCall.Value
     member x.IsImplementedInternalCall with get () = isImplementedInternalCall.Value
+
+    member x.IsShimmed with get() = isShimmed.Value
+
+    member x.CanCallConcrete with get() = x.IsConcretelyInvokable && isConcreteCall.Value
+
+    member x.IsFSharpInternalCall with get() = isFSharpInternalCall.Value
+    member x.IsCSharpInternalCall with get() = isCSharpInternalCall.Value
+
+    member x.GetInternalCall with get() =
+        match tryFSharpInternalCall.Value with
+        | Some method -> method
+        | None -> internalfail $"GetInternalCall: no internal call for method {fullGenericMethodName.Value}"
+
+    member x.IsRuntimeException with get() = isRuntimeException.Value
+    member x.HasRuntimeExceptionImpl with get() = Option.isSome runtimeExceptionImpl.Value
+    member x.RuntimeExceptionImpl with get() =
+        match runtimeExceptionImpl.Value with
+        | Some ctor -> ctor
+        | None -> internalfail $"RuntimeExceptionImpl: no runtime exception implementation for method {fullGenericMethodName.Value}"
+
+    member x.IsNotImplementedIntrinsic with get() = isNotImplementedIntrinsic.Value
 
     member x.CanBeOverriden targetType =
         match m with
@@ -249,6 +318,19 @@ type MethodWithBody internal (m : MethodBase) =
         let opCode = OpCodeOperations.getOpCode ilBytes pos
         let calledMethod = x.ResolveMethodFromMetadata (pos + Offset.from opCode.Size)
         opCode, calledMethod
+
+    member x.ResolveOverrideInType t =
+        match m with
+        | :? ConstructorInfo when m.DeclaringType = t -> x
+        | :? MethodInfo as mi ->
+            (Reflection.resolveOverridingMethod t mi :> MethodBase) |> MethodWithBody.InstantiateNew
+        | _ -> __unreachable__()
+
+    member x.IsImplementedInType t =
+        match m with
+        | :? ConstructorInfo -> m.DeclaringType = t
+        | :? MethodInfo as mi -> Reflection.typeImplementsMethod t mi
+        | _ -> __unreachable__()
 
 module MethodBody =
 
@@ -328,11 +410,6 @@ module MethodBody =
         match ehc.ehcType with ehcType.Filter _ -> true | _ -> false
     let isCatchClause (ehc : ExceptionHandlingClause) =
         match ehc.ehcType with Catch _ -> true | _ -> false
-
-    let shouldExecuteFinallyClause (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
-//        let srcOffset, dstOffset = src.Offset(), dst.Offset()
-        let isInside offset = ehc.tryOffset <= offset && offset < ehc.tryOffset + ehc.tryLength
-        isInside src && not <| isInside dst
 
     let internal (|Ret|_|) (opCode : OpCode) = if opCode = OpCodes.Ret then Some () else None
     let (|Call|_|) (opCode : OpCode) = if opCode = OpCodes.Call then Some () else None

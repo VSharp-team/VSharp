@@ -29,6 +29,14 @@ namespace IntegrationTests
             return s.Length;
         }
 
+        [TestSvm]
+        public static int CheckLength(string s)
+        {
+            if (s.Length < 5)
+                return s[s.Length + 2];
+            return 1;
+        }
+
         [TestSvm(100)]
         public static string HopHeyCharArray(char[] a)
         {
@@ -74,15 +82,74 @@ namespace IntegrationTests
             return str.Length;
         }
 
-        [TestSvm]
-        public static bool ConcatStrings(string s)
+        [TestSvm(100)]
+        public static int StringEquals(string str1, string str2)
+        {
+            if (str1.Equals(str2))
+                return 1;
+            return -1;
+        }
+
+        [TestSvm(100)]
+        public static int StringEquals1(string str1, string str2, StringComparison c)
+        {
+            if (str1.Equals(str2, c))
+                return 1;
+            return -1;
+        }
+
+        [TestSvm(100)]
+        public static int StringEquals2(string str1, string str2, StringComparison c)
+        {
+            if (MemoryExtensions.Equals(str1, str2, c))
+                return 1;
+            return -1;
+        }
+
+        [TestSvm(83)]
+        public static int Substring(string s)
+        {
+            if (s == s[.. s.Length])
+                return 1;
+            return -1;
+        }
+
+        [TestSvm(100)]
+        public static int Substring2(string s1, string s2)
+        {
+            if (s2 == s1[.. s1.Length])
+                return 1;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static string Substring3(string[] args, int i)
+        {
+            var str = args[i].Trim();
+            if (string.IsNullOrEmpty(str)) return string.Empty;
+
+            var first = str[0];
+            str = str.Substring(1);
+            if (first != '-' && first != '/')
+                return str;
+
+            str = str.Substring(1);
+            if (!string.IsNullOrEmpty(str) && str[0] == first && first == '-')
+                str = str.Substring(1);
+            return str;
+        }
+
+        [TestSvm(88)]
+        public static int ConcatStrings(string s)
         {
             string str = "Some string";
             string newStr = s + str;
-            return s == newStr[.. s.Length];
+            if (s == newStr[.. s.Length])
+                return 1;
+            return -1;
         }
 
-        [TestSvm]
+        [TestSvm(90)]
         public static int ConcatStrings1(string s)
         {
             string str = "Some string";
@@ -92,7 +159,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(85)]
         public static int ConcatStrings2(char c)
         {
             string str = "Some string";
@@ -110,7 +177,7 @@ namespace IntegrationTests
             return upper == str;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int Contains(string str)
         {
             if (str.Contains("d8"))
@@ -118,7 +185,41 @@ namespace IntegrationTests
             return 0;
         }
 
-        [Ignore("takes too much time")]
+        [TestSvm(100)]
+        public static int StartsWith(string str)
+        {
+            if (str.StartsWith("d8"))
+                return 1;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int StartsWith1(string str1, string str2)
+        {
+            if (str1.StartsWith(str2))
+            {
+                if (str2.Length > 0)
+                {
+                    if (str1 != str2)
+                        return 3;
+                    return 2;
+                }
+
+                return 1;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int WriteLineObject(string s)
+        {
+            var nre = new NullReferenceException(s);
+            Console.WriteLine(nre);
+            return 1;
+        }
+
+        [TestSvm(100)]
         public static bool SymbolicStringToUpper(char c)
         {
             string s = c + "c";
@@ -139,10 +240,42 @@ namespace IntegrationTests
             public Kind Kind;
         }
 
-        [Ignore("need to fix Enum.ToString")]
+        [TestSvm(100)]
         public static string StringFormat(ClassToString c)
         {
             return string.Format("{0}{1}{2}", c.Kind, c.X, c.Y);
+        }
+
+        [Ignore("takes too much time")]
+        public static Kind EnumTryParse(string s)
+        {
+            if (Enum.TryParse(typeof(Kind), s, out var res))
+                return (Kind)res;
+
+            throw new ArgumentException("invalid string");
+        }
+
+        [TestSvm(70)]
+        public static Kind EnumTryParse1(Kind e)
+        {
+            if (Enum.TryParse(typeof(Kind), e.ToString(), out var res))
+            {
+                var enumResult = (Kind) res;
+                if (enumResult != e)
+                    throw new ArgumentException("invalid enum");
+
+                return enumResult;
+            }
+
+            throw new ArgumentException("invalid string");
+        }
+        [TestSvm(75)]
+        public static Kind ConcreteEnumTryParse()
+        {
+            if (Enum.TryParse(typeof(Kind), "First", out var res))
+                return (Kind)res;
+
+            throw new ArgumentException("invalid string");
         }
 
         [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage, randomSeed: 10)]
@@ -167,6 +300,16 @@ namespace IntegrationTests
             return $"int = {x}";
         }
 
+        [Ignore("fix composition with concrete memory regions")]
+        public int LengthOfIntToString(int x)
+        {
+            if (x == 0)
+                return x.ToString().Length;
+            if (x > 0)
+                return x.ToString().Length;
+            return x.ToString().Length;
+        }
+
         [TestSvm(100)]
         public static string StringFormat1(ClassToString c)
         {
@@ -179,6 +322,57 @@ namespace IntegrationTests
             if (c.Kind == Kind.First)
                 return $"Kind: {c.Kind}, X: {c.X}, Y: {c.Y}";
             return $"{"Kind"}: {c.Kind}, {"X"}: {c.X + 20}, {"Y"}: {c.Y + 10}";
+        }
+
+        [Ignore("takes too much time")]
+        public static string StringRegex(string str1, string str2)
+        {
+            var result = System.Text.RegularExpressions.Regex.Match(str1, str2);
+            return result.Value;
+        }
+
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        public static string StringRegex1(string str)
+        {
+            var result = System.Text.RegularExpressions.Regex.Match(str, ".*");
+            return result.Value;
+        }
+
+        [Ignore("takes too much time")]
+        public static string StringRegex2(string str)
+        {
+            var result = System.Text.RegularExpressions.Regex.Match(str, ".*");
+            if (result.Value != str)
+                return "";
+            return result.Value;
+        }
+
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        public static string StringRegex3(string str)
+        {
+            if (string.IsNullOrEmpty(str))
+                return string.Empty;
+            var result = System.Text.RegularExpressions.Regex.Match(str, @"^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?$");
+            return result.Groups["major"].Value + result.Groups["minor"].Value + result.Groups["patch"].Value;
+        }
+
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        public static string StringRegex4()
+        {
+            var input = "7.3.7";
+            var result = System.Text.RegularExpressions.Regex.Match(input, @"^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?$");
+            return result.Groups["major"].Value + result.Groups["minor"].Value + result.Groups["patch"].Value;
+        }
+
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        public static int FromUtf16(char[] a)
+        {
+            var src = new ReadOnlySpan<char>(a);
+            var dst = new Span<byte>(new byte[16]);
+            System.Text.Unicode.Utf8.FromUtf16(src, dst, out var charsRead, out var bytesWritten);
+            if (charsRead > 5 && bytesWritten > 5)
+                return 1;
+            return bytesWritten;
         }
     }
 }

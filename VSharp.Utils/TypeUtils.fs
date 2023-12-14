@@ -22,30 +22,31 @@ module TypeUtils =
     let private integralTypes =
         HashSet<Type>(
             [
-                typedefof<byte>; typedefof<sbyte>; typedefof<int16>; typedefof<uint16>
-                typedefof<int32>; typedefof<uint32>; typedefof<int64>; typedefof<uint64>;
-                typedefof<char>; typeof<IntPtr>; typeof<UIntPtr>
+                typeof<byte>; typeof<sbyte>; typeof<int16>; typeof<uint16>
+                typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>;
+                typeof<char>; typeof<IntPtr>; typeof<UIntPtr>
             ]
         )
 
-    let private longTypes = HashSet<Type>([typedefof<int64>; typedefof<uint64>])
+    let private longTypes = HashSet<Type>([typeof<int64>; typeof<uint64>])
 
     let private unsignedTypes =
         HashSet<Type>(
-            [typedefof<byte>; typedefof<uint16>; typedefof<uint32>; typedefof<uint64>; typeof<UIntPtr>]
+            [typeof<byte>; typeof<uint16>; typeof<char>; typeof<uint32>; typeof<uint64>; typeof<UIntPtr>]
         )
 
-    let private realTypes = HashSet<Type>([typedefof<single>; typedefof<double>])
+    let private realTypes = HashSet<Type>([typeof<single>; typeof<double>])
 
     let private numericTypes = HashSet<Type>(Seq.append integralTypes realTypes)
 
-    let private primitiveTypes = HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
+    let private primitiveTypes = HashSet<Type>(Seq.append numericTypes [typeof<bool>])
 
     type AddressTypeAgent = struct end
 
     let indexType = typeof<int>
     let lengthType = typeof<int>
     let addressType = typeof<AddressTypeAgent>
+    let systemRuntimeType = typeof<Object>.GetType()
 
     let szArrayHelper = lazy Type.GetType("System.SZArrayHelper")
 
@@ -60,10 +61,12 @@ module TypeUtils =
 
     let isNumeric x = numericTypes.Contains x || x.IsEnum
     let isIntegral x = integralTypes.Contains x || x.IsEnum
-    let isLongTypes = longTypes.Contains
-    let isReal = realTypes.Contains
-    let isUnsigned = unsignedTypes.Contains
-    let isPrimitive = primitiveTypes.Contains
+    let isLongType x = longTypes.Contains x
+    let isReal x = realTypes.Contains x
+    let isUnsigned x = unsignedTypes.Contains x
+    let isSigned x = unsignedTypes.Contains x |> not
+    let isPrimitive x = primitiveTypes.Contains x
+    let isNative x = x = typeof<IntPtr> || x = typeof<UIntPtr>
 
     // returns true, if at least one constraint on type parameter "t" implies that "t" is reference type (for example, "t : class" case)
     // returns false, if "t" is value type or if we have no information about "t" type from constraints
@@ -146,7 +149,7 @@ module TypeUtils =
     let private sizeOfs = Dictionary<Type, sizeOfType>()
 
     let private createSizeOf (typ : Type) =
-        assert(not typ.ContainsGenericParameters)
+        assert(not typ.ContainsGenericParameters && typ <> typeof<Void>)
         let m = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
         let gen = m.GetILGenerator()
         gen.Emit(OpCodes.Sizeof, typ)
@@ -161,31 +164,40 @@ module TypeUtils =
             sizeOfs.Add(typ, sizeOf)
             sizeOf
 
-    let internalSizeOf (typ: Type) : int32 =
-        if typ = typeof<IntPtr> || typ = typeof<UIntPtr> then
-            nativeSize
-        else
-            let sizeOf = getSizeOf(typ)
-            sizeOf.Invoke() |> int
-
     let numericSizeOf (typ: Type) : uint32 =
         let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
         assert(isNumeric typ)
         match typ with
-        | _ when typ = typeof<int8> -> 8u
-        | _ when typ = typeof<uint8> -> 8u
-        | _ when typ = typeof<int16> -> 16u
-        | _ when typ = typeof<uint16> -> 16u
-        | _ when typ = typeof<char> -> 16u
-        | _ when typ = typeof<int32> -> 32u
-        | _ when typ = typeof<uint32> -> 32u
-        | _ when typ = typeof<float32> -> 32u
-        | _ when typ = typeof<int64> -> 64u
-        | _ when typ = typeof<uint64> -> 64u
-        | _ when typ = typeof<float> -> 64u
-        | _ when typ = typeof<IntPtr> -> uint (nativeSize * 8)
-        | _ when typ = typeof<UIntPtr> -> uint (nativeSize * 8)
+        | _ when typ = typeof<int8> -> uint sizeof<int8>
+        | _ when typ = typeof<uint8> -> uint sizeof<uint8>
+        | _ when typ = typeof<int16> -> uint sizeof<int16>
+        | _ when typ = typeof<uint16> -> uint sizeof<uint16>
+        | _ when typ = typeof<char> -> uint sizeof<char>
+        | _ when typ = typeof<int32> -> uint sizeof<int32>
+        | _ when typ = typeof<uint32> -> uint sizeof<uint32>
+        | _ when typ = typeof<float32> -> uint sizeof<float32>
+        | _ when typ = typeof<int64> -> uint sizeof<int64>
+        | _ when typ = typeof<uint64> -> uint sizeof<uint64>
+        | _ when typ = typeof<float> -> uint sizeof<float>
+        | _ when typ = typeof<IntPtr> -> uint nativeSize
+        | _ when typ = typeof<UIntPtr> -> uint nativeSize
         | _ -> __unreachable__()
+
+    let internalSizeOf (typ: Type) : int32 =
+        if isNative typ || typ.IsByRef || not typ.IsValueType then nativeSize
+        elif isNumeric typ then numericSizeOf typ |> int
+        elif typ.ContainsGenericParameters then
+            __insufficientInformation__ $"SizeOf: cannot calculate size of generic type {typ}"
+        else
+            let sizeOf = getSizeOf(typ)
+            sizeOf.Invoke() |> int
+
+    let numericBitSizeOf (typ: Type) : uint32 =
+        numericSizeOf typ * 8u
+
+    let bitSizeOfType t (resultingType : Type) =
+        let size = internalSizeOf(t) * 8
+        Convert.ChangeType(size, resultingType)
 
     let isSubtypeOrEqual (t1 : Type) (t2 : Type) = t2.IsAssignableFrom(t1)
     let isPointer (t : Type) = t.IsPointer
@@ -195,13 +207,26 @@ module TypeUtils =
             if isValueTypeParameter t then true
             elif isReferenceTypeParameter t then false
             else __insufficientInformation__ "Can't determine if %O is a value type or not!" t
-        | t -> t.IsValueType && t <> typeof<AddressTypeAgent>
+        | t -> t.IsValueType && t <> addressType && t <> typeof<Void>
 
     let isNullable = function
         | (t : Type) when t.IsGenericParameter ->
             if isReferenceTypeParameter t then false
             else __insufficientInformation__ "Can't determine if %O is a nullable type or not!" t
         | t -> Nullable.GetUnderlyingType(t) <> null
+
+    let isBoxedType t =
+        t = typeof<obj> || t.IsInterface || isValueType t || t = typeof<Enum>
+
+    let getGenericArgs (t: Type) =
+        if t.IsGenericType then t.GetGenericArguments() else [||]
+
+    let rec getSupertypes (t: Type) =
+        if t = null then []
+        else t :: getSupertypes t.BaseType
+
+    let getTypeDef (t: Type) =
+        if t.IsGenericType then t.GetGenericTypeDefinition() else t
 
     let (|Numeric|_|) = function
         | t when isNumeric t -> Some(t)
@@ -225,6 +250,10 @@ module TypeUtils =
 
     let (|StringType|_|) = function
         | typ when typ = typeof<string> -> Some()
+        | _ -> None
+
+    let (|Native|_|) = function
+        | typ when isNative typ -> Some()
         | _ -> None
 
     let private getGenericDefinition (dotNetType : Type) =
@@ -262,7 +291,7 @@ module TypeUtils =
         | _ -> None
 
     let (|ValueType|_|) = function
-        | StructType(t, [||]) when t = typeof<AddressTypeAgent> -> None
+        | StructType(t, [||]) when t = addressType -> None
         | StructType _
         | Numeric _
         | Bool -> Some(ValueType)
@@ -291,6 +320,12 @@ module TypeUtils =
         | TypeVariable _ -> Some(ComplexType)
         | _ -> None
 
+    let (|Covariant|Invariant|Contravariant|) (parameter : Type) =
+        assert parameter.IsGenericParameter
+        if parameter.GenericParameterAttributes &&& GenericParameterAttributes.Contravariant = GenericParameterAttributes.Contravariant then Contravariant
+        elif parameter.GenericParameterAttributes &&& GenericParameterAttributes.Covariant = GenericParameterAttributes.Covariant then Covariant
+        else Invariant
+
 
     let elementType = function
         | ArrayType(t, _) -> t
@@ -311,8 +346,6 @@ module TypeUtils =
         | InterfaceType(_, parameters) when Array.exists isOpenType parameters -> true
         | ArrayType(t, _) when isOpenType t -> true
         | _ -> false
-
-    let bitSizeOfType t (resultingType : Type) = Convert.ChangeType(internalSizeOf(t) * 8, resultingType)
 
     let rankOf = function
         | ArrayType(_, dim) ->
@@ -338,30 +371,41 @@ module TypeUtils =
                 if Array.forall Option.isSome infs then Some (x.GetGenericTypeDefinition().MakeGenericType(Array.map Option.get infs))
                 else None
 
-    let typeImplementsInterface (t : Type) (targetInterface : Type) =
-        assert(targetInterface.IsInterface)
-        let matches (i : Type) =
-            i = targetInterface ||
-            i.IsGenericType && targetInterface.IsGenericType &&
-                i.GetGenericTypeDefinition() = targetInterface.GetGenericTypeDefinition()
-        t.GetInterfaces() |> Seq.exists matches
-
-    let rec getBaseInterfaces (t : Type) =
+    let rec getAllInterfaces (t : Type) =
         seq {
             let bases = t.GetInterfaces()
             yield! bases
             for b in bases do
-                yield! getBaseInterfaces b
-        }
+                yield! getAllInterfaces b
+        } |> Array.ofSeq
+
+    let typeImplementsInterface (t : Type) (targetInterface : Type) =
+        assert(targetInterface.IsInterface)
+        let matches (i : Type) =
+            i = targetInterface
+            || i.IsGenericType && targetInterface.IsGenericType
+            && i.GetGenericTypeDefinition() = targetInterface.GetGenericTypeDefinition()
+        getAllInterfaces t |> Array.exists matches
 
     // [NOTE] there is no enums, because pushing to evaluation stack causes cast
     let signedToUnsigned = function
-        | typ when typ = typeof<int32> || typ = typeof<uint32> -> typeof<uint32>
-        | typ when typ = typeof<int8> || typ = typeof<uint8> -> typeof<uint8>
-        | typ when typ = typeof<int16> || typ = typeof<uint16> -> typeof<uint16>
-        | typ when typ = typeof<int64> || typ = typeof<uint64> -> typeof<uint64>
-        | typ when typ = typeof<IntPtr> || typ = typeof<UIntPtr> -> typeof<UIntPtr>
-        | typ -> internalfail $"signedToUnsigned: unexpected type {typ}"
+        | t when t = typeof<int32> || t = typeof<uint32> -> typeof<uint32>
+        | t when t = typeof<int8> || t = typeof<uint8> -> typeof<uint8>
+        | t when t = typeof<int16> || t = typeof<uint16> -> typeof<uint16>
+        | t when t = typeof<int64> || t = typeof<uint64> -> typeof<uint64>
+        | t when t = typeof<IntPtr> || t = typeof<UIntPtr> -> typeof<UIntPtr>
+        | t -> internalfail $"signedToUnsigned: unexpected type {t}"
+
+    let unsignedToSigned = function
+        | t when t = typeof<uint32> || t = typeof<int32> -> typeof<int32>
+        | t when t = typeof<uint8> || t = typeof<int8> -> typeof<int8>
+        | t when t = typeof<uint16> || t = typeof<int16> || t = typeof<char> -> typeof<int16>
+        | t when t = typeof<uint64> || t = typeof<int64> -> typeof<int64>
+        | t when t = typeof<UIntPtr> || t = typeof<IntPtr> -> typeof<IntPtr>
+        | t -> internalfail $"signedToUnsigned: unexpected type {t}"
+
+    let numericSameSign t1 t2 =
+        isUnsigned t1 && isUnsigned t2 || isSigned t1 && isSigned t2
 
     // --------------------------------------- Conversions ---------------------------------------
 
@@ -398,7 +442,7 @@ module TypeUtils =
     let private createNumericConv (fromType : Type) (toType : Type) =
         assert(isNumeric fromType && isNumeric toType)
         let args = [| typeof<obj> |]
-        let conv = DynamicMethod("Conv", typeof<obj>, args)
+        let conv = DynamicMethod($"Conv {fromType} {toType}", typeof<obj>, args)
         let il = conv.GetILGenerator(256)
         il.Emit(OpCodes.Ldarg_0)
         il.Emit(OpCodes.Unbox_Any, fromType)
@@ -437,7 +481,7 @@ module TypeUtils =
     let rec private commonConcreteCanCast canCast leftType rightType certainK uncertainK =
         match leftType, rightType with
         | _ when leftType = rightType -> certainK true
-        | ArrayType _, ClassType(obj, _) -> obj = typedefof<obj> |> certainK
+        | ArrayType _, ClassType(obj, _) -> obj = typeof<obj> |> certainK
         | Numeric t1, Numeric t2 -> canCast t1 t2 |> certainK
         // NOTE: Managed pointers (refs), unmanaged pointers (ptr) are specific kinds of numbers
         // NOTE: Numeric zero may may be treated as ref or ptr
@@ -483,11 +527,15 @@ module TypeUtils =
     /// 'mostConcreteType' will return 'leftType'
     /// Example: mostConcreteType typeof<uint array> typeof<int array> == typeof<uint array>
     let inline mostConcreteType (leftType : Type) (rightType : Type) =
+        let isStringCase() =
+            rightType = typeof<string> && leftType = typeof<char[]>
+            || leftType = typeof<string> && rightType = typeof<char[]>
         if leftType = null then rightType
         elif rightType = null then leftType
         elif rightType.IsAssignableFrom(leftType) then leftType
+        elif isStringCase() then typeof<string>
         else
-            assert(leftType.IsAssignableFrom(rightType))
+            assert leftType.IsAssignableFrom(rightType)
             rightType
     // --------------------------------------- Operation target type ---------------------------------------
 

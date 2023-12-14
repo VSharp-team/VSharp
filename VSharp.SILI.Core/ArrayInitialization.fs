@@ -14,10 +14,10 @@ module internal ArrayInitialization =
         | 1uy -> True()
         | _ -> __unreachable__()
     let private byteTermCreator (rawData : byte []) index =
-        rawData.[index] |> makeNumber
+        rawData[index] |> makeNumber
 
     let private signedByteTermCreator (rawData : byte []) index =
-        rawData.[index] |> sbyte |> makeNumber
+        rawData[index] |> sbyte |> makeNumber
 
     let private charTermCreator (rawData : byte []) index =
         BitConverter.ToChar(rawData, index) |> makeNumber
@@ -57,7 +57,8 @@ module internal ArrayInitialization =
         let lbs = List.init dims (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType |> extractIntFromTerm)
         let lens = List.init dims (fun dim -> Memory.readLength state address (makeNumber dim) arrayType |> extractIntFromTerm)
         let allIndices = Array.allIndicesViaLens lbs lens
-        let indicesAndValues = allIndices |> Seq.mapi (fun i indices -> List.map makeNumber indices, termCreator rawData (i * size)) // TODO: sort if need
+        let indicesAndValues =
+            Seq.mapi (fun i indices -> List.map makeNumber indices, termCreator rawData (i * size)) allIndices
         Memory.initializeArray state address indicesAndValues arrayType
 
     let commonInitializeArray state address typ (handle : RuntimeFieldHandle) =
@@ -92,7 +93,7 @@ module internal ArrayInitialization =
         match arrayRef.term, Memory.tryTermToObj state handleTerm with
         | HeapRef(address, typ), Some(:? RuntimeFieldHandle as rfh) ->
             commonInitializeArray state address typ rfh
-        | _ -> internalfailf "initializeArray: case for (arrayRef = %O), (handleTerm = %O) is not implemented" arrayRef handleTerm
+        | _ -> internalfailf $"initializeArray: case for (arrayRef = {arrayRef}), (handleTerm = {handleTerm}) is not implemented"
 
     let allocateOptimizedArray state (fieldInfo : FieldInfo) =
         let arrayType = typeof<byte>.MakeArrayType()

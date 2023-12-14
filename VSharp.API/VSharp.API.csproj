@@ -36,47 +36,46 @@
     </ItemGroup>
 
     <PropertyGroup>
-        <TargetFramework>netcoreapp6.0</TargetFramework>
+        <TargetFramework>net7.0</TargetFramework>
     </PropertyGroup>
 
     <PropertyGroup>
-      <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+        <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
     </PropertyGroup>
 
     <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="BuildOnlySettings;ResolveReferences">
-      <ItemGroup>
-        <_ReferenceCopyLocalPaths Include="@(ReferenceCopyLocalPaths-&gt;WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')-&gt;WithMetadataValue('PrivateAssets', 'All'))" />
-      </ItemGroup>
+        <ItemGroup>
+            <_ReferenceCopyLocalPaths Include="@(ReferenceCopyLocalPaths-&gt;WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')-&gt;WithMetadataValue('PrivateAssets', 'All'))" />
+        </ItemGroup>
 
-      <ItemGroup>
-        <BuildOutputInPackage Include="@(_ReferenceCopyLocalPaths)" TargetPath="%(_ReferenceCopyLocalPaths.DestinationSubDirectory)" />
-      </ItemGroup>
+        <ItemGroup>
+            <BuildOutputInPackage Include="@(_ReferenceCopyLocalPaths)" TargetPath="%(_ReferenceCopyLocalPaths.DestinationSubDirectory)" />
+        </ItemGroup>
     </Target>
 
     <ItemGroup>
-      <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.TestExtensions\VSharp.TestExtensions.csproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" PrivateAssets="all" />
-      <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.Explorer\VSharp.Explorer.fsproj" />
+        <ProjectReference Include="..\VSharp.TestExtensions\VSharp.TestExtensions.csproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" PrivateAssets="all" />
+        <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="CsvHelper" Version="30.0.1" />
-      <PackageReference Include="FSharp.Core" Version="7.0.300" />
-      <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.0.0" />
-      <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="3.0.0" />
-      <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.21308.1" />
-      <PackageReference Include="JetBrains.Roslyn.References.Repack" Version="42.42.20220228.125130" />
-      <PackageReference Include="Microsoft.Z3.x64" Version="4.8.6" />
-      <PackageReference Include="vsteam.Z3.M1" Version="4.8.11-alpha.2" />
-      <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.21308.1" />
+        <PackageReference Include="CsvHelper" Version="30.0.1" />
+        <PackageReference Include="FSharp.Core" Version="7.0.*" />
+        <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.0.0" />
+        <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="3.0.0" />
+        <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.21308.1" />
+        <PackageReference Include="JetBrains.Roslyn.References.Repack" Version="42.42.20220228.125130" />
+        <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.21308.1" />
+        <PackageReference Include="VSTeam.Z3" Version="4.11.2-alpha" />
     </ItemGroup>
-
 </Project>

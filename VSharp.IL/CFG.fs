@@ -497,7 +497,7 @@ and
             | _ -> false
         override x.GetHashCode() = (x.offset, x.method).GetHashCode()
         override x.ToString() =
-            sprintf "[method = %s\noffset = %s]" x.method.FullName ((int x.offset).ToString("X"))
+            $"[method = {x.method.FullName}\noffset = {int x.offset : X}]"
         interface IComparable with
             override x.CompareTo y =
                 match y with
@@ -509,8 +509,7 @@ and IGraphTrackableState =
     abstract member CodeLocation: codeLocation
     abstract member CallStack: list<Method>
     abstract member Id: uint<VSharp.ML.GameServer.Messages.stateId>
-    abstract member PathConditionSize: uint
-    abstract member PredictedUsefulness: float with get
+    abstract member PathConditionSize: uint    
     abstract member VisitedNotCoveredVerticesInZone: uint with get
     abstract member VisitedNotCoveredVerticesOutOfZone: uint with get
     abstract member VisitedAgainVertices: uint with get

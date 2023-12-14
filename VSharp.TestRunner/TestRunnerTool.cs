@@ -35,7 +35,8 @@ namespace VSharp.TestRunner
 
                 var method = test.Method;
 
-                Console.Out.WriteLine("Starting reproducing {0} for method {1}", fileInfo.Name, method);
+                var methodName = Reflection.getFullMethodName(method);
+                Console.Out.WriteLine($"Starting reproducing {fileInfo.Name} for method {methodName}");
                 if (!checkResult)
                     Console.Out.WriteLine("Result check is disabled");
                 if (suiteType == SuiteType.TestsOnly)
@@ -46,13 +47,11 @@ namespace VSharp.TestRunner
                 try
                 {
                     object? result;
-                    string message = test.ErrorMessage;
-                    var debugAssertFailed = message != null && message.Contains("Debug.Assert failed");
-                    bool shouldInvoke = suiteType switch
+                    var shouldInvoke = suiteType switch
                     {
                         SuiteType.TestsOnly => !test.IsError || fileMode,
                         SuiteType.ErrorsOnly => test.IsError || fileMode,
-                        SuiteType.TestsAndErrors => !debugAssertFailed || fileMode,
+                        SuiteType.TestsAndErrors => !test.IsFatalError || fileMode,
                         _ => false
                     };
                     if (shouldInvoke)

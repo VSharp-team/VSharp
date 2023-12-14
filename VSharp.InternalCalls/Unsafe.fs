@@ -3,95 +3,116 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilState
 
 // ------------------------------ System.Unsafe --------------------------------
 
-module Unsafe =
+module internal Unsafe =
 
-    let private getTypeFromTerm typ =
-        match typ.term with
-        | Concrete(:? Type as t, _) -> t
-        | _ -> __unreachable__()
-
-    let internal AsPointer (_ : state) (args : term list) : term =
+    let AsPointer (_ : state) (args : term list) : term =
         assert(List.length args = 2)
 //        Types.Cast (List.item 1 args) (Pointer Void)
         List.item 1 args
 
-    let internal ObjectAsT (_ : state) (args : term list) : term =
+    let ObjectAsT (_ : state) (args : term list) : term =
         assert(List.length args = 2)
         let typ, ref = args[0], args[1]
-        let typ = getTypeFromTerm typ
+        let typ = Helpers.unwrapType typ
         Types.Cast ref typ
 
-    let internal AsRef (_ : state) (args : term list) : term =
+    let AsRef (_ : state) (args : term list) : term =
         assert(List.length args = 2)
-        args.[1]
+        let t = Helpers.unwrapType args[0]
+        let ptr = args[1]
+        Types.Cast ptr (t.MakePointerType())
 
-    let internal TFromAsTTo (_ : state) (args : term list) : term =
+    let PointerAsRef (_ : state) (args : term list) : term =
+        assert(List.length args = 2)
+        args[1]
+
+    let TFromAsTTo (_ : state) (args : term list) : term =
         assert(List.length args = 3)
-        let toType = getTypeFromTerm args[1]
+        let toType = Helpers.unwrapType args[1]
         let pointerType = toType.MakePointerType()
         let ref = args[2]
         assert(IsReference ref || IsPtr ref)
         Types.Cast ref pointerType
 
-    let internal NullRef (_ : state) (args : term list) : term =
+    let NullRef (_ : state) (args : term list) : term =
         match args with
         | [{term = Concrete(:? Type as t, _)}] -> NullRef t
         | _ -> __unreachable__()
 
-    let internal IsNullRef (_ : state) (args : term list) : term =
+    let IsNullRef (_ : state) (args : term list) : term =
         assert(List.length args = 2)
         let ref = args[1]
         IsNullReference ref
 
-    let internal AddByteOffset (_ : state) (args : term list) : term =
+    let AddByteOffset (_ : state) (args : term list) : term =
         assert(List.length args = 3)
         let ref, offset = args[1], args[2]
         PerformBinaryOperation OperationType.Add ref offset id
 
+    let ByteOffset (_ : state) (args : term list) : term =
+        assert(List.length args = 2)
+        let origin, target = args[0], args[1]
+        let offset = PerformBinaryOperation OperationType.Subtract target origin id
+        Types.Cast offset typeof<IntPtr>
+
     let private CommonAdd typ ref offset =
-        let size = getTypeFromTerm typ |> Types.SizeOf |> MakeNumber
+        let size = Helpers.unwrapType typ |> Types.SizeOf |> MakeNumber
         let byteOffset = Arithmetics.Mul offset size
         PerformBinaryOperation OperationType.Add ref byteOffset id
 
-    let internal AddIntPtr (_ : state) (args : term list) : term =
+    let AddIntPtr (_ : state) (args : term list) : term =
         assert(List.length args = 3)
         let typ, ref, offset = args[0], args[1], args[2]
         CommonAdd typ ref offset
 
-    let internal AddInt (_ : state) (args : term list) : term =
+    let AddInt (_ : state) (args : term list) : term =
         assert(List.length args = 3)
         let typ, ref, offset = args[0], args[1], args[2]
         CommonAdd typ ref offset
 
-    let internal ReadUnaligned (state : state) (args : term list) : term =
+    let ReadUnaligned (i : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 2)
         let typ, ref = args[0], args[1]
-        let typ = getTypeFromTerm typ
+        let typ = Helpers.unwrapType typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
-        Memory.Read state castedPtr
+        let readByPtr (cilState : cilState) k =
+            let value = cilState.Read castedPtr
+            cilState.Push value
+            List.singleton cilState |> k
+        i.NpeOrInvoke cilState castedPtr readByPtr id
 
-    let WriteUnaligned (state : state) (args : term list) : (term * state) list =
+    let WriteUnalignedGeneric (i : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 3)
         let typ, ref, value = args[0], args[1], args[2]
-        let typ = getTypeFromTerm typ
+        let typ = Helpers.unwrapType typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
-        let states = Memory.Write state castedPtr value
-        List.map (withFst <| Nop()) states
+        let writeByPtr (cilState : cilState) k =
+            cilState.Write castedPtr value |> k
+        i.NpeOrInvoke cilState castedPtr writeByPtr id
 
-    let internal SizeOf (_ : state) (args : term list) : term =
+    let WriteUnaligned (i : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 2)
+        let ref, value = args[0], args[1]
+        let writeByPtr (cilState : cilState) k =
+            cilState.Write ref value |> k
+        i.NpeOrInvoke cilState ref writeByPtr id
+
+    let SizeOf (_ : state) (args : term list) : term =
         assert(List.length args = 1)
-        let typ = getTypeFromTerm args[0]
+        let typ = Helpers.unwrapType args[0]
         Types.SizeOf typ |> MakeNumber
 
-    let internal AreSame (_ : state) (args : term list) : term =
+    let AreSame (_ : state) (args : term list) : term =
         assert(List.length args = 3)
         let ptr1, ptr2 = args[1], args[2]
         ptr1 === ptr2
 
-    let internal GetRawData (state : state) (args : term list) : term =
+    let GetRawData (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let ref = args[0]
         match ref.term with
@@ -100,7 +121,9 @@ module Unsafe =
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
         | Ref(BoxedLocation(address, t)) ->
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
+        | Ptr(pointerBase, _, offset) ->
+            Ptr pointerBase typeof<byte> offset
         | _ -> internalfail $"GetRawData: unexpected ref {ref}"
 
-    let internal SkipInit (_ : state) (_ : term list) : term =
+    let SkipInit (_ : state) (_ : term list) : term =
         Nop()

@@ -3,8 +3,8 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
-open System.Runtime.InteropServices
-open System.Reflection
+open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilState
 
 module Runtime_CompilerServices_RuntimeHelpers =
 
@@ -12,19 +12,15 @@ module Runtime_CompilerServices_RuntimeHelpers =
     // Example: any value type, because it doesn't have metadata
     let IsBitwiseEquatable (_ : state) (args : term list) : term =
         assert(List.length args = 1)
-        let typ = List.head args
-        match typ with
-        | {term = Concrete(:? Type as typ, _)} -> MakeBool typ.IsValueType
-        | _ -> __unreachable__()
+        let typ = List.head args |> Helpers.unwrapType
+        MakeBool typ.IsValueType
 
     let IsReferenceOrContainsReferences (_ : state) (args : term list) : term =
         assert(List.length args = 1)
-        let typ = List.head args
-        match typ with
-        | {term = Concrete(:? Type as typ, _)} -> MakeBool (Reflection.isReferenceOrContainsReferences typ)
-        | _ -> __unreachable__()
+        let typ = List.head args |> Helpers.unwrapType
+        MakeBool (Reflection.isReferenceOrContainsReferences typ)
 
-    let CommonGetHashCode (state : state) (args : term list) : term =
+    let CommonGetHashCode (_ : state) (args : term list) : term =
         assert(List.length args = 1)
         let object = List.head args
         GetHashCode object
@@ -41,7 +37,40 @@ module Runtime_CompilerServices_RuntimeHelpers =
         let enumValue = Memory.Read state boxedThis
         GetHashCode enumValue
 
-    let Equals (state : state) (args : term list) : term =
+    let Equals (_ : state) (args : term list) : term =
         assert(List.length args = 2)
-        let x, y = args.[0], args.[1]
+        let x, y = args[0], args[1]
         x === y
+
+    let EnumEquals (_ : state) (args : term list) =
+        assert(List.length args = 3)
+        let x, y = args[1], args[2]
+        x === y
+
+    let RunStaticCtor (_ : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 1)
+        // TODO: initialize statics of argument
+        List.singleton cilState
+
+    let TryEnsureSufficientExecutionStack (_ : state) (args : term list) =
+        assert(List.length args = 0)
+        // 'True' value leads to more runtime optimizations code exploration
+        MakeBool true
+
+    let EnsureSufficientExecutionStack (_ : state) (args : term list) =
+        assert(List.length args = 0)
+        Nop()
+
+    let ExceptionGetSource (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let exceptionRef = args[0]
+        let t = MostConcreteTypeOfRef state exceptionRef
+        Memory.AllocateString (t.ToString()) state
+
+    let BadImageFormatExceptionToString (state : state) (args : term list) =
+        assert(List.length args = 1)
+        Memory.AllocateString "BadImageFormatException" state
+
+    let BadImageFormatExceptionGetMessage (state : state) (args : term list) =
+        assert(List.length args = 1)
+        Memory.AllocateString "BadImageFormatException" state

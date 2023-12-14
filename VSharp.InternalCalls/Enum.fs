@@ -7,7 +7,7 @@ open VSharp.Core
 
 module internal Enum =
 
-    let internal InternalGetCorElementType (state : state) (args : term list) =
+    let InternalGetCorElementType (state : state) (args : term list) =
         assert(List.length args = 1)
         let enum = args[0]
         let enumType =
@@ -16,7 +16,7 @@ module internal Enum =
         if enumType.Equals(typeof<Enum>) then
             __insufficientInformation__ $"InternalGetCorElementType: type of enum {enum} is unknown"
         else
-            assert(enumType.IsEnum)
+            assert enumType.IsEnum
             let underlyingType = enumType.GetEnumUnderlyingType()
             let value =
                 match underlyingType with
@@ -38,7 +38,7 @@ module internal Enum =
             let corType = Reflection.mscorlibAssembly.GetType("System.Reflection.CorElementType")
             Enum.ToObject(corType, value) |> MakeNumber
 
-    let internal GetEnumValuesAndNames (state : state) (args : term list) : (term * state) list =
+    let GetEnumValuesAndNames (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 4)
         let enumTypeHandle = args[0]
         let valuesRef = args[1]
@@ -59,7 +59,7 @@ module internal Enum =
         let enumType = Memory.Read state ptrHandle |> TryTermToObj state
         match enumType with
         | Some (:? Type as enumType) ->
-            assert(enumType.IsEnum)
+            assert enumType.IsEnum
             let names = Enum.GetNames enumType
             let values = Enum.GetValues enumType
             assert(values.Rank = 1)
@@ -75,9 +75,24 @@ module internal Enum =
                 let states = Memory.Write state valuesPtr values
                 List.collect (fun state -> Memory.Write state namesPtr names) states |> k
             let needNames = (Types.Cast getNamesFlag typeof<int>) === (MakeNumber 1)
-            StatedConditionalExecutionAppendResults state
+            StatedConditionalExecutionAppend state
                 (fun state k -> k (needNames, state))
                 namesAndValuesCase
                 valuesCase
                 (List.map (withFst <| Nop()))
         | _ -> internalfail $"GetEnumValuesAndNames: unexpected type {enumType}"
+
+    let InternalBoxEnum (state : state) (args : term list) =
+        assert(List.length args = 2)
+        let typ, value = args[0], args[1]
+        let t = Memory.TryTermToObject state typ |> Option.get :?> Type
+        let enum = Types.Cast value t
+        Memory.BoxValueType state enum
+
+    let HasFlag (state : state) (args : term list) =
+        assert(List.length args = 2)
+        let thisRef, valueRef = args[0], args[1]
+        let thisEnum = Memory.Read state thisRef
+        let valueEnum = Memory.Read state valueRef
+        let flags = PerformBinaryOperation OperationType.BitwiseAnd thisEnum valueEnum id
+        flags === valueEnum

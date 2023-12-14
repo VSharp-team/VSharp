@@ -246,7 +246,7 @@ let collectGameState (location:codeLocation) (serialize: bool) =
                 then statesMetrics.Add (calculateStateMetrics interproceduralGraphDistanceFrom s)
                 State(s.Id,
                       uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<offsets>,
-                      s.PredictedUsefulness,
+                      0,
                       s.PathConditionSize,
                       s.VisitedAgainVertices,
                       s.VisitedNotCoveredVerticesInZone,

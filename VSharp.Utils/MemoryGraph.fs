@@ -164,6 +164,7 @@ type typeMockRepr = {
     interfaces : typeRepr array
     baseMethods : methodRepr array
     methodImplementations : obj array array
+    outImplementations : obj array array array
 }
 with
     static member NullRepr =
@@ -173,6 +174,7 @@ with
             interfaces = [||]
             baseMethods = [||]
             methodImplementations = [||]
+            outImplementations = [||]
         }
 
     static member Encode (t : Mocking.Type) (encode : obj -> obj) =
@@ -185,13 +187,15 @@ with
                 t.MethodMocks |> Seq.map (fun m -> methodRepr.Encode m.BaseMethod) |> Array.ofSeq
             methodImplementations =
                 t.MethodMocks |> Seq.map (fun m -> m.ReturnValues |> Array.map encode) |> Array.ofSeq
+            outImplementations =
+                t.MethodMocks |> Seq.map (fun m -> m.OutValues |> Array.map (Array.map encode)) |> Seq.toArray
         }
 
     member x.Decode() =
         let baseClass = x.baseClass.Decode()
         let interfaces = x.interfaces |> Array.map (fun i -> i.Decode())
         let baseMethods = x.baseMethods |> Array.map (fun m -> m.Decode())
-        Mocking.Type.Deserialize x.name baseClass interfaces baseMethods x.methodImplementations
+        Mocking.Type.Deserialize x.name baseClass interfaces baseMethods x.methodImplementations x.outImplementations
 
 [<CLIMutable>]
 [<Serializable>]
@@ -275,8 +279,11 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         let mockType, t = mockStorage[index]
         mockType.EnsureInitialized decode t
         let baseClass = mockType.BaseClass
-        if TypeUtils.isDelegate baseClass then Mocking.Mocker.CreateDelegate baseClass t
-        else Reflection.createObject t
+        let obj =
+            if TypeUtils.isDelegate baseClass then Mocking.Mocker.CreateDelegate baseClass t
+            else Reflection.createObject t
+        GC.SuppressFinalize(obj)
+        obj
 
     let rec allocateDefault (obj : obj) =
         match obj with
@@ -289,7 +296,11 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
                 internalfailf "Generating test: unable to create byref-like object (type = %O)" t
             if t.ContainsGenericParameters then
                 internalfailf "Generating test: unable to create object with generic type parameters (type = %O)" t
-            else System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
+            else
+                assert(Reflection.isInstanceOfType t |> not)
+                let obj = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
+                GC.SuppressFinalize(obj)
+                obj
         | :? structureRepr as repr ->
             // Case for mocked structs or classes
             createMockObject allocateDefault repr.typ
@@ -299,6 +310,15 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             if repr.lowerBounds = null then Array.CreateInstance(elementType, repr.lengths) :> obj
             else Array.CreateInstance(elementType, repr.lengths, repr.lowerBounds) :> obj
         | :? stringRepr as repr -> repr.Decode()
+        | :? enumRepr as repr ->
+            let t = sourceTypes[repr.typ]
+            EnumUtils.getEnumDefaultValue t
+        | :? pointerRepr as repr when repr.sightType = intPtrIndex -> IntPtr.Zero
+        | :? pointerRepr as repr when repr.sightType = uintPtrIndex -> UIntPtr.Zero
+        | :? pointerRepr as repr ->
+            let sightType = sourceTypes[repr.sightType]
+            Pointer.Box(IntPtr.Zero.ToPointer(), sightType.MakePointerType())
+        | :? typeRepr as t -> t.Decode()
         | _ -> obj
 
     let nullSourceIndex = -1
@@ -307,6 +327,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
 
     let rec decodeValue (obj : obj) =
         match obj with
+        | _ when obj = null -> null
         | :? referenceRepr as repr ->
             sourceObjects[repr.index]
         | :? pointerRepr as repr when repr.sightType = intPtrIndex ->
@@ -316,15 +337,23 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             let shift = decodeValue repr.shift :?> int64 |> uint64
             UIntPtr(shift) :> obj
         | :? pointerRepr as repr ->
-            let obj = sourceObjects[repr.index]
-            let shift = decodeValue repr.shift :?> int64 |> nativeint
+            let shift = decodeValue repr.shift :?> int64
             let sightType = sourceTypes[repr.sightType]
-            let refWithOffset = System.Runtime.CompilerServices.Unsafe.AddByteOffset(ref obj, shift)
-            let pointer = System.Runtime.CompilerServices.Unsafe.AsPointer(ref refWithOffset)
+            let index = repr.index
+            let pointer =
+                if index <> nullSourceIndex then
+                    // Case for pointer, attached to address 'index'
+                    let obj = sourceObjects[repr.index]
+                    let ptr = System.Runtime.CompilerServices.Unsafe.AsPointer(ref obj)
+                    System.Runtime.CompilerServices.Unsafe.Add<byte>(ptr, int shift)
+                else
+                    // Case for detached pointer
+                    (nativeint shift).ToPointer()
             Pointer.Box(pointer, sightType.MakePointerType())
         | :? structureRepr as repr when repr.typ >= 0 ->
             // Case for structs or classes of .NET type
             let t = sourceTypes[repr.typ]
+            assert(Reflection.isInstanceOfType t |> not)
             if not t.IsValueType then
                 internalfailf "Expected value type inside object, but got representation of %s!" t.FullName
             let obj = allocateDefault repr
@@ -340,13 +369,21 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             let t = sourceTypes[repr.typ]
             Enum.ToObject(t, repr.underlyingValue)
         | :? stringRepr as str -> str.Decode()
+        | :? typeRepr as t -> t.Decode()
         | _ -> obj
+
+    and decodeAndCast repr (typ : Type) =
+        match decodeValue repr with
+        | :? Pointer as ptr ->
+            assert typ.IsPointer
+            Pointer.Box(Pointer.Unbox ptr, typ)
+        | value -> value
 
     and decodeFields (fieldsRepr : obj array) obj t : unit =
         let fields = Reflection.fieldsOf false t
         assert(Array.length fields = Array.length fieldsRepr)
         let decodeField (_, field : FieldInfo) repr =
-            let value = decodeValue repr
+            let value = decodeAndCast repr field.FieldType
             field.SetValue(obj, value)
         Array.iter2 decodeField fields fieldsRepr
 
@@ -363,19 +400,23 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
     and decodeArray (repr : arrayRepr) (obj : obj) : unit =
         assert(repr.lowerBounds = null || repr.lengths.Length = repr.lowerBounds.Length)
         let arr = obj :?> Array
+        let elemType = lazy arr.GetType().GetElementType()
+        let inline decodeValue repr =
+            decodeAndCast repr elemType.Value
         match repr with
         | _ when repr.indices = null ->
             assert(arr.Length = repr.values.Length)
             match repr.lengths, repr.lowerBounds with
             | [|len|], null ->
-                let arr = obj :?> Array
                 assert(arr.Length = len)
-                repr.values |> Array.iteri (fun i r -> arr.SetValue(decodeValue r, i))
+                let setValue (i : int) r = arr.SetValue(decodeValue r, i)
+                Array.iteri setValue repr.values
             | lens, lbs ->
-                repr.values |> Array.iteri (fun i r ->
+                let setValue i r =
                     let value = decodeValue r
                     let indices = Array.delinearizeArrayIndex i lens lbs
-                    arr.SetValue(value, indices))
+                    arr.SetValue(value, indices)
+                Array.iteri setValue repr.values
         | _ ->
             let defaultValue = decodeValue repr.defaultValue
             let values = Array.map decodeValue repr.values
@@ -404,8 +445,10 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             decodeMockedStructure repr obj
         | :? arrayRepr as repr ->
             decodeArray repr obj
-        | :? stringRepr -> ()
-        | :? ValueType -> ()
+        | :? stringRepr
+        | :? typeRepr
+        | :? ValueType
+        | :? enumRepr -> ()
         | _ -> internalfail $"decodeObject: unexpected object {obj}"
 
     let () = Seq.iter2 decodeObject objReprs sourceObjects
@@ -528,6 +571,14 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
 
     member x.RepresentUIntPtr (shift : int64) =
         let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = uintPtrIndex}
+        repr :> obj
+
+    member x.RepresentDetachedPtr (sightType : Type) (shift : int64) =
+        let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = x.RegisterType sightType}
+        repr :> obj
+
+    member x.RepresentNullPtr (sightType : Type) =
+        let repr : pointerRepr = {index = nullSourceIndex; shift = 0; sightType = x.RegisterType sightType}
         repr :> obj
 
     member x.RepresentPtr (index : int) (sightType : Type) (shift : int64) =

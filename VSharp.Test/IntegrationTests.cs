@@ -13,9 +13,9 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
+using VSharp.Core;
 using VSharp.CSharpUtils;
-using VSharp.Interpreter.IL;
-using VSharp.Solver;
+using VSharp.Explorer;
 using VSharp.TestRenderer;
 
 namespace VSharp.Test
@@ -52,6 +52,18 @@ namespace VSharp.Test
         Unix
     }
 
+    public enum FuzzerIsolation
+    {
+        Process
+    }
+
+    public enum ExplorationMode
+    {
+        Sili,
+        Interleaving,
+        Fuzzer
+    }
+
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
     {
         public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo)
@@ -71,7 +83,7 @@ namespace VSharp.Test
         private const string SolverTimeoutParameterName = "solverTimeout";
         private const string ReleaseBranchesParameterName = "releaseBranches";
 
-        private static SiliOptions _options = null;
+        private static SVMOptions _options;
 
         static TestSvmAttribute()
         {
@@ -106,6 +118,8 @@ namespace VSharp.Test
         private readonly string _pathToSerialize;
         private readonly bool _serialize;
         private readonly OsType _supportedOs;
+        private readonly FuzzerIsolation _fuzzerIsolation;
+        private readonly ExplorationMode _explorationMode;
         private readonly int _randomSeed;
         private readonly uint _stepsLimit;
 
@@ -121,6 +135,8 @@ namespace VSharp.Test
             bool hasExternMocking = false,
             bool checkAttributes = true,
             OsType supportedOs = OsType.All,
+            FuzzerIsolation fuzzerIsolation = FuzzerIsolation.Process,
+            ExplorationMode explorationMode = ExplorationMode.Sili,
             int randomSeed = 0,
             uint stepsLimit = 0,
             string serialize = null)
@@ -141,6 +157,8 @@ namespace VSharp.Test
             _checkAttributes = checkAttributes;
             _hasExternMocking = hasExternMocking;
             _supportedOs = supportedOs;
+            _fuzzerIsolation = fuzzerIsolation;
+            _explorationMode = explorationMode;
             _randomSeed = randomSeed;
             _stepsLimit = stepsLimit;
             if (serialize == null)
@@ -168,6 +186,8 @@ namespace VSharp.Test
                 _testsCheckerMode,
                 _checkAttributes,
                 _supportedOs,
+                _fuzzerIsolation,
+                _explorationMode,
                 _randomSeed,
                 _stepsLimit,
                 _hasExternMocking,
@@ -192,10 +212,28 @@ namespace VSharp.Test
             private readonly bool _checkAttributes;
             private readonly bool _hasExternMocking;
             private readonly OsType _supportedOs;
+            private readonly fuzzerIsolation _fuzzerIsolation;
+            private readonly ExplorationMode _explorationMode;
             private readonly int _randomSeed;
             private readonly uint _stepsLimit;
             private readonly string _pathToSerialize;
             private readonly bool _serialize;
+
+            private class Reporter: IReporter
+            {
+                private readonly UnitTests _unitTests;
+
+                public Reporter(UnitTests unitTests)
+                {
+                    _unitTests = unitTests;
+                }
+
+                public void ReportFinished(UnitTest unitTest) => _unitTests.GenerateTest(unitTest);
+                public void ReportException(UnitTest unitTest) => _unitTests.GenerateError(unitTest);
+                public void ReportIIE(InsufficientInformationException iie) {}
+                public void ReportInternalFail(Method method, Exception exn) => ExceptionDispatchInfo.Capture(exn).Throw();
+                public void ReportCrash(Exception exn) => ExceptionDispatchInfo.Capture(exn).Throw();
+            }
 
             public TestSvmCommand(
                 TestCommand innerCommand,
@@ -209,6 +247,8 @@ namespace VSharp.Test
                 TestsCheckerMode testsCheckerMode,
                 bool checkAttributes,
                 OsType supportedOs,
+                FuzzerIsolation fuzzerIsolation,
+                ExplorationMode explorationMode,
                 int randomSeed,
                 uint stepsLimit,
                 bool hasExternMocking,
@@ -248,9 +288,9 @@ namespace VSharp.Test
 
                 _coverageZone = coverageZone switch
                 {
-                    CoverageZone.Method => Interpreter.IL.coverageZone.MethodZone,
-                    CoverageZone.Class => Interpreter.IL.coverageZone.ClassZone,
-                    CoverageZone.Module => Interpreter.IL.coverageZone.ModuleZone,
+                    CoverageZone.Method => Explorer.coverageZone.MethodZone,
+                    CoverageZone.Class => Explorer.coverageZone.ClassZone,
+                    CoverageZone.Module => Explorer.coverageZone.ModuleZone,
                     _ => throw new ArgumentOutOfRangeException(nameof(coverageZone), coverageZone, null)
                 };
 
@@ -258,6 +298,11 @@ namespace VSharp.Test
                 _checkAttributes = checkAttributes;
                 _hasExternMocking = hasExternMocking;
                 _supportedOs = supportedOs;
+                _fuzzerIsolation = fuzzerIsolation switch
+                {
+                    FuzzerIsolation.Process => Explorer.fuzzerIsolation.Process
+                };
+                _explorationMode = explorationMode;
                 _randomSeed = randomSeed;
                 _stepsLimit = stepsLimit;
                 _serialize = serialize;
@@ -270,8 +315,85 @@ namespace VSharp.Test
                 return context.CurrentResult;
             }
 
+            private bool RenderTests(
+                TestExecutionContext context,
+                TestStatistics statistics,
+                MethodInfo exploredMethodInfo,
+                IStatisticsReporter reporter,
+                DirectoryInfo testsDir)
+            {
+                if (!_renderTests || _hasExternMocking) return true;
+
+                var tests = testsDir.EnumerateFiles("*.vst");
+                TestContext.Out.WriteLine("Starting tests renderer...");
+                try
+                {
+                    Renderer.Render(tests, true, false, exploredMethodInfo.DeclaringType);
+                }
+                catch (UnexpectedExternCallException)
+                {
+                    // TODO: support rendering for extern mocks
+                }
+                catch (Exception e)
+                {
+                    context.CurrentResult.SetResult(ResultState.Failure,
+                        $"Test renderer failed: {e}");
+                    reporter?.Report(statistics with { Exception = e });
+                    return false;
+                }
+
+                return true;
+            }
+
+            // For fixing Rider bug,
+            // evaluating state in "Debugger -> Thread & Variables" throws System.ArgumentException
+            private void EnforceLoadCore()
+            {
+                var x = API.Memory.EmptyState();
+                Logger.writeLine($"Enforcing load VSharp.Core {x}");
+            }
+
+            private void CheckCoverage(
+                TestExecutionContext context,
+                TestStatistics statistics,
+                MethodInfo exploredMethodInfo,
+                IStatisticsReporter reporter,
+                DirectoryInfo testsDir
+            )
+            {
+                // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
+                //       to enable coverage check use _expectedCoverage
+                bool success;
+                var resultMessage = string.Empty;
+                uint? actualCoverage;
+                if (_expectedCoverage is {} expectedCoverage)
+                {
+                    TestContext.Out.WriteLine("Starting coverage tool...");
+                    success =
+                        TestResultChecker.Check(
+                            testsDir,
+                            exploredMethodInfo,
+                            expectedCoverage,
+                            out var coverage,
+                            out resultMessage);
+                    actualCoverage = (uint?)coverage;
+                }
+                else
+                {
+                    TestContext.Out.WriteLine("Starting tests checker...");
+                    success = TestResultChecker.Check(testsDir);
+                    actualCoverage = null;
+                }
+                if (success)
+                    context.CurrentResult.SetResult(ResultState.Success);
+                else
+                    context.CurrentResult.SetResult(ResultState.Failure, resultMessage);
+                reporter?.Report(statistics with { Coverage = actualCoverage });
+            }
+
             private TestResult Explore(TestExecutionContext context)
             {
+                EnforceLoadCore();
                 if (_hasExternMocking && !ExternMocker.ExtMocksSupported)
                     return IgnoreTest(context);
 
@@ -301,7 +423,20 @@ namespace VSharp.Test
                     );
                 }
 
-                Core.API.ConfigureSolver(SolverPool.mkSolver(_timeout / 2 * 1000));
+                var fuzzingEnabled = _explorationMode switch
+                {
+                    ExplorationMode.Sili => false,
+                    ExplorationMode.Interleaving => true,
+                    ExplorationMode.Fuzzer => true,
+                };
+
+                var siliEnabled = _explorationMode switch
+                {
+                    ExplorationMode.Sili => true,
+                    ExplorationMode.Interleaving => true,
+                    ExplorationMode.Fuzzer => false,
+                };
+
                 var originMethodInfo = innerCommand.Test.Method.MethodInfo;
                 var exploredMethodInfo = (MethodInfo) AssemblyManager.NormalizeMethod(originMethodInfo);
                 var stats = new TestStatistics(
@@ -315,15 +450,15 @@ namespace VSharp.Test
                 try
                 {
                     var unitTests = new UnitTests(Directory.GetCurrentDirectory());
-                    _options = new SiliOptions(
+
+                    _options = new SVMOptions(
                         explorationMode: explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
-                        outputDirectory: unitTests.TestDirectory,
                         recThreshold: _recThresholdForTest,
-                        timeout: _timeout,
                         solverTimeout: _solverTimeout,
                         visualize: false,
                         releaseBranches: _releaseBranches,
                         maxBufferSize: 128,
+                        prettyChars: true,
                         checkAttributes: _checkAttributes,
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
                         randomSeed: _randomSeed,
@@ -333,21 +468,34 @@ namespace VSharp.Test
                         stepsToPlay:0,
                         serialize:_serialize,
                         pathToSerialize:_pathToSerialize
-                            );
-                    using var explorer = new SILI(_options);
-                    Application.reset();
-                    explorer.Reset(FSharpList<Method>.Empty);
-                    explorer.Interpret(
-                        new [] { exploredMethodInfo },
-                        new Tuple<MethodBase, string[]>[] {},
-                        unitTests.GenerateTest,
-                        unitTests.GenerateError,
-                        _ => { },
-                        (_, e) => ExceptionDispatchInfo.Capture(e).Throw(),
-                        e => ExceptionDispatchInfo.Capture(e).Throw()
                     );
 
-                    if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
+                    var fuzzerOptions = new FuzzerOptions(
+                        fuzzerIsolation.Process,
+                        _coverageZone
+                    );
+
+                    var explorationModeOptions = _explorationMode switch
+                    {
+                        ExplorationMode.Sili => Explorer.explorationModeOptions.NewSVM(_options),
+                        ExplorationMode.Interleaving => Explorer.explorationModeOptions.NewCombined(_options, fuzzerOptions),
+                        ExplorationMode.Fuzzer => Explorer.explorationModeOptions.NewFuzzing(fuzzerOptions),
+                        _ => throw new ArgumentOutOfRangeException($"StartExploration: unexpected exploration mode {_explorationMode}")
+                    };
+
+                    var explorationOptions = new ExplorationOptions(
+                        timeout: _timeout == -1 ? TimeSpanBuilders.Infinite : TimeSpanBuilders.FromSeconds(_timeout),
+                        outputDirectory: unitTests.TestDirectory,
+                        explorationModeOptions: explorationModeOptions
+                    );
+
+                    using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
+                    explorer.StartExploration(
+                        new [] { exploredMethodInfo },
+                        global::System.Array.Empty<Tuple<MethodBase, string[]>>()
+                    );
+
+                    if (siliEnabled && unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
                         throw new Exception("No states were obtained! Most probably this is bug.");
                     }
@@ -358,64 +506,17 @@ namespace VSharp.Test
 
                     stats = stats with
                     {
-                        SiliStatisticsDump = explorer.Statistics.DumpStatistics(),
+                        SvmStatisticsDump = explorer.Statistics.DumpStatistics(),
                         TestsGenerated = unitTests.UnitTestsCount,
                         TestsOutputDirectory = unitTests.TestDirectory.FullName
                     };
 
-                    if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
+                    if (fuzzingEnabled || siliEnabled && (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0))
                     {
                         var testsDir = unitTests.TestDirectory;
-                        // TODO: support rendering for extern mocks
-                        if (_renderTests && !_hasExternMocking)
-                        {
-                            var tests = testsDir.EnumerateFiles("*.vst");
-                            TestContext.Out.WriteLine("Starting tests renderer...");
-                            try
-                            {
-                                Renderer.Render(tests, true, false, exploredMethodInfo.DeclaringType);
-                            }
-                            catch (UnexpectedExternCallException)
-                            {
-                                // TODO: support rendering for extern mocks
-                            }
-                            catch (Exception e)
-                            {
-                                context.CurrentResult.SetResult(ResultState.Failure,
-                                    $"Test renderer failed: {e}");
-                                reporter?.Report(stats with { Exception = e });
-                                return context.CurrentResult;
-                            }
-                        }
-
-                        // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
-                        //       to enable coverage check use _expectedCoverage
-                        bool success;
-                        var resultMessage = string.Empty;
-                        uint? actualCoverage;
-                        if (_expectedCoverage is {} expectedCoverage)
-                        {
-                            TestContext.Out.WriteLine("Starting coverage tool...");
-                            success =
-                                TestResultChecker.Check(
-                                    testsDir,
-                                    exploredMethodInfo,
-                                    expectedCoverage,
-                                    out var coverage,
-                                    out resultMessage);
-                            actualCoverage = (uint?)coverage;
-                        }
-                        else
-                        {
-                            TestContext.Out.WriteLine("Starting tests checker...");
-                            success = TestResultChecker.Check(testsDir);
-                            actualCoverage = null;
-                        }
-                        if (success)
-                            context.CurrentResult.SetResult(ResultState.Success);
-                        else
-                            context.CurrentResult.SetResult(ResultState.Failure, resultMessage);
-                        reporter?.Report(stats with { Coverage = actualCoverage });
+                        var rendered = RenderTests(context, stats, exploredMethodInfo, reporter, testsDir);
+                        if (!rendered) return context.CurrentResult;
+                        CheckCoverage(context, stats, exploredMethodInfo, reporter, testsDir);
                     }
                     else
                     {
@@ -428,7 +529,6 @@ namespace VSharp.Test
                     context.CurrentResult.SetResult(ResultState.Error, e.Message, e.StackTrace);
                     reporter?.Report(stats with { Exception = e });
                 }
-
                 return context.CurrentResult;
             }
 

@@ -22,3 +22,9 @@ module internal PlatformHelper =
 
     let x86BaseIsSupported (_ : state) (_ : term list) : term =
         MakeBool false
+
+    let vector128IsHardwareAccelerated (_ : state) (_ : term list) : term =
+        MakeBool false
+
+    let quicListenerIsSupported (_ : state) (_ : term list) : term =
+        MakeBool false

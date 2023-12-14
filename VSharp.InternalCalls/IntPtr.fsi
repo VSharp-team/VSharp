@@ -7,27 +7,27 @@ open VSharp.Core
 module internal IntPtr =
 
     [<Implements("System.Void System.IntPtr..ctor(this, System.Int32)")>]
-    val internal intPtrCtorFromInt : state -> term list -> (term * state) list
+    val intPtrCtorFromInt : state -> term list -> (term * state) list
 
     [<Implements("System.Void System.IntPtr..ctor(this, System.Void*)")>]
-    val internal intPtrCtorFromPtr : state -> term list -> (term * state) list
+    val intPtrCtorFromPtr : state -> term list -> (term * state) list
 
     [<Implements("System.Void System.IntPtr..ctor(this, System.Int64)")>]
-    val internal intPtrCtorFromLong : state -> term list -> (term * state) list
+    val intPtrCtorFromLong : state -> term list -> (term * state) list
 
     [<Implements("System.Void* System.IntPtr.ToPointer(this)")>]
-    val internal intPtrToPointer : state -> term list -> term
+    val intPtrToPointer : state -> term list -> term
 
 module internal UIntPtr =
 
     [<Implements("System.Void System.UIntPtr..ctor(this, System.UInt32)")>]
-    val internal uintPtrCtorFromUInt : state -> term list -> (term * state) list
+    val uintPtrCtorFromUInt : state -> term list -> (term * state) list
 
     [<Implements("System.Void System.UIntPtr..ctor(this, System.Void*)")>]
-    val internal uintPtrCtorFromPtr : state -> term list -> (term * state) list
+    val uintPtrCtorFromPtr : state -> term list -> (term * state) list
 
     [<Implements("System.Void System.UIntPtr..ctor(this, System.UInt64)")>]
-    val internal uintPtrCtorFromULong : state -> term list -> (term * state) list
+    val uintPtrCtorFromULong : state -> term list -> (term * state) list
 
     [<Implements("System.Void* System.UIntPtr.ToPointer(this)")>]
-    val internal uintPtrToPointer : state -> term list -> term
+    val uintPtrToPointer : state -> term list -> term

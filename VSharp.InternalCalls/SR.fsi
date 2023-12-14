@@ -7,79 +7,94 @@ open VSharp.Core
 module internal SR =
 
     [<Implements("System.String System.SR.get_Arg_OverflowException()")>]
-    val internal get_Arg_OverflowException : state -> term list -> term
+    val get_Arg_OverflowException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_SystemException()")>]
-    val internal get_Arg_SystemException : state -> term list -> term
+    val get_Arg_SystemException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_IndexOutOfRangeException()")>]
-    val internal get_Arg_IndexOutOfRangeException : state -> term list -> term
+    val get_Arg_IndexOutOfRangeException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_NullReferenceException()")>]
-    val internal get_Arg_NullReferenceException : state -> term list -> term
+    val get_Arg_NullReferenceException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_ArrayTypeMismatchException()")>]
-    val internal get_Arg_ArrayTypeMismatchException : state -> term list -> term
+    val get_Arg_ArrayTypeMismatchException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_InvalidHandle()")>]
-    val internal get_Arg_InvalidHandle : state -> term list -> term
+    val get_Arg_InvalidHandle : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_InvalidOperationException()")>]
-    val internal get_Arg_InvalidOperationException : state -> term list -> term
+    val get_Arg_InvalidOperationException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ArgumentOutOfRange_Index()")>]
-    val internal get_ArgumentOutOfRange_Index : state -> term list -> term
+    val get_ArgumentOutOfRange_Index : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_PlatformNotSupported()")>]
-    val internal get_Arg_PlatformNotSupported : state -> term list -> term
+    val get_Arg_PlatformNotSupported : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_NotGenericTypeDefinition()")>]
-    val internal get_Arg_NotGenericTypeDefinition : state -> term list -> term
+    val get_Arg_NotGenericTypeDefinition : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_ArgumentException()")>]
-    val internal get_Arg_ArgumentException : state -> term list -> term
+    val get_Arg_ArgumentException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_ArgumentOutOfRangeException()")>]
-    val internal get_Arg_ArgumentOutOfRangeException : state -> term list -> term
+    val get_Arg_ArgumentOutOfRangeException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_ArgumentNullException()")>]
-    val internal get_Arg_ArgumentNullException : state -> term list -> term
+    val get_Arg_ArgumentNullException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ArgumentNull_Generic()")>]
-    val internal get_ArgumentNull_Generic : state -> term list -> term
+    val get_ArgumentNull_Generic : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_DivideByZero()")>]
-    val internal get_Arg_DivideByZero : state -> term list -> term
+    val get_Arg_DivideByZero : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_ArithmeticException()")>]
-    val internal get_Arg_ArithmeticException : state -> term list -> term
+    val get_Arg_ArithmeticException : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Arg_KeyNotFoundWithKey()")>]
-    val internal get_Arg_KeyNotFoundWithKey : state -> term list -> term
+    val get_Arg_KeyNotFoundWithKey : state -> term list -> term
 
     [<Implements("System.String System.SR.get_InvalidOperation_EmptyStack()")>]
-    val internal get_InvalidOperation_EmptyStack : state -> term list -> term
+    val get_InvalidOperation_EmptyStack : state -> term list -> term
 
     [<Implements("System.String System.Exception.GetMessageFromNativeResources(System.Exception+ExceptionMessageKind)")>]
-    val internal getMessageFromNativeResources : state -> term list -> term
+    val getMessageFromNativeResources : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ConcurrentDictionary_ConcurrencyLevelMustBePositive()")>]
-    val internal concurrencyLevelMustBePositive : state -> term list -> term
+    val concurrencyLevelMustBePositive : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ConcurrentDictionary_ConcurrencyLevelMustBeNegative()")>]
-    val internal concurrencyLevelMustBeNegative : state -> term list -> term
+    val concurrencyLevelMustBeNegative : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ArgumentOutOfRange_BadYearMonthDay()")>]
-    val internal get_ArgumentOutOfRange_BadYearMonthDay : state -> term list -> term
+    val get_ArgumentOutOfRange_BadYearMonthDay : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ArgumentOutOfRange_Count()")>]
-    val internal get_ArgumentOutOfRange_BadYearMonthDay : state -> term list -> term
+    val get_ArgumentOutOfRange_Count : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ArgumentOutOfRange_StartIndex()")>]
+    val get_ArgumentOutOfRange_StartIndex : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ArgumentOutOfRange_SmallCapacity()")>]
-    val internal get_ArgumentOutOfRange_SmallCapacity : state -> term list -> term
+    val get_ArgumentOutOfRange_SmallCapacity : state -> term list -> term
 
     [<Implements("System.String System.SR.get_Argument_HasToBeArrayClass()")>]
-    val internal get_Argument_HasToBeArrayClass : state -> term list -> term
+    val get_Argument_HasToBeArrayClass : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ThreadLocal_Disposed()")>]
-    val internal get_ThreadLocal_Disposed : state -> term list -> term
+    val get_ThreadLocal_Disposed : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_Arg_NotImplementedException()")>]
+    val get_Arg_NotImplementedException : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_Argument_InvalidTypeWithPointersNotSupported()")>]
+    val get_Argument_InvalidTypeWithPointersNotSupported : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_InvalidOperation_HandleIsNotInitialized()")>]
+    val get_InvalidOperation_HandleIsNotInitialized : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_Argument_InvalidPathChars()")>]
+    val get_Argument_InvalidPathChars : state -> term list -> term

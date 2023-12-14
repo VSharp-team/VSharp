@@ -3,10 +3,15 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilState
 
 // ------------------------------ mscorlib.System.Threading.Volatile --------------------------------
 
-module Volatile =
+module internal Volatile =
 
     [<Implements("T System.Threading.Volatile.Read(T&)")>]
-    val internal Read : state -> term list -> term
+    val Read : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Void System.Threading.Volatile.Write(T&, T)")>]
+    val Write : IInterpreter -> cilState -> term list -> cilState list

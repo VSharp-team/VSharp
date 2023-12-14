@@ -1,16 +1,18 @@
 namespace VSharp
 
-/// Implementation of region tree. Region tree is a tree indexed by IRegion's and having the following invariants:
-/// - all regions of one node are disjoint;
-/// - the parent region includes all child regions.
-
 type IRegionTreeKey<'a> =
     abstract Hides : 'a -> bool
 
+ /// Implementation of region tree. Region tree is a tree indexed by IRegion's and having the following invariants:
+/// - all regions of one node are disjoint;
+/// - the parent region includes all child regions.
 type regionTree<'key, 'reg when 'reg :> IRegion<'reg> and 'key : equality and 'reg : equality and 'key :> IRegionTreeKey<'key>> =
     | Node of pdict<'reg, 'key * regionTree<'key, 'reg>>
 
 module RegionTree =
+
+    let private shouldFilter = true
+
     let empty<'key, 'reg when 'reg :> IRegion<'reg> and 'key : equality and 'reg : equality and 'key :> IRegionTreeKey<'key>> : regionTree<'key, 'reg> = Node PersistentDict.empty
 
     let isEmpty (Node d) = PersistentDict.isEmpty d
@@ -22,16 +24,40 @@ module RegionTree =
         if PersistentDict.isEmpty d then PersistentDict.empty, PersistentDict.empty
         else
             match PersistentDict.tryFind d reg with
-            | Some x -> (if filterOut (fst x) then PersistentDict.empty else PersistentDict.add reg x PersistentDict.empty), PersistentDict.remove reg d
+            | Some x ->
+                let key, Node child = x
+                let included =
+                    if shouldFilter && filterOut key then child
+                    else PersistentDict.add reg x PersistentDict.empty
+                let disjoint = PersistentDict.remove reg d
+                included, disjoint
             | None ->
-                let groups = PersistentDict.groupBy (fun (reg', key) -> if filterOut (fst key) then FilteredOut else reg.CompareTo reg' |> Preserved) d
-                let empty() = Seq.empty
-                let included = Option.defaultWith empty (PersistentDict.tryFind groups (Preserved Includes)) |> PersistentDict.ofSeq
-                let disjoint = Option.defaultWith empty (PersistentDict.tryFind groups (Preserved Disjoint)) |> PersistentDict.ofSeq
-                let intersected = Option.defaultWith empty (PersistentDict.tryFind groups (Preserved Intersects))
+                let makeGroup (reg', (key, _)) =
+                    if shouldFilter && filterOut key then FilteredOut
+                    else reg.CompareTo reg' |> Preserved
+                let groups = PersistentDict.groupBy makeGroup d
+                let filtered =
+                    PersistentDict.tryFind groups FilteredOut
+                    |> Option.defaultValue Seq.empty
+                    |> Seq.map (fun (_, (_, Node child)) -> PersistentDict.toSeq child)
+                    |> Seq.concat
+                let included =
+                    PersistentDict.tryFind groups (Preserved Includes)
+                    |> Option.defaultValue Seq.empty
+                    |> Seq.append filtered
+                    |> PersistentDict.ofSeq
+                let disjoint =
+                    PersistentDict.tryFind groups (Preserved Disjoint)
+                    |> Option.defaultValue Seq.empty
+                    |> PersistentDict.ofSeq
+                let intersected =
+                    PersistentDict.tryFind groups (Preserved Intersects)
+                    |> Option.defaultValue Seq.empty
                 let splitChild (included, disjoint) (reg' : 'a, (k, child)) =
-                    let splittedIncluded, splittedDisjoint = splitNode filterOut reg child
-                    (PersistentDict.add (reg'.Intersect reg) (k, Node splittedIncluded) included), (PersistentDict.add (reg'.Subtract reg) (k, Node splittedDisjoint) disjoint)
+                    let childIncluded, childDisjoint = splitNode filterOut reg child
+                    let included = PersistentDict.add (reg'.Intersect reg) (k, Node childIncluded) included
+                    let disjoint = PersistentDict.add (reg'.Subtract reg) (k, Node childDisjoint) disjoint
+                    included, disjoint
                 Seq.fold splitChild (included, disjoint) intersected
 
     let localize reg tree = splitNode (always false) reg tree |> fst
@@ -42,7 +68,7 @@ module RegionTree =
         regionsAndKeys |> Seq.fold (fun acc (reg, k) -> PersistentDict.add reg (k, Node PersistentDict.empty) acc) tree |> Node
 
     let write reg key tree =
-        let included, disjoint = splitNode (fun key' -> (key :> IRegionTreeKey<_>).Hides key') reg tree
+        let included, disjoint = splitNode (key :> IRegionTreeKey<_>).Hides reg tree
         Node(PersistentDict.add reg (key, Node included) disjoint)
 
     let rec foldl folder acc (Node d) =
@@ -51,10 +77,10 @@ module RegionTree =
     let rec foldr folder acc (Node d) =
         PersistentDict.fold (fun acc reg (k, t) -> let acc = foldr folder acc t in folder reg k acc) acc d
 
-    let rec private filterRec reg predicate ((Node d) as tree) =
+    let rec private filterRec reg predicate (Node d as tree) =
         let mutable modified = false
         let mutable result = d
-        for (reg', (k, t)) in PersistentDict.toSeq d do
+        for reg', (k, t) in PersistentDict.toSeq d do
             if reg'.CompareTo reg <> Disjoint then
                 if predicate k then
                     match filterRec reg predicate t with
@@ -63,7 +89,8 @@ module RegionTree =
                         result <- PersistentDict.add reg' (k, t') result
                     | _ -> ()
                 else result <- PersistentDict.remove reg' result
-        modified, (if modified then Node result else tree)
+        let tree = if modified then Node result else tree
+        modified, tree
 
     let filter reg predicate tree =
         filterRec reg predicate tree |> snd
@@ -81,12 +108,17 @@ module RegionTree =
     let rec flatten tree =
         foldr (fun reg' k acc -> (reg', k)::acc) [] tree
 
-    let rec private checkInvariantRec (parentReg : IRegion<'a> option) (Node d) =
+    let private checkInvariantParent (parentReg : IRegion<'a> option) (Node d) =
         match parentReg with
         | Some parentReg -> PersistentDict.forall (fun (reg, _) -> parentReg.CompareTo reg = Includes) d
         | None -> true
-        &&
-        d |> PersistentDict.forall (fun (reg, (_, subtree)) -> checkInvariantRec (Some (reg :> IRegion<_>)) subtree && d |> PersistentDict.forall (fun (reg', _) -> reg = reg' || reg.CompareTo reg' = Disjoint))
+
+    let rec private checkInvariantRec (parentReg : IRegion<'a> option) (Node d as tree) =
+        let checkRec (reg, (_, subtree)) =
+            checkInvariantRec (Some (reg :> IRegion<_>)) subtree
+            && PersistentDict.forall (fun (reg', _) -> reg = reg' || reg.CompareTo reg' = Disjoint) d
+        checkInvariantParent parentReg tree
+        && PersistentDict.forall checkRec d
 
     let checkInvariant tree =
         if not <| checkInvariantRec None tree then

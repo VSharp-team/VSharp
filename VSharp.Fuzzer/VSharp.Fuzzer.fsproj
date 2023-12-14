@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net7.0</TargetFramework>
+        <Configurations>Debug;Release;DebugTailRec</Configurations>
+        <Platforms>AnyCPU</Platforms>
+        <DefineConstants>$(DefineConstants);TRACEX</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
+        <Tailcalls>true</Tailcalls>
+        <DebugSymbols>true</DebugSymbols>
+        <DefineConstants>TRACE;DEBUG</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\VSharp.CoverageRunner\VSharp.CoverageRunner.csproj" />
+        <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" />
+        <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+        <ProjectReference Include="..\VSharp.TestGenerator\VSharp.TestGenerator.fsproj" />
+        <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="Utils.fs" />
+        <Compile Include="Logger.fs" />
+        <Compile Include="Startup.fs" />
+        <Compile Include="TypeSolver.fs" />
+        <Compile Include="Generator.fs" />
+        <Compile Include="CoverageTool.fs" />
+        <Compile Include="TestGeneration.fs" />
+        <Compile Include="Communication.fs" />
+        <Compile Include="Fuzzer.fs" />
+        <Compile Include="Application.fs" />
+        <Compile Include="Interaction.fs" />
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Grpc.Net.Client" Version="2.57.0" />
+      <PackageReference Include="MessagePack.FSharpExtensions" Version="4.0.0" />
+      <PackageReference Include="protobuf-net.Grpc" Version="1.1.1" />
+      <PackageReference Include="protobuf-net.Grpc.AspNetCore" Version="1.1.1" />
+      <PackageReference Update="FSharp.Core" Version="7.0.*" />
+    </ItemGroup>
+
+</Project>

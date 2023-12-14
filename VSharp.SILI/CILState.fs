@@ -5,367 +5,518 @@ open System.Text
 open System.Collections.Generic
 open VSharp.Core
 open VSharp.Interpreter.IL
-open ipOperations
+open IpOperations
 
-[<ReferenceEquality>]
-type cilState =
-    { mutable ipStack : ipStack
-      // TODO: get rid of currentLoc!
-      mutable currentLoc : codeLocation // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
-      state : state
-      mutable filterResult : term option
-      //TODO: #mb frames list #mb transfer to Core.State
-      mutable iie : InsufficientInformationException option
-      mutable level : level
-      startingIP : ip
-      mutable initialEvaluationStackSize : uint32
-      mutable stepsNumber : uint
-      mutable suspended : bool
-      mutable targets : Set<codeLocation>
-      mutable lastPushInfo : term option
-      /// <summary>
-      /// All basic blocks visited by the state.
-      /// </summary>
-      mutable history : Set<codeLocation>
-      /// <summary>
-      /// If the state is not isolated (produced during forward execution), Some of it's entry point method, else None.
-      /// </summary>
-      entryMethod : Method option
-      /// <summary>
-      /// Deterministic state id.
-      /// </summary>
-      id : uint<VSharp.ML.GameServer.Messages.stateId>
-      mutable predictedUsefulness: float
-      mutable visitedAgainVertices: uint
-      mutable visitedNotCoveredVerticesInZone: uint
-      mutable visitedNotCoveredVerticesOutOfZone: uint
-      mutable _history: Dictionary<BasicBlock,uint>
-      mutable children: list<cilState>
-    }
+module CilState =
 
-    interface IGraphTrackableState with
-        override this.CodeLocation = this.currentLoc
-        override this.CallStack = Memory.StackTrace this.state.stack |> List.map (fun m -> m :?> Method)
-        override this.Id = this.id
-        override this.PathConditionSize with get () = 1u
-        override this.PredictedUsefulness with get () = this.predictedUsefulness
-        //override this.VisitedAgainEdges = 1u
-        override this.VisitedAgainVertices with get () = this.visitedAgainVertices
-        override this.VisitedNotCoveredVerticesInZone with get () = this.visitedNotCoveredVerticesInZone
-        override this.VisitedNotCoveredVerticesOutOfZone with get () = this.visitedNotCoveredVerticesOutOfZone
-        override this.History with get () = this._history
-        override this.Children with get () = this.children |> Seq.cast<_> |> Array.ofSeq
-        //override this.VisitedNotCoveredEdgesInZone = 1u
-        //override this.VisitedNotCoveredEdgesOutOfZone = 1u
+    type prefix =
+        | Constrained of System.Type
 
-type cilStateComparer(comparer) =
-    interface IComparer<cilState> with
-        override _.Compare(x : cilState, y : cilState) =
-            comparer x y
-
-module internal CilStateOperations =
-    
     let mutable currentStateId = 0u<VSharp.ML.GameServer.Messages.stateId>
     let getNextStateId() =
         let nextId = currentStateId
         currentStateId <- currentStateId + 1u<VSharp.ML.GameServer.Messages.stateId>
         nextId
 
-    let makeCilState entryMethod curV initialEvaluationStackSize state =
-        let currentLoc = ip2codeLocation curV |> Option.get
-        { ipStack = [curV]
-          currentLoc = currentLoc
-          state = state
-          filterResult = None
-          iie = None
-          level = PersistentDict.empty
-          startingIP = curV
-          initialEvaluationStackSize = initialEvaluationStackSize
-          stepsNumber = 0u
-          suspended = false
-          targets = Set.empty
-          lastPushInfo = None
-          history = Set.empty
-          entryMethod = Some entryMethod
-          id = getNextStateId()
-          predictedUsefulness = 0.0
-          visitedAgainVertices = 0u
-          visitedNotCoveredVerticesInZone = 0u
-          visitedNotCoveredVerticesOutOfZone = 0u
-          _history = Dictionary()
-          children = []
+    type public ErrorReporter internal (cilState : cilState) =
+        let mutable cilState = cilState
+        let mutable stateConfigured : bool = false
+
+        static let mutable reportError : cilState -> string -> unit =
+            fun _ _ -> internalfail "'reportError' is not ready"
+        static let mutable reportFatalError : cilState -> string -> unit =
+            fun _ _ -> internalfail "'reportFatalError' is not ready"
+
+        static member Configure reportErrorFunc reportFatalErrorFunc =
+            reportError <- reportErrorFunc
+            reportFatalError <- reportFatalErrorFunc
+
+        static member ReportError (cilState : cilState) message =
+            cilState.ReportError()
+            reportError cilState message
+
+        static member ReportFatalError (cilState : cilState) message =
+            cilState.ReportError()
+            reportFatalError cilState message
+
+        interface IErrorReporter with
+            override x.ReportError msg failCondition =
+                assert stateConfigured
+                let report state k =
+                    let cilState = cilState.ChangeState state
+                    cilState.ReportError()
+                    reportError cilState msg |> k
+                let mutable isAlive = false
+                StatedConditionalExecution cilState.state
+                    (fun state k -> k (!!failCondition, state))
+                    (fun _ k -> k (isAlive <- true))
+                    report
+                    (fun _ _ -> [])
+                    ignore
+                isAlive
+
+            override x.ReportFatalError msg failCondition =
+                assert stateConfigured
+                let report state k =
+                    let cilState = cilState.ChangeState state
+                    cilState.ReportError()
+                    reportFatalError cilState msg |> k
+                let mutable isAlive = false
+                StatedConditionalExecution cilState.state
+                    (fun state k -> k (!!failCondition, state))
+                    (fun _ k -> k (isAlive <- true))
+                    report
+                    (fun _ _ -> [])
+                    ignore
+                isAlive
+
+            override x.ConfigureState state =
+                cilState <- cilState.ChangeState state
+                stateConfigured <- true
+
+    and [<ReferenceEquality>] cilState =
+        {
+            mutable ipStack : ipStack
+            // This field stores information about instruction prefix (for example, '.constrained' prefix)
+            mutable prefixContext : prefix list
+            // TODO: get rid of approximateLoc!
+            // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
+            mutable approximateLoc : codeLocation
+            state : state
+            mutable stackArrays : pset<concreteHeapAddress>
+            mutable errorReported : bool
+            mutable filterResult : term option
+            mutable iie : InsufficientInformationException option
+            mutable level : level
+            startingIP : instructionPointer
+            mutable initialEvaluationStackSize : uint32
+            mutable stepsNumber : uint
+            mutable suspended : bool
+            mutable targets : Set<codeLocation>
+            /// <summary>
+            /// All basic blocks visited by the state.
+            /// </summary>
+            mutable history : Set<codeLocation>
+            /// <summary>
+            /// If the state is not isolated (produced during forward execution), Some of it's entry point method, else None.
+            /// </summary>
+            entryMethod : Method option
+            /// <summary>
+            /// Deterministic state id.
+            /// </summary>
+            internalId : uint<VSharp.ML.GameServer.Messages.stateId>
+            mutable visitedAgainVertices: uint
+            mutable visitedNotCoveredVerticesInZone: uint
+            mutable visitedNotCoveredVerticesOutOfZone: uint
+            mutable _history: Dictionary<BasicBlock,uint>
+            mutable children: list<cilState>
         }
 
-    let makeInitialState m state = makeCilState m (instruction m 0<offsets>) 0u state
+        static member CreateInitial (m : Method) (state : state) =
+            let ip = Instruction(0<offsets>, m)
+            let approximateLoc = ip.ToCodeLocation() |> Option.get
+            {
+                ipStack = List.singleton ip
+                prefixContext = List.empty
+                approximateLoc = approximateLoc
+                state = state
+                stackArrays = PersistentSet.empty
+                errorReported = false
+                filterResult = None
+                iie = None
+                level = PersistentDict.empty
+                startingIP = ip
+                initialEvaluationStackSize = 0u
+                stepsNumber = 0u
+                suspended = false
+                targets = Set.empty
+                history = Set.empty
+                entryMethod = Some m
+                internalId = getNextStateId()
+                visitedAgainVertices = 0u
+                visitedNotCoveredVerticesInZone = 0u
+                visitedNotCoveredVerticesOutOfZone = 0u
+                _history = Dictionary()
+                children = []
+            }
 
-    let mkCilStateHashComparer = cilStateComparer (fun a b -> a.GetHashCode().CompareTo(b.GetHashCode()))
+        member private x.ErrorReporter = lazy ErrorReporter(x)
 
-    let isIsolated state = state.entryMethod.IsNone
+        member x.IsIsolated with get() = x.entryMethod.IsNone
 
-    let entryMethodOf state =
-        if isIsolated state then
-            invalidOp "Isolated state doesn't have an entry method"
-        state.entryMethod.Value
+        member x.EntryMethod with get() =
+            if x.IsIsolated then invalidOp "Isolated state doesn't have an entry method"
+            x.entryMethod.Value
 
-    let isIIEState (s : cilState) = Option.isSome s.iie
+        member x.StartsFromMethodBeginning with get() =
+            match x.startingIP with
+            | Instruction (0<offsets>, _) -> true
+            | _ -> false
 
-    let isExecutable (s : cilState) =
-        match s.ipStack with
-        | [] -> __unreachable__()
-        | [ Exit _ ] -> false
-        | _ -> true
+        member x.SetCurrentTime time = x.state.currentTime <- time
 
-    let isError (s : cilState) =
-        match s.state.exceptionsRegister with
-        | NoException -> false
-        | _ -> true
-    let isUnhandledError (s : cilState) =
-        match s.state.exceptionsRegister with
-        | Unhandled _ -> true
-        | _ -> false
+        // -------------------- Exception and errors operations --------------------
 
-    let levelToUnsignedInt (lvl : level) = PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl //TODO: remove it when ``level'' subtraction would be generalized
-    let currentIp (s : cilState) =
-        match s.ipStack with
-        | [] -> __unreachable__()
-        | h::_ -> h
-//        List.head s.ipStack
+        member x.SetException exc =
+            x.state.exceptionsRegister <- x.state.exceptionsRegister.Tail.Push exc
 
-    let stoppedByException (s : cilState) =
-        match currentIp s with
-        | SearchingForHandler([], []) -> true
-        | _ -> false
+        member x.IsUnhandledException with get() =
+            match x.state.exceptionsRegister.Peek with
+            | Unhandled _ -> true
+            | _ -> false
 
-    let hasRuntimeException (s : cilState) =
-        match s.state.exceptionsRegister with
-        | Unhandled(_, isRuntime, _) -> isRuntime
-        | _ -> false
+        member x.IsUnhandledExceptionOrError with get() =
+            match x.state.exceptionsRegister.Peek with
+            | Unhandled _ -> true
+            | _ -> x.errorReported
 
-    let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s))
+        member x.HasReportedError with get() = x.errorReported
+        member x.ReportError() = x.errorReported <- true
 
-    let tryCurrentLoc = currentIp >> ip2codeLocation
-    let currentLoc = tryCurrentLoc >> Option.get
-    let startingLoc (s : cilState) = s.startingIP |> ip2codeLocation |> Option.get
+        member x.IsStoppedByException with get() =
+            match x.CurrentIp with
+            | EmptySearchingForHandler -> true
+            | _ -> false
 
-    let violatesLevel (s : cilState) maxBound =
-        match tryCurrentLoc s with
-        | Some currLoc when PersistentDict.contains currLoc s.level ->
-            s.level[currLoc] >= maxBound
-        | _ -> false
+        member x.HasRuntimeExceptionOrError with get() =
+            match x.state.exceptionsRegister.Peek with
+            | _ when x.errorReported -> true
+            | Unhandled(_, isRuntime, _) -> isRuntime
+            | _ -> false
 
-    // [NOTE] Obtaining exploring method
-    let currentMethod = currentIp >> forceMethodOf
+        member x.IsIIEState with get() = Option.isSome x.iie
 
-    let currentOffset = currentIp >> offsetOf
+        member x.SetIIE (e : InsufficientInformationException) =
+            x.iie <- Some e
 
-    let startsFromMethodBeginning (s : cilState) =
-        match s.startingIP with
-        | Instruction (0<offsets>, _) -> true
-        | _ -> false
+        member x.IsExecutable with get() =
+            match x.ipStack with
+            | [] -> __unreachable__()
+            | [ Exit _ ] -> false
+            | _ -> true
 
-    let private moveCodeLoc (cilState : cilState) (ip : ip) =
-        match ip2codeLocation ip with
-        | Some loc when loc.method.HasBody -> cilState.currentLoc <- loc
-        | _ -> ()
+        member x.IsStopped with get() =
+            x.IsIIEState || x.IsStoppedByException || not x.IsExecutable
 
-    let pushToIp (ip : ip) (cilState : cilState) =
-        let loc = cilState.currentLoc
-        match ip2codeLocation ip with
-        | Some loc' when loc'.method.HasBody ->
-            cilState.currentLoc <- loc'
-            Application.addCallEdge loc loc'
-        | _ -> ()
-        cilState.ipStack <- ip :: cilState.ipStack
+        member x.NewExceptionRegister() =
+            x.state.exceptionsRegister <- x.state.exceptionsRegister.Push NoException
 
-    let setCurrentIp (ip : ip) (cilState : cilState) =
-        moveCodeLoc cilState ip
-        assert(List.isEmpty cilState.ipStack |> not)
-        cilState.ipStack <- ip :: List.tail cilState.ipStack
+        member x.PopExceptionRegister() =
+            x.state.exceptionsRegister <- x.state.exceptionsRegister.Tail
 
-    let setIpStack (ipStack : ipStack) (cilState : cilState) = cilState.ipStack <- ipStack
-    let startingIpOf (cilState : cilState) = cilState.startingIP
+        member x.ToUnhandledException() =
+            x.state.exceptionsRegister <- x.state.exceptionsRegister.TransformToUnhandled()
 
-    let composeIps (oldIpStack : ipStack) (newIpStack : ipStack) = newIpStack @ oldIpStack
+        member x.ToCaughtException() =
+            x.state.exceptionsRegister <- x.state.exceptionsRegister.TransformToCaught()
 
-    let composeLevel (lvl1 : level) (lvl2 : level) =
-        let composeOne (lvl : level) k v =
-            let oldValue = PersistentDict.tryFind lvl k |> Option.defaultValue 0u
-            PersistentDict.add k (v + oldValue) lvl
-        PersistentDict.fold composeOne lvl1 lvl2
+        member x.MoveDownExceptionRegister() =
+            let elem, rest = x.state.exceptionsRegister.Pop()
+            x.state.exceptionsRegister <- rest.Tail.Push elem
 
-    let compose (cilState1 : cilState) (cilState2 : cilState) =
-        assert(currentIp cilState1 = cilState2.startingIP)
-        let level =
-            PersistentDict.fold (fun (acc : level) k v ->
-                let oldValue = if PersistentDict.contains k acc then PersistentDict.find acc k else 0u
-                PersistentDict.add k (v + oldValue) acc
-            ) cilState1.level cilState2.level
-        let iie = None // we might concretize state, so we should try executed instructions again
-        let ip = composeIps (List.tail cilState1.ipStack) cilState2.ipStack
-        let states = Memory.ComposeStates cilState1.state cilState2.state
-        let _, leftEvaluationStack = EvaluationStack.PopMany (int cilState2.initialEvaluationStackSize) cilState1.state.evaluationStack
-        let makeResultState (state : state) =
-            let state' = { state with evaluationStack = EvaluationStack.Union leftEvaluationStack state.evaluationStack }
-            {cilState2 with state = state'; ipStack = ip; level = level; initialEvaluationStackSize = cilState1.initialEvaluationStackSize
-                            startingIP = cilState1.startingIP; iie = iie; id = getNextStateId()}
-        List.map makeResultState states
+        // -------------------- Instruction pointer operations --------------------
 
-    let incrementLevel (cilState : cilState) codeLocation =
-        let lvl = cilState.level
-        let oldValue = PersistentDict.tryFind lvl codeLocation |> Option.defaultValue 0u
-        cilState.level <- PersistentDict.add codeLocation (oldValue + 1u) lvl
+        member x.CurrentIp with get() =
+            match x.ipStack with
+            | [] -> internalfail "currentIp: 'IP' stack is empty"
+            | h :: _ -> h
 
-    let decrementLevel (cilState : cilState) codeLocation =
-        let lvl = cilState.level
-        let oldValue = PersistentDict.tryFind lvl codeLocation
-        match oldValue with
-        | Some value when value = 1u ->
-            cilState.level <- PersistentDict.remove codeLocation lvl
-        | Some value when value > 0u ->
-            cilState.level <- PersistentDict.add codeLocation (value - 1u) lvl
-        | _ -> ()
+        // Obtaining exploring method
+        member x.CurrentMethod with get() = x.CurrentIp.ForceMethod()
 
-    let addLocationToHistory (cilState : cilState) (loc : codeLocation) =
-        if cilState.history.Contains loc
-        then cilState.visitedAgainVertices <- cilState.visitedAgainVertices + 1u
-        elif loc.BasicBlock.IsGoal
-        then if not loc.BasicBlock.IsCovered then cilState.visitedNotCoveredVerticesInZone <- cilState.visitedNotCoveredVerticesInZone + 1u
-        else if not loc.BasicBlock.IsCovered then cilState.visitedNotCoveredVerticesOutOfZone <- cilState.visitedNotCoveredVerticesOutOfZone + 1u
-             
-        cilState.history <- Set.add loc cilState.history
+        member x.CurrentOffset with get() = x.CurrentIp.Offset
 
-    // ------------------------------- Helper functions for cilState and state interaction -------------------------------
+        member x.PushToIp (ip : instructionPointer) =
+            let loc = x.approximateLoc
+            match ip.ToCodeLocation() with
+            | Some loc' when loc'.method.HasBody ->
+                x.approximateLoc <- loc'
+                Application.addCallEdge loc loc'
+            | _ -> ()
+            x.ipStack <- ip :: x.ipStack
 
-    let stateOf (cilState : cilState) = cilState.state
-    let popFrameOf (cilState : cilState) =
-        Memory.PopFrame cilState.state
-        let ip = List.tail cilState.ipStack
-        cilState.ipStack <- ip
-        match ip with
-        | ip::_ -> moveCodeLoc cilState ip
-        | [] -> ()
+        member x.SetCurrentIp (ip : instructionPointer) =
+            x.MoveCodeLoc ip
+            assert(List.isEmpty x.ipStack |> not)
+            x.ipStack <- ip :: List.tail x.ipStack
 
-    let setCurrentTime time (cilState : cilState) = cilState.state.currentTime <- time
-    let setEvaluationStack evaluationStack (cilState : cilState) = cilState.state.evaluationStack <- evaluationStack
+        member x.SetCurrentIpSafe (ip : instructionPointer) =
+            let ip = x.CurrentIp.ChangeInnerIp ip
+            x.SetCurrentIp ip
 
-    let clearEvaluationStackLastFrame (cilState : cilState) =
-        cilState.state.evaluationStack <- EvaluationStack.ClearActiveFrame cilState.state.evaluationStack
+        member x.ReplaceLastIp (ip : instructionPointer) =
+            let newIp = x.CurrentIp.ReplaceRecIp ip
+            x.SetCurrentIp newIp
 
-    // TODO: Not mutable -- copies cilState #do
-    let changeState (cilState : cilState) state =
-        if LanguagePrimitives.PhysicalEquality state cilState.state
-        then cilState
-        else {cilState with state = state; id = getNextStateId()}
+        member x.MarkExit (m : Method) =
+            match x.ipStack with
+            | ip :: ips ->
+                assert(ip.Method = Some m)
+                x.ipStack <- (Exit m) :: ips
+            | [] -> __unreachable__()
 
-    let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
+        member x.TryGetFilterIp with get() = x.ipStack |> List.tryFind (fun ip -> ip.IsInFilter)
 
-    let push v (cilState : cilState) =
-        cilState.state.evaluationStack <- EvaluationStack.Push v cilState.state.evaluationStack
-        cilState.lastPushInfo <- Some v
-    let pushMany vs (cilState : cilState) = cilState.state.evaluationStack <- EvaluationStack.PushMany vs cilState.state.evaluationStack
+        member x.TryCurrentLoc with get() = x.CurrentIp.ToCodeLocation()
 
-    let peek (cilState : cilState) =
-        EvaluationStack.Pop cilState.state.evaluationStack |> fst
-    let peek2 (cilState : cilState) =
-        let stack = cilState.state.evaluationStack
-        let arg2, stack = EvaluationStack.Pop stack
-        let arg1, _ = EvaluationStack.Pop stack
-        arg2, arg1
-    let pop (cilState : cilState) =
-        let v, evaluationStack = EvaluationStack.Pop cilState.state.evaluationStack
-        cilState.state.evaluationStack <- evaluationStack
-        v
-    let pop2 (cilState : cilState) =
-        let arg2 = pop cilState
-        let arg1 = pop cilState
-        arg2, arg1
-    let pop3 (cilState : cilState) =
-        let arg3 = pop cilState
-        let arg2 = pop cilState
-        let arg1 = pop cilState
-        arg3, arg2, arg1
+        member x.CurrentLoc with get() = x.TryCurrentLoc |> Option.get
 
-    let pushNewObjForValueTypes (afterCall : cilState) =
-        let ref = pop afterCall
-        let value = Memory.Read afterCall.state ref
-        push value afterCall
+        member x.StartingLoc with get() = x.startingIP.ToCodeLocation() |> Option.get
 
-    let addTarget (state : cilState) target =
-        let prev = state.targets
-        state.targets <- Set.add target prev
-        prev.Count <> state.targets.Count
+        member x.CodeLocations with get() =
+            x.ipStack
+            |> List.takeWhile (fun ip -> not ip.IsFilter)
+            |> List.map (fun ip -> ip.ForceCodeLocation())
 
-    let removeTarget (state : cilState) target =
-        let prev = state.targets
-        state.targets <- Set.remove target prev
-        prev.Count <> state.targets.Count
+        member private x.MoveCodeLoc (ip : instructionPointer) =
+            match ip.ToCodeLocation() with
+            | Some loc when loc.method.HasBody -> x.approximateLoc <- loc
+            | _ -> ()
 
-    // ------------------------------- Helper functions for cilState -------------------------------
+        // -------------------- Prefix context operations --------------------
 
-    // TODO: not used
-    let moveIp offset (m : Method) cilState =
-        assert m.HasBody
-        let opCode = MethodBody.parseInstruction m offset
-        let newIps =
-            let nextTargets = MethodBody.findNextInstructionOffsetAndEdges opCode m.ILBytes offset
-            match nextTargets with
-            | UnconditionalBranch nextInstruction
-            | FallThrough nextInstruction -> instruction m nextInstruction |> List.singleton
-            | Return -> exit m |> List.singleton
-            | ExceptionMechanism ->
-                // TODO: use ExceptionMechanism? #do
-//                let toObserve = __notImplemented__()
-//                searchingForHandler toObserve 0 :: []
-                __notImplemented__()
-            | ConditionalBranch (fall, targets) -> fall :: targets |> List.map (instruction m)
-        List.map (fun ip -> setCurrentIp ip cilState) newIps
+        member x.PushPrefixContext (prefix : prefix) =
+            x.prefixContext <- prefix :: x.prefixContext
 
-    let GuardedApplyCIL (cilState : cilState) term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
-        let mkCilState state =
-            if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
-            else {cilState with state = state; id = getNextStateId()}
-        GuardedStatedApplyk
-            (fun state term k -> f (mkCilState state) term k)
-            cilState.state term id (List.concat >> k)
+        member x.PopPrefixContext() =
+            match x.prefixContext with
+            | prefix :: context ->
+                x.prefixContext <- context
+                Some prefix
+            | _ -> None
 
-    let StatedConditionalExecutionCIL (cilState : cilState) conditionInvocation thenBranch elseBranch k =
-        let origCilState = {cilState with state = cilState.state}
-        let mkCilState state =
-            if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
-            else {origCilState with state = state; id = getNextStateId()}
-        StatedConditionalExecution cilState.state conditionInvocation
-            (fun state k -> thenBranch (mkCilState state) k)
-            (fun state k -> elseBranch (mkCilState state) k)
-            (fun x y -> [x; y])
-            (List.concat >> k)
+        // -------------------- Stack arrays operations --------------------
 
-    let BranchOnNullCIL (cilState : cilState) term thenBranch elseBranch k =
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsNullReference term, state))
-            thenBranch
-            elseBranch
-            k
+        member x.AddStackArray (address : concreteHeapAddress) =
+            x.stackArrays <- PersistentSet.add x.stackArrays address
 
-    // ------------------------------- Pretty printing for cilState -------------------------------
+        member x.IsStackArray ref =
+            match ref.term with
+            | HeapRef({term = ConcreteHeapAddress address}, _)
+            | Ref(ArrayIndex({term = ConcreteHeapAddress address}, _, _))
+            | Ptr(HeapLocation({term = ConcreteHeapAddress address}, _), _, _) ->
+                PersistentSet.contains address x.stackArrays
+            | _ -> false
 
-    let private dumpSectionValue section value (sb : StringBuilder) =
-        let sb = Utils.PrettyPrinting.dumpSection section sb
-        Utils.PrettyPrinting.appendLine sb value
+        // -------------------- Level operations --------------------
 
-    let private dumpIp (ipStack : ipStack) =
-        List.fold (fun acc entry -> sprintf "%s\n%O" acc entry) "" ipStack
+        member x.IncrementLevel codeLocation =
+            let oldValue = PersistentDict.tryFind x.level codeLocation |> Option.defaultValue 0u
+            x.level <- PersistentDict.add codeLocation (oldValue + 1u) x.level
 
-    let ipAndMethodBase2String (codeLocation : codeLocation) =
-        sprintf "Method: %O, offset = %d" codeLocation.method codeLocation.offset
+        member x.DecrementLevel codeLocation =
+            let oldValue = PersistentDict.tryFind x.level codeLocation
+            match oldValue with
+            | Some value when value = 1u ->
+                x.level <- PersistentDict.remove codeLocation x.level
+            | Some value when value > 0u ->
+                x.level <- PersistentDict.add codeLocation (value - 1u) x.level
+            | _ -> ()
 
-    // TODO: print filterResult and IIE ?
-    let dump (cilState : cilState) : string =
-        let sb = (StringBuilder())
-        let sb = dumpSectionValue "Starting ip" (sprintf "%O" cilState.startingIP) sb
-        let sb = dumpSectionValue "IP" (dumpIp cilState.ipStack) sb
-        let sb = dumpSectionValue "IIE" (sprintf "%O" cilState.iie) sb
-        let sb = dumpSectionValue "Initial EvaluationStack Size" (sprintf "%O" cilState.initialEvaluationStackSize) sb
-        let sb = Utils.PrettyPrinting.dumpDict "Level" id ipAndMethodBase2String id sb cilState.level
-        let stateDump = Print.Dump cilState.state
-        let sb = dumpSectionValue "State" stateDump sb
-        if sb.Length = 0 then "<EmptyCilState>" else sb.ToString()
+        member x.ViolatesLevel maxBound =
+            match x.TryCurrentLoc with
+            | Some currLoc when PersistentDict.contains currLoc x.level ->
+                x.level[currLoc] >= maxBound
+            | _ -> false
+
+        member x.LevelOfLocation loc =
+            if PersistentDict.contains loc x.level then x.level[loc] else 0u
+
+        member x.Level with get() = Level.levelToUnsignedInt x.level
+
+        // -------------------- History operations --------------------
+
+        member x.AddLocationToHistory (loc : codeLocation) =
+            x.history <- Set.add loc x.history
+
+        // -------------------- EvaluationStack operations --------------------
+
+        member x.ClearEvaluationStackLastFrame() =
+            x.state.evaluationStack <- EvaluationStack.ClearActiveFrame x.state.evaluationStack
+
+        member x.Push v =
+            match v.term with
+            | Nop -> internalfail "pushing 'NOP' value onto evaluation stack"
+            | _ -> x.state.evaluationStack <- EvaluationStack.Push v x.state.evaluationStack
+
+        member x.PushMany vs =
+            if List.contains (Nop()) vs then
+                internalfail "pushing 'NOP' value onto evaluation stack"
+            x.state.evaluationStack <- EvaluationStack.PushMany vs x.state.evaluationStack
+
+        member x.Peek() = EvaluationStack.Pop x.state.evaluationStack |> fst
+
+        member x.Peek2() =
+            let stack = x.state.evaluationStack
+            let arg2, stack = EvaluationStack.Pop stack
+            let arg1, _ = EvaluationStack.Pop stack
+            arg2, arg1
+
+        member x.Pop() =
+            let v, evaluationStack = EvaluationStack.Pop x.state.evaluationStack
+            x.state.evaluationStack <- evaluationStack
+            v
+
+        member x.Pop2() =
+            let arg2 = x.Pop()
+            let arg1 = x.Pop()
+            arg2, arg1
+
+        member x.Pop3() =
+            let arg3 = x.Pop()
+            let arg2 = x.Pop()
+            let arg1 = x.Pop()
+            arg3, arg2, arg1
+
+        member x.PopMany (count : int) =
+            let parameters, evaluationStack = EvaluationStack.PopMany count x.state.evaluationStack
+            x.state.evaluationStack <- evaluationStack
+            parameters
+
+        member x.PushNewObjForValueTypes() =
+            let ref = x.Pop()
+            let value = Memory.Read x.state ref
+            x.Push value
+
+        // -------------------- Filter result operations --------------------
+
+        member x.SetFilterResult (value : term) =
+            x.filterResult <- Some value
+
+        member x.ClearFilterResult() =
+            x.filterResult <- None
+
+        // -------------------- Targets operations --------------------
+
+        member x.AddTarget target =
+            let prev = x.targets
+            x.targets <- Set.add target prev
+            prev.Count <> x.targets.Count
+
+        member x.RemoveTarget target =
+            let prev = x.targets
+            x.targets <- Set.remove target prev
+            prev.Count <> x.targets.Count
+
+        member x.ClearTargets() =
+            x.targets <- Set.empty
+
+        // -------------------- Memory interaction --------------------
+
+        member x.PopFrame() =
+            Memory.PopFrame x.state
+            let ip = List.tail x.ipStack
+            x.ipStack <- ip
+            assert(EvaluationStack.FramesCount x.state.evaluationStack = Memory.CallStackSize x.state)
+            match ip with
+            | ip :: _ -> x.MoveCodeLoc ip
+            | [] -> ()
+
+        member x.Read ref =
+            Memory.ReadUnsafe x.ErrorReporter.Value x.state ref
+
+        member x.ReadField term field =
+            Memory.ReadFieldUnsafe x.ErrorReporter.Value x.state term field
+
+        member x.ReadIndex term index valueType =
+            Memory.ReadArrayIndexUnsafe x.ErrorReporter.Value x.state term index valueType
+
+        member x.Write ref value =
+            let states = Memory.WriteUnsafe x.ErrorReporter.Value x.state ref value
+            List.map x.ChangeState states
+
+        member x.WriteClassField ref field value =
+            let states = Memory.WriteClassFieldUnsafe x.ErrorReporter.Value x.state ref field value
+            List.map x.ChangeState states
+
+        member x.WriteStructField term field value =
+            Memory.WriteStructFieldUnsafe x.ErrorReporter.Value x.state term field value
+
+        member x.WriteIndex term index value valueType =
+            let states = Memory.WriteArrayIndexUnsafe x.ErrorReporter.Value x.state term index value valueType
+            List.map x.ChangeState states
+
+        // -------------------------- Branching --------------------------
+
+        member x.GuardedApplyCIL term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
+            GuardedStatedApplyk
+                (fun state term k -> f (x.ChangeState state) term k)
+                x.state term id (List.concat >> k)
+
+        member x.StatedConditionalExecutionCIL conditionInvocation thenBranch elseBranch k =
+            let clone = { x with state = x.state }
+            let mkCilState state' =
+                if LanguagePrimitives.PhysicalEquality state' x.state then x
+                else clone.Copy(state')
+            StatedConditionalExecution x.state conditionInvocation
+                (fun state k -> thenBranch (mkCilState state) k)
+                (fun state k -> elseBranch (mkCilState state) k)
+                (fun x y -> [x; y])
+                (List.concat >> k)
+
+        member x.BranchOnNullCIL term thenBranch elseBranch k =
+            x.StatedConditionalExecutionCIL
+                (fun state k -> k (IsNullReference term, state))
+                thenBranch
+                elseBranch
+                k
+
+        // -------------------- Changing inner state --------------------
+
+        member private x.DumpSectionValue section value (sb : StringBuilder) =
+            let sb = Utils.PrettyPrinting.dumpSection section sb
+            Utils.PrettyPrinting.appendLine sb value
+
+        member private x.DumpIpStack (ipStack : ipStack) =
+            List.fold (fun acc entry -> $"{acc}\n{entry}") "" ipStack
+
+        member private x.Dump() : string =
+            let sb = StringBuilder()
+            let sb = x.DumpSectionValue "Starting ip" $"{x.startingIP}" sb
+            let sb = x.DumpSectionValue "IP" (x.DumpIpStack x.ipStack) sb
+            let sb = x.DumpSectionValue "IIE" $"{x.iie}" sb
+            let sb = x.DumpSectionValue "Initial EvaluationStack Size" $"{x.initialEvaluationStackSize}" sb
+            let sb = Utils.PrettyPrinting.dumpDict "Level" id toString id sb x.level
+            let sb = x.DumpSectionValue "State" (Print.Dump x.state) sb
+            if sb.Length = 0 then "<EmptyCilState>" else sb.ToString()
+
+        // -------------------- Changing inner state --------------------
+
+        member x.Copy(state : state) =
+            { x with state = state }
+
+        // This function copies cilState, instead of mutation
+        member x.ChangeState state' : cilState =
+            if LanguagePrimitives.PhysicalEquality state' x.state then x
+            else x.Copy(state')
+
+        // -------------------- Steps number --------------------
+
+        member x.IncrementStepsNumber() =
+            x.stepsNumber <- x.stepsNumber + 1u
+
+        // -------------------- Overriding methods --------------------
+
+        override x.ToString() = System.String.Empty
+
+        interface IGraphTrackableState with
+            override this.CodeLocation = this.approximateLoc
+            override this.CallStack = Memory.StackTrace this.state.stack |> List.map (fun m -> m :?> Method)
+            override this.Id = this.internalId
+            override this.PathConditionSize with get () = 1u            
+            //override this.VisitedAgainEdges = 1u
+            override this.VisitedAgainVertices with get () = this.visitedAgainVertices
+            override this.VisitedNotCoveredVerticesInZone with get () = this.visitedNotCoveredVerticesInZone
+            override this.VisitedNotCoveredVerticesOutOfZone with get () = this.visitedNotCoveredVerticesOutOfZone
+            override this.History with get () = this._history
+            override this.Children with get () = this.children |> Seq.cast<_> |> Array.ofSeq
+
+module CilStateOperations =
+    open CilState
+
+    type cilStateComparer() =
+        interface IComparer<cilState> with
+            override _.Compare(x : cilState, y : cilState) =
+                x.GetHashCode().CompareTo(y.GetHashCode())
+
+    let mkCilStateHashComparer = cilStateComparer()
