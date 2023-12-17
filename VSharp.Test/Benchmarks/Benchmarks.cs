@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using ConsoleTables;
 using NUnit.Framework;
+using VSharp.CoverageTool;
 using VSharp.CSharpUtils;
 using VSharp.Explorer;
 using VSharp.TestRenderer;
@@ -222,7 +223,8 @@ internal static class Benchmarks
         }
 
         var runnerWithArgs = $"{TestRunnerPath} {result.Tests.TestDirectory}";
-        return CoverageRunner.CoverageRunner.RunAndGetCoverage(runnerWithArgs, result.Tests.TestDirectory, result.Target.Method);
+        var coverageTool = new PassiveCoverageTool(result.Tests.TestDirectory, result.Target.Method);
+        return coverageTool.RunWithCoverage(runnerWithArgs);
     }
 
     public static Assembly LoadBenchmarkAssembly(string suite, string dllFileName)

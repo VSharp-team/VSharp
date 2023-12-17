@@ -4,8 +4,8 @@ open System
 open VSharp
 open VSharp.CSharpUtils
 open VSharp.CoverageTool
-open VSharp.Utils.EnvironmentUtils
 open VSharp.Fuzzer.Utils
+open VSharp.Utils.EnvironmentUtils
 
 type internal FuzzerOptions = {
     initialSeed: int
@@ -28,22 +28,6 @@ type internal FuzzerDeveloperOptions = {
     sanitizersMode: SanitizersMode
 }
 
-let private optionalFromEnv name =
-    let value = Environment.GetEnvironmentVariable(name)
-    if value = null then
-        None
-    else
-        Some value
-
-let private fromEnv name =
-    match optionalFromEnv name with
-    | Some value -> value
-    | None -> Prelude.internalfail $"Required env var[{name}] not specified"
-
-let private coreclrProfiler = "{2800fea6-9667-4b42-a2b6-45dc98e77e9e}"
-let private coreclrProfilerPath = $"{IO.Directory.GetCurrentDirectory()}{System.IO.Path.DirectorySeparatorChar}libvsharpCoverage{getLibExtension ()}"
-let private enabled = "1"
-
 let internal fuzzerOptionsFromEnv () =
     {
         initialSeed = fromEnv "INITIAL_SEED" |> int
@@ -57,7 +41,7 @@ let internal getLogPath () =
 
 let internal waitDebuggerAttached () =
     let value = Environment.GetEnvironmentVariable("WAIT_DEBUGGER_ATTACHED_FUZZER")
-    if value = enabled then
+    if value = "1" then
         while not Diagnostics.Debugger.IsAttached do ()
 
 
@@ -66,6 +50,25 @@ let internal startFuzzer options developerOptions =
     info.WorkingDirectory <- IO.Directory.GetCurrentDirectory()
     info.FileName <- DotnetExecutablePath.ExecutablePath
     info.Arguments <- "VSharp.Fuzzer.dll"
+
+    // info.EnvironmentVariables["CORECLR_PROFILER"] <- coreclrProfiler
+    // info.EnvironmentVariables["CORECLR_ENABLE_PROFILING"] <- enabled
+    // info.EnvironmentVariables["CORECLR_PROFILER_PATH"] <- coreclrProfilerPath
+
+    // if developerOptions.waitDebuggerAttachedFuzzer then
+    //     info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_FUZZER"] <- enabled
+    // if developerOptions.waitDebuggerAttachedCoverageTool then
+    //     info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_COVERAGE_TOOL"] <- enabled
+    // if developerOptions.waitDebuggerAttachedOnAssertCoverageTool then
+    //     info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_ON_ASSERT_COVERAGE_TOOL"] <- enabled
+
+    // match developerOptions.sanitizersMode with
+    // | Disabled -> ()
+    // | Enabled path ->
+    //     match getPlatform () with
+    //     | Windows -> Prelude.__notImplemented__ ()
+    //     | Linux -> info.EnvironmentVariables["LD_PRELOAD"] <- path
+    //     | MacOs -> info.EnvironmentVariables["DYLD_INSERT_LIBRARIES"] <- path
 
     info.EnvironmentVariables["LOG_PATH"] <- System.IO.Directory.GetCurrentDirectory()
     info.EnvironmentVariables["INITIAL_SEED"] <- options.initialSeed |> string
@@ -78,6 +81,7 @@ let internal startFuzzer options developerOptions =
     if developerOptions.redirectStdout then
         info.RedirectStandardOutput <- true
 
+    let info = InteractionCoverageTool.WithCoverageTool info
     let proc = System.Diagnostics.Process.Start info
 
     let stderrTag = "Fuzzer STDERR"

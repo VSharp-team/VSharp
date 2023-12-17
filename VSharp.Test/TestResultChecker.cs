@@ -1,8 +1,9 @@
 using System.IO;
 using System.Reflection;
 using System.Diagnostics;
+using VSharp.CoverageTool;
 using VSharp.CSharpUtils;
-using static VSharp.CoverageRunner.CoverageRunner;
+
 
 namespace VSharp.Test;
 
@@ -19,7 +20,12 @@ public static class TestResultChecker
             Arguments = $"{TestRunnerPath} {testDir.FullName}"
         };
 
-        var success = RunWithLogging(info);
+        var proc = info.StartWithLogging(
+            x => Logger.printLogString(Logger.Info, $"{x}"),
+            x => Logger.printLogString(Logger.Error, $"{x}")
+        );
+        proc.WaitForExit();
+        var success = proc.IsSuccess();
 
         if (!success)
             Logger.printLogString(Logger.Error, "TestRunner Check failed!");
@@ -35,7 +41,8 @@ public static class TestResultChecker
         out string resultMessage)
     {
         var runnerWithArgs = $"{TestRunnerPath} {testDir.FullName}";
-        var coverage = RunAndGetCoverage(runnerWithArgs, testDir, methodInfo);
+        var coverageTool = new PassiveCoverageTool(testDir, methodInfo);
+        var coverage = coverageTool.RunWithCoverage(runnerWithArgs);
         actualCoverage = coverage;
         resultMessage = string.Empty;
 

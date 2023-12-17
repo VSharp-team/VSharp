@@ -9,6 +9,7 @@ open System.Threading
 open System.Threading.Tasks
 open VSharp
 open VSharp.CSharpUtils
+open VSharp.CoverageTool
 open VSharp.Fuzzer.Communication.Contracts
 open VSharp.Fuzzer.Startup
 open VSharp.Fuzzer.TestGeneration
@@ -40,7 +41,7 @@ module private CancellableThreads =
 type internal Fuzzer(
     fuzzerOptions: FuzzerOptions,
     symbolicExecutionService: IMasterProcessService,
-    coverageTool: CoverageTool) =
+    coverageTool: InteractionCoverageTool) =
 
     let rnd = Random(fuzzerOptions.initialSeed)
     let typeSolver = TypeSolver()

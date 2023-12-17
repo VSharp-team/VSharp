@@ -3,6 +3,7 @@ namespace VSharp.Fuzzer
 open System
 open System.Reflection
 open System.Threading
+open VSharp.CoverageTool
 open VSharp.Fuzzer.Communication.Contracts
 open VSharp.Fuzzer.Utils
 open VSharp
@@ -14,7 +15,7 @@ open VSharp.Fuzzer.Communication.Services
 
 type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
     let fuzzerCancellationToken = new CancellationTokenSource()
-    let coverageTool = CoverageTool()
+    let coverageTool = InteractionCoverageTool()
     let masterProcessService = connectMasterProcessService ()
     let fuzzer = Fuzzer.Fuzzer(fuzzerOptions, masterProcessService, coverageTool)
 
