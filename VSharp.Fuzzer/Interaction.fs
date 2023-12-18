@@ -33,7 +33,7 @@ type private SiliStatisticConverter() =
                 methods.Add (l.methodToken, method)
                 method
 
-        let toCodeLocation l =
+        let toCodeLocation (l : RawCoverageLocation) =
             {
                 offset = LanguagePrimitives.Int32WithMeasure (int l.offset)
                 method = methodInfo[l.methodId] |> getMethod
@@ -242,12 +242,12 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
         with e -> markException e
 
 type Interactor (
-    targetAssemblyPath: string,
-    isolated: MethodBase seq,
-    cancellationToken: CancellationToken,
-    outputPath: string,
-    saveStatistic,
-    onCancelled: unit -> unit
+    targetAssemblyPath : string,
+    isolated : MethodBase seq,
+    cancellationToken : CancellationToken,
+    outputPath : string,
+    saveStatistic : codeLocation seq -> bool,
+    onCancelled : unit -> unit
     ) =
 
     // TODO: make options configurable (CLI & Tests)
