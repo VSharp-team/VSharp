@@ -233,6 +233,7 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
         let blocks = Seq.distinct blocks
         for block in blocks do
             block.BasicBlock.IsCovered <- true
+            let added = Application.applicationGraphDelta.TouchedBasicBlocks.Add block.BasicBlock 
             let generalizedMethod = generalizeIfNeeded block.method
             let method = block.method
             let mutable isNewBlock = false

@@ -359,15 +359,17 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                             | _ -> None                        
                     let statistics1 =
                         if options.serialize
-                        then Some(dumpGameState s.CurrentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)) options.serialize)
+                        then Some(dumpGameState (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)) options.serialize)
                         else None
                     x.Forward(s)                                        
                     match searcher with                        
                     | :? BidirectionalSearcher as searcher ->
                         match searcher.ForwardSearcher with
                         | :? AISearcher as searcher ->
-                            let gameState, statisticsAfterStep,_ = collectGameState s.approximateLoc options.serialize
-                            searcher.LastGameState <- gameState
+                            ///TODO !!! Do not use collectFullGameState
+                            let gameState,_ = collectFullGameState options.serialize
+                            let statisticsAfterStep = computeStatistics gameState
+                            //searcher.LastGameState <- gameState
                             searcher.LastCollectedStatistics <- statisticsAfterStep
                             let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
                             if searcher.InAIMode
@@ -376,7 +378,8 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                     | _ -> ()
                     if options.serialize
                     then 
-                        let _,statistics2,_ = collectGameState s.approximateLoc options.serialize
+                        let gameState,_ = collectFullGameState options.serialize
+                        let statistics2 = computeStatistics gameState
                         saveExpectedResult fileForExpectedResults s.internalId statistics1.Value statistics2 
                 with
                 | e ->

@@ -181,10 +181,10 @@ let getFolderToStoreSerializationResult suffix =
     folderName
     
 let getFileForExpectedResults folderToStoreSerializationResult =
-    let path = System.IO.Path.Combine(folderToStoreSerializationResult,"expectedResults.txt")    
+    let path = System.IO.Path.Combine(folderToStoreSerializationResult, "expectedResults.txt")    
     path
- 
-let collectGameState (location:codeLocation) (serialize: bool) =
+
+let computeStatistics (gameState:GameState) =
     let mutable coveredVerticesInZone = 0u
     let mutable coveredVerticesOutOfZone = 0u
     let mutable visitedVerticesInZone = 0u
@@ -193,15 +193,36 @@ let collectGameState (location:codeLocation) (serialize: bool) =
     let mutable touchedVerticesInZone = 0u
     let mutable touchedVerticesOutOfZone = 0u
     let mutable totalVisibleVerticesInZone = 0u
+    for v in gameState.GraphVertices do
+        if v.CoveredByTest && v.InCoverageZone
+        then coveredVerticesInZone <- coveredVerticesInZone + 1u
+        if v.CoveredByTest && not v.InCoverageZone
+        then coveredVerticesOutOfZone <- coveredVerticesOutOfZone + 1u               
+        
+        if v.VisitedByState && v.InCoverageZone
+        then visitedVerticesInZone <- visitedVerticesInZone + 1u
+        if v.VisitedByState && not v.InCoverageZone
+        then visitedVerticesOutOfZone <- visitedVerticesOutOfZone + 1u
+        
+        if v.InCoverageZone
+        then
+            totalVisibleVerticesInZone <- totalVisibleVerticesInZone + 1u
+            visitedInstructionsInZone <- visitedInstructionsInZone + v.BasicBlockSize
+        
+        if v.TouchedByState && v.InCoverageZone
+        then touchedVerticesInZone <- touchedVerticesInZone + 1u
+        if v.TouchedByState && not v.InCoverageZone
+        then touchedVerticesOutOfZone <- touchedVerticesOutOfZone + 1u
+        
+    Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
+        
+        
+ 
+let collectGameState (basicBlocks:ResizeArray<BasicBlock>) (serialize: bool) =
     
-    let vertices = Dictionary<_,_>()
+    let vertices = ResizeArray<_>()
     let allStates = HashSet<_>()
 
-    let basicBlocks = ResizeArray<_>()
-    for method in Application.loadedMethods do
-        for basicBlock in method.Key.BasicBlocks do
-            basicBlock.IsGoal <- method.Key.InCoverageZone
-            basicBlocks.Add(basicBlock)
             
     let statesMetrics = ResizeArray<_>()
 
@@ -212,31 +233,6 @@ let collectGameState (location:codeLocation) (serialize: bool) =
         |> fun x -> HashSet x
         
     for currentBasicBlock in basicBlocks do        
-        let isCovered = if currentBasicBlock.IsCovered then 1u else 0u
-        if currentBasicBlock.IsGoal
-        then coveredVerticesInZone <- coveredVerticesInZone + isCovered
-        else coveredVerticesOutOfZone <- coveredVerticesOutOfZone + isCovered
-        
-        let isVisited = if currentBasicBlock.IsVisited then 1u else 0u
-        if currentBasicBlock.IsGoal
-        then visitedVerticesInZone <- visitedVerticesInZone + isVisited
-        else visitedVerticesOutOfZone <- visitedVerticesOutOfZone + isVisited
-        
-        let isTouched = if currentBasicBlock.IsTouched then 1u else 0u
-        if currentBasicBlock.IsGoal
-        then touchedVerticesInZone <- touchedVerticesInZone + isTouched
-        else touchedVerticesOutOfZone <- touchedVerticesOutOfZone + isTouched        
-        
-        if currentBasicBlock.IsGoal
-        then totalVisibleVerticesInZone <- totalVisibleVerticesInZone + 1u
-    
-        if currentBasicBlock.IsVisited
-        then
-            visitedInstructionsInZone <- visitedInstructionsInZone + uint (currentBasicBlock.BlockSize)
-        elif currentBasicBlock.IsTouched
-        then
-            visitedInstructionsInZone <- visitedInstructionsInZone + currentBasicBlock.VisitedInstructions
-        
         let interproceduralGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<IInterproceduralCfgNode>>()
         
         let states =
@@ -270,7 +266,7 @@ let collectGameState (location:codeLocation) (serialize: bool) =
             currentBasicBlock.IsVisited,
             currentBasicBlock.IsTouched,
             states)
-        |> (fun x -> vertices.Add(x.Id,x))
+        |> vertices.Add
                     
     let statesInfoToDump =
         if serialize
@@ -317,24 +313,41 @@ let collectGameState (location:codeLocation) (serialize: bool) =
     for basicBlock in basicBlocks do
         for outgoingEdges in basicBlock.OutgoingEdges do
             for targetBasicBlock in outgoingEdges.Value do
-                GameMapEdge (vertices.[basicBlock.Id].Id,
-                             vertices[targetBasicBlock.Id].Id,
+                GameMapEdge (basicBlock.Id,
+                             targetBasicBlock.Id,
                              GameEdgeLabel (int outgoingEdges.Key))
                 |> edges.Add
                 
-    GameState (vertices.Values |> Array.ofSeq, allStates |> Array.ofSeq, edges.ToArray())
-    , Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
+    GameState (vertices.ToArray(), allStates |> Array.ofSeq, edges.ToArray())    
     , statesInfoToDump
 
-let dumpGameState (location:codeLocation) fileForResultWithoutExtension serialize =
-    let gameState, statistics, statesInfoToDump = collectGameState location serialize
+let collectFullGameState serialize =
+    let basicBlocks = ResizeArray<_>()
+    for method in Application.loadedMethods do
+        for basicBlock in method.Key.BasicBlocks do
+            basicBlock.IsGoal <- method.Key.InCoverageZone
+            basicBlocks.Add(basicBlock)
+    collectGameState basicBlocks serialize
+    
+let collectGameStateDelta serialize =
+    let basicBlocks = HashSet<_>(Application.applicationGraphDelta.TouchedBasicBlocks)
+    for method in Application.applicationGraphDelta.LoadedMethods do
+        for basicBlock in method.BasicBlocks do
+            basicBlock.IsGoal <- method.InCoverageZone
+            let added = basicBlocks.Add(basicBlock)
+            ()
+    collectGameState (ResizeArray basicBlocks) serialize
+    
+
+let dumpGameState fileForResultWithoutExtension serialize =
+    let gameState, statesInfoToDump = collectFullGameState serialize
     if serialize
     then
         let gameStateJson = JsonSerializer.Serialize gameState        
         let statesInfoJson = JsonSerializer.Serialize statesInfoToDump.Value
         System.IO.File.WriteAllText(fileForResultWithoutExtension + "_gameState",gameStateJson)
         System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
-    statistics
+    computeStatistics gameState
     
 let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =
     let rewardForCoverage =

@@ -521,7 +521,19 @@ module public CodeLocation =
     let hasSiblings (blockStart : codeLocation) =
         blockStart.method.CFG.HasSiblings blockStart.offset
 
-type ApplicationGraph(getNextBasicBlockGlobalId) =
+type ApplicationGraphDelta() =
+    let loadedMethods = ResizeArray<Method>()
+    let touchedBasicBlocks = HashSet<BasicBlock>()
+    let touchedStates = HashSet<IGraphTrackableState>()
+    member this.LoadedMethods = loadedMethods
+    member this.TouchedBasicBlocks = touchedBasicBlocks
+    member this.TouchedStates = touchedStates
+    member this.Clear() =
+        loadedMethods.Clear()
+        touchedBasicBlocks.Clear()
+        touchedStates.Clear()
+    
+type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:ApplicationGraphDelta) =
     
     let dummyTerminalForCallEdge = 1<terminalSymbol>
     let dummyTerminalForReturnEdge = 2<terminalSymbol>
@@ -564,6 +576,8 @@ type ApplicationGraph(getNextBasicBlockGlobalId) =
         else ()
 
     let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
+        let added = applicationGraphDelta.TouchedBasicBlocks.Add initialPosition.BasicBlock
+        let added = applicationGraphDelta.TouchedBasicBlocks.Add stateWithNewPosition.CodeLocation.BasicBlock
         let removed = initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition
         if removed        
         then
@@ -584,9 +598,13 @@ type ApplicationGraph(getNextBasicBlockGlobalId) =
             stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
             || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
     
-    let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) =
+    let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) = 
+        //Option.iter (applicationGraphDelta.TouchedStates.Add >> ignore) parentState
+        parentState |> Option.iter (fun v -> applicationGraphDelta.TouchedBasicBlocks.Add v.CodeLocation.BasicBlock |> ignore) 
         for newState in states do
-            newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
+            //let added = applicationGraphDelta.TouchedStates.Add newState
+            let added = applicationGraphDelta.TouchedBasicBlocks.Add newState.CodeLocation.BasicBlock
+            let added = newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
             if newState.History.ContainsKey newState.CodeLocation.BasicBlock
             then newState.History[newState.CodeLocation.BasicBlock] <- newState.History[newState.CodeLocation.BasicBlock] + 1u
             else newState.History.Add(newState.CodeLocation.BasicBlock, 1u)
@@ -604,6 +622,7 @@ type ApplicationGraph(getNextBasicBlockGlobalId) =
 
     member this.RegisterMethod (method: Method) =
         assert method.HasBody
+        applicationGraphDelta.LoadedMethods.Add method
 
     member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
         addCallEdge sourceLocation targetLocation
@@ -645,6 +664,7 @@ type NullVisualizer() =
         override x.VisualizeStep _ _ _ = ()
 
 module Application =
+    let applicationGraphDelta = ApplicationGraphDelta()
     let mutable basicBlockGlobalCount = 0u<basicBlockGlobalId>
     let getNextBasicBlockGlobalId () =
         let r = basicBlockGlobalCount
@@ -653,12 +673,13 @@ module Application =
     let private methods = ConcurrentDictionary<methodDescriptor, Method>()
     let private _loadedMethods = ConcurrentDictionary<Method, unit>()
     let loadedMethods = _loadedMethods :> seq<_>
-    let mutable graph = ApplicationGraph(getNextBasicBlockGlobalId)
+    let mutable graph = ApplicationGraph(getNextBasicBlockGlobalId, applicationGraphDelta)
     let mutable visualizer : IVisualizer = NullVisualizer()
 
     let reset () =
+        applicationGraphDelta.Clear()
         basicBlockGlobalCount <- 0u<basicBlockGlobalId>
-        graph <- ApplicationGraph(getNextBasicBlockGlobalId)
+        graph <- ApplicationGraph(getNextBasicBlockGlobalId, applicationGraphDelta)
         methods.Clear()
         _loadedMethods.Clear()
     let getMethod (m : MethodBase) : Method =
@@ -684,8 +705,9 @@ module Application =
         graph.AddForkedStates toState forked
         visualizer.VisualizeStep fromLoc toState forked
 
-    let terminateState state =
+    let terminateState (state: IGraphTrackableState) =
         // TODO: gsv: propagate this into application graph
+        let removed = state.CodeLocation.BasicBlock.AssociatedStates.Remove state
         visualizer.TerminateState state
 
     let addCallEdge = graph.AddCallEdge
