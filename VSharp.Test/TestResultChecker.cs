@@ -42,16 +42,15 @@ public static class TestResultChecker
     {
         var runnerWithArgs = $"{TestRunnerPath} {testDir.FullName}";
         var coverageTool = new PassiveCoverageTool(testDir, methodInfo);
-        var coverage = coverageTool.RunWithCoverage(runnerWithArgs);
-        actualCoverage = coverage;
+        actualCoverage = coverageTool.RunWithCoverage(runnerWithArgs);
         resultMessage = string.Empty;
 
-        if (expectedCoverage == coverage)
+        if (expectedCoverage == actualCoverage)
         {
             return true;
         }
 
-        resultMessage = $"Incomplete coverage! Expected {expectedCoverage}, but got {coverage}";
+        resultMessage = $"Incomplete coverage! Expected {expectedCoverage}, but got {actualCoverage}";
         return false;
     }
 }

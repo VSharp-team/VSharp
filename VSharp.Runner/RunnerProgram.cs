@@ -61,12 +61,12 @@ namespace VSharp.Runner
 
             if (assembly == null) return;
 
+            Statistics statistics;
             if (runTests)
-            {
-                TestGenerator.CoverAndRun(assembly, inputArgs, out var statistics, options);
-                PostProcess(statistics);
-            }
-            else PostProcess(TestGenerator.Cover(assembly, inputArgs, options));
+                TestGenerator.CoverAndRun(assembly, inputArgs, out statistics, options);
+            else
+                statistics = TestGenerator.Cover(assembly, inputArgs, options);
+            PostProcess(statistics);
         }
 
         private static void AllPublicMethodsHandler(
@@ -95,12 +95,12 @@ namespace VSharp.Runner
 
             if (assembly == null) return;
 
+            Statistics statistics;
             if (runTests)
-            {
-                TestGenerator.CoverAndRun(assembly, out var statistics, options);
-                PostProcess(statistics);
-            }
-            else PostProcess(TestGenerator.Cover(assembly, options));
+                TestGenerator.CoverAndRun(assembly, out statistics, options);
+            else
+                statistics = TestGenerator.Cover(assembly, options);
+            PostProcess(statistics);
         }
 
         private static void PublicMethodsOfTypeHandler(
@@ -137,12 +137,12 @@ namespace VSharp.Runner
                     recursionThreshold: recursionThreshold,
                     explorationMode: explorationMode);
 
+            Statistics statistics;
             if (runTests)
-            {
-                TestGenerator.CoverAndRun(type, out var statistics, options);
-                PostProcess(statistics);
-            }
-            else PostProcess(TestGenerator.Cover(type, options));
+                TestGenerator.CoverAndRun(type, out statistics, options);
+            else
+                statistics = TestGenerator.Cover(type, options);
+            PostProcess(statistics);
         }
 
         private static void SpecificMethodHandler(
@@ -153,6 +153,7 @@ namespace VSharp.Runner
             DirectoryInfo output,
             bool renderTests,
             bool runTests,
+            bool checkCoverage,
             SearchStrategy strat,
             Verbosity verbosity,
             uint recursionThreshold,
@@ -195,12 +196,12 @@ namespace VSharp.Runner
                     recursionThreshold: recursionThreshold,
                     explorationMode: explorationMode);
 
-            if (runTests)
-            {
-                TestGenerator.CoverAndRun(method, out var statistics, options);
-                PostProcess(statistics);
-            }
-            else PostProcess(TestGenerator.Cover(method, options));
+            Statistics statistics;
+            if (runTests || checkCoverage)
+                TestGenerator.CoverAndRun(method, out statistics, options, checkCoverage);
+            else
+                statistics = TestGenerator.Cover(method, options);
+            PostProcess(statistics);
         }
 
         private static void NamespaceHandler(
@@ -236,12 +237,13 @@ namespace VSharp.Runner
                     verbosity: verbosity,
                     recursionThreshold: recursionThreshold,
                     explorationMode: explorationMode);
+
+            Statistics statistics;
             if (runTests)
-            {
-                TestGenerator.CoverAndRun(namespaceTypes, out var statistics, options);
-                PostProcess(statistics);
-            }
-            else PostProcess(TestGenerator.Cover(namespaceTypes, options));
+                TestGenerator.CoverAndRun(namespaceTypes, out statistics, options);
+            else
+                statistics = TestGenerator.Cover(namespaceTypes, options);
+            PostProcess(statistics);
         }
 
         public static int Main(string[] args)
@@ -267,6 +269,9 @@ namespace VSharp.Runner
                 description: "Render generated tests as NUnit project to specified output path");
             var runTestsOption =
                 new Option<bool>("--run-tests", description: "Reproduce generated tests");
+            var checkCoverageOption = new Option<bool>(
+                "--check-coverage",
+                description: "After test generation starts coverage checking tool and shows coverage");
             var singleFileOption = new Option<bool>("--single-file") { IsHidden = true };
             var searchStrategyOption = new Option<SearchStrategy>(
                 aliases: new[] { "--strat" },
@@ -387,6 +392,7 @@ namespace VSharp.Runner
             var methodArgument = new Argument<string>("method-name");
             specificMethodCommand.AddArgument(methodArgument);
             specificMethodCommand.AddArgument(assemblyPathArgument);
+            specificMethodCommand.AddOption(checkCoverageOption);
 
             specificMethodCommand.SetHandler(context =>
             {
@@ -401,6 +407,7 @@ namespace VSharp.Runner
                     output,
                     parseResult.GetValueForOption(renderTestsOption),
                     parseResult.GetValueForOption(runTestsOption),
+                    parseResult.GetValueForOption(checkCoverageOption),
                     parseResult.GetValueForOption(searchStrategyOption),
                     parseResult.GetValueForOption(verbosityOption),
                     parseResult.GetValueForOption(recursionThresholdOption),
