@@ -1,7 +1,7 @@
 ﻿using System;
 using System.CommandLine;
-using System.CommandLine.Invocation;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace VSharp.TestRunner
 {
@@ -16,9 +16,11 @@ namespace VSharp.TestRunner
     {
         private static int ShowUsage()
         {
-            Console.Error.WriteLine("V# test runner tool. Accepts unit test in *.vst format, runs the target executable with the specified input data.\n" +
-                                    "\n" +
-                                    "Usage: {0} <test directory or *.vst file>", AppDomain.CurrentDomain.FriendlyName);
+            Console.Error.WriteLine(
+                "V# test runner tool. Accepts unit test in *.vst format, runs the target executable with the specified input data.\n" +
+                "\n" +
+                "Usage: {0} <test directory or *.vst file>", AppDomain.CurrentDomain.FriendlyName
+            );
             return 2;
         }
 
@@ -48,13 +50,13 @@ namespace VSharp.TestRunner
             var testPathArgument =
                 new Argument<string>("test-path", description: "Path to the tests (.vst)");
             var disableCheckOption =
-                new System.CommandLine.Option("--disable-check", description: "Disables test result check");
+                new Option<bool>("--disable-check", description: "Disables test result check");
             var suiteOption =
                 new Option<SuiteType>(aliases: new[] { "--suite", "-s" },
                     () => SuiteType.TestsAndErrors,
                     "Chooses which suites will be reproduced: test suites, error suites or both");
             var recursiveOption =
-                new System.CommandLine.Option("--recursive", description: "Search for .vst files in subdirectories as well");
+                new Option<bool>("--recursive", description: "Search for .vst files in subdirectories as well");
 
             var rootCommand = new RootCommand();
 
@@ -65,9 +67,14 @@ namespace VSharp.TestRunner
 
             rootCommand.Description = "V# test runner tool. Accepts unit test in *.vst format, runs the target executable with the specified input data.";
 
-            rootCommand.Handler = CommandHandler.Create<string, SuiteType, bool, bool>((testPath, suite, disableCheck, recursive) =>
+            rootCommand.SetHandler(context =>
             {
-                return ReproduceTests(testPath, suite, disableCheck, recursive);
+                var parseResult = context.ParseResult;
+                context.ExitCode = ReproduceTests(
+                    parseResult.GetValueForArgument(testPathArgument),
+                    parseResult.GetValueForOption(suiteOption),
+                    parseResult.GetValueForOption(disableCheckOption),
+                    parseResult.GetValueForOption(recursiveOption));
             });
 
             return rootCommand.Invoke(args);

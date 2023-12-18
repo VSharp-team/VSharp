@@ -19,7 +19,7 @@
 
     <ItemGroup>
       <PackageReference Include="JetBrains.Roslyn.References.Repack" Version="42.42.20220228.125130" />
-      <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.21308.1" />
+      <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     </ItemGroup>
 
     <ItemGroup>
