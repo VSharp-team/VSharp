@@ -11,7 +11,9 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 open CilState
 open VSharp.Explorer
+open VSharp.ML.GameServer.Messages
 open VSharp.Solver
+open VSharp.IL.Serializer
 
 type IReporter =
     abstract member ReportFinished: UnitTest -> unit
@@ -26,6 +28,7 @@ type private IExplorer =
 
 type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVMStatistics, reporter: IReporter) =
 
+    let mutable stepsCount = 0
     let options = explorationOptions.svmOptions
 
     let hasTimeout = explorationOptions.timeout.TotalMilliseconds > 0
@@ -325,7 +328,13 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
 
     member private x.BidirectionalSymbolicExecution() =
+        let folderToStoreSerializationResult = getFolderToStoreSerializationResult options.pathToSerialize
+        let fileForExpectedResults = getFileForExpectedResults folderToStoreSerializationResult
+        if options.serialize
+        then            
+            System.IO.File.AppendAllLines(fileForExpectedResults, ["GraphID ExpectedStateNumber ExpectedRewardForCoveredInStep ExpectedRewardForVisitedInstructionsInStep TotalReachableRewardFromCurrentState"])
         let mutable action = Stop
+        let mutable stepsPlayed = 0u
         let pick() =
             match searcher.Pick() with
             | Stop -> false
@@ -333,20 +342,61 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while not isStopped && not <| isStepsLimitReached() && not <| isTimeoutReached() && pick() do
+            stepsCount <- stepsCount + 1                        
+            if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher && ((searcher :?> BidirectionalSearcher).ForwardSearcher :?> AISearcher).InAIMode
+            then stepsPlayed <- stepsPlayed + 1u
             if shouldReleaseBranches() then
                 releaseBranches()
             match action with
             | GoFront s ->
                 try
-                    x.Forward(s)
+                    let statisticsBeforeStep =
+                            match searcher with                        
+                            | :? BidirectionalSearcher as s ->
+                                match s.ForwardSearcher with
+                                | :? AISearcher as s -> Some s.LastCollectedStatistics
+                                | _ -> None                        
+                            | _ -> None                        
+                    let statistics1 =
+                        if options.serialize
+                        then Some(dumpGameState s.CurrentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)) options.serialize)
+                        else None
+                    x.Forward(s)                                        
+                    match searcher with                        
+                    | :? BidirectionalSearcher as searcher ->
+                        match searcher.ForwardSearcher with
+                        | :? AISearcher as searcher ->
+                            let gameState, statisticsAfterStep,_ = collectGameState s.approximateLoc options.serialize
+                            searcher.LastGameState <- gameState
+                            searcher.LastCollectedStatistics <- statisticsAfterStep
+                            let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
+                            if searcher.InAIMode
+                            then searcher.ProvideOracleFeedback (Feedback.MoveReward reward)                                
+                        | _ -> ()
+                    | _ -> ()
+                    if options.serialize
+                    then 
+                        let _,statistics2,_ = collectGameState s.approximateLoc options.serialize
+                        saveExpectedResult fileForExpectedResults s.internalId statistics1.Value statistics2 
                 with
-                | e -> reportStateInternalFail s e
+                | e ->
+                    match searcher with
+                    | :? BidirectionalSearcher as searcher ->                        
+                        match searcher.ForwardSearcher with
+                        | :? AISearcher as searcher ->
+                            if searcher.InAIMode
+                            then searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward(0u<coverageReward>,0u<_>,0u<_>)))
+                        | _ -> ()
+                    | _ -> ()
+                    reportStateInternalFail s e
             | GoBack(s, p) ->
                 try
                     x.Backward p s
                 with
                 | e -> reportStateInternalFail s e
             | Stop -> __unreachable__()
+            if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher &&  (options.stepsToPlay = stepsPlayed)
+            then x.Stop()
 
     member private x.AnswerPobs initialStates =
         statistics.ExplorationStarted()

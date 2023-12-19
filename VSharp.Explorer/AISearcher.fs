@@ -43,14 +43,14 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
         then
             if Seq.length availableStates > 0
             then
-                let _,statistics,_ = collectGameState (Seq.head availableStates).CurrentLoc serialize
+                let _,statistics,_ = collectGameState (Seq.head availableStates).approximateLoc serialize
                 lastCollectedStatistics <- statistics
                 useDefaultSearcher <- (statistics.CoveredVerticesInZone * 100u) / statistics.TotalVisibleVerticesInZone  < coverageToSwitchToAI
             defaultSearcher.Pick()
         elif Seq.length availableStates = 0
         then None
         else            
-            let gameState,statistics,_ = collectGameState (Seq.head availableStates).CurrentLoc serialize
+            let gameState,statistics,_ = collectGameState (Seq.head availableStates).approximateLoc serialize
             lastCollectedStatistics <- statistics
             let stateId, predictedUsefulness =
                 let x,y = oracle.Predict gameState
