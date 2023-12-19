@@ -248,9 +248,9 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                 Memory.AllocateConcreteVectorArray state argsNumber stringType args
             let arguments = Option.map (argsToState >> Some >> List.singleton) optionArgs
             Memory.InitFunctionFrame state method None arguments
-            if Option.isNone optionArgs then
+            let parameters = method.Parameters
+            if Array.length parameters > 0 && Option.isNone optionArgs then
                 // NOTE: if args are symbolic, constraint 'args != null' is added
-                let parameters = method.Parameters
                 assert(Array.length parameters = 1)
                 let argsParameter = Array.head parameters
                 let argsParameterTerm = Memory.ReadArgument state argsParameter
