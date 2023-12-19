@@ -125,11 +125,42 @@ module Loader =
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.String)"
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.EnumEquals(T, T)"
+             "System.ReadOnlySpan`1[T] System.Runtime.CompilerServices.RuntimeHelpers.CreateSpan(System.RuntimeFieldHandle)"
+        |]
+        let arithmetics = [|
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.Int32)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.Int64)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.IntPtr)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.Int32)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.Int64)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.IntPtr)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UIntPtr)"
+            "System.UInt32 System.Numerics.BitOperations.RotateLeft(System.UInt32, System.Int32)"
+            "System.UInt64 System.Numerics.BitOperations.RotateLeft(System.UInt64, System.Int32)"
+            "System.UIntPtr System.Numerics.BitOperations.RotateLeft(System.UIntPtr, System.Int32)"
+            "System.UInt32 System.Numerics.BitOperations.RotateRight(System.UInt32, System.Int32)"
+            "System.UInt64 System.Numerics.BitOperations.RotateRight(System.UInt64, System.Int32)"
+            "System.UIntPtr System.Numerics.BitOperations.RotateRight(System.UIntPtr, System.Int32)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.Byte)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt16)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt32)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt64)"
         |]
         let interlocked = [|
             "System.Int32 System.Threading.Interlocked.Or(System.Int32&, System.Int32)"
         |]
-        Array.concat [intPtr; volatile; defaultComparer; string; span; vector; runtimeHelpers; interlocked]
+        Array.concat [intPtr; volatile; defaultComparer; string; span; vector; runtimeHelpers; interlocked; arithmetics]
 
     let private concreteInvocations =
         set [
@@ -184,6 +215,7 @@ module Loader =
             "System.Object System.Reflection.RtFieldInfo.GetValue(this, System.Object)"
             "System.Reflection.Assembly System.RuntimeType.get_Assembly(this)"
             "System.Void System.Type+<>c..ctor(this)"
+            "System.RuntimeTypeHandle System.RuntimeType.get_TypeHandle(this)"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
@@ -379,6 +411,34 @@ module Loader =
             // Arithmetics
             "System.Double System.Math.Pow(System.Double, System.Double)"
             "System.Double System.Math.Min(System.Double, System.Double)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.Int32)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.Int64)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.IntPtr)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.Int32)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.Int64)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.IntPtr)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UIntPtr)"
+            "System.UInt32 System.Numerics.BitOperations.RotateLeft(System.UInt32, System.Int32)"
+            "System.UInt64 System.Numerics.BitOperations.RotateLeft(System.UInt64, System.Int32)"
+            "System.UIntPtr System.Numerics.BitOperations.RotateLeft(System.UIntPtr, System.Int32)"
+            "System.UInt32 System.Numerics.BitOperations.RotateRight(System.UInt32, System.Int32)"
+            "System.UInt64 System.Numerics.BitOperations.RotateRight(System.UInt64, System.Int32)"
+            "System.UIntPtr System.Numerics.BitOperations.RotateRight(System.UIntPtr, System.Int32)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.Byte)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt16)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt32)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt64)"
 
             // ASP.NET Core
             // Configuration builder

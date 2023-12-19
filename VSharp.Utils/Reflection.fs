@@ -583,6 +583,26 @@ module public Reflection =
         let size = TypeUtils.internalSizeOf fieldInfo.FieldType
         reinterpretValueTypeAsByteArray fieldValue size
 
+    let private reinterpretValueTypeAsArray (value : obj) (elemType : Type) (size : int) =
+        let rawData = Array.CreateInstance(elemType, size)
+        let handle = GCHandle.Alloc(rawData, GCHandleType.Pinned)
+        try
+            Marshal.StructureToPtr(value, handle.AddrOfPinnedObject(), false)
+        finally
+            handle.Free()
+        rawData
+
+    let arrayFromField (fieldInfo : FieldInfo) (elemType : Type) =
+        if elemType = typeof<byte> then
+            byteArrayFromField fieldInfo :> Array
+        else
+            let fieldValue : obj = fieldInfo.GetValue null
+            let byteSize = TypeUtils.internalSizeOf fieldInfo.FieldType
+            let elemSize = TypeUtils.internalSizeOf elemType
+            assert(byteSize % elemSize = 0)
+            let size = byteSize / elemSize
+            reinterpretValueTypeAsArray fieldValue elemType size
+
     // ------------------------------ Layout Utils ------------------------------
 
     let getFieldOffset field =

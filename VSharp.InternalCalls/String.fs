@@ -29,7 +29,7 @@ module internal String =
         assert(List.length args = 2)
         let this, span = args[0], args[1]
         let ref = ReadOnlySpan.GetContentsRef cilState span
-        let len = ReadOnlySpan.GetLength cilState span
+        let len = ReadOnlySpan.CommonGetLength cilState span
         let state = cilState.state
         let t = MostConcreteTypeOfRef state ref
         assert(TypeUtils.isArrayType t || t = typeof<string> || t = typeof<char>)
