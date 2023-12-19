@@ -504,7 +504,11 @@ namespace VSharp.Test
                     }
                     else
                     {
-                        context.CurrentResult.SetResult(ResultState.Success);
+                        context.CurrentResult.SetResult(
+                            _expectedCoverage is not null
+                                ? ResultState.Failure
+                                : ResultState.Success
+                        );
                         reporter?.Report(stats);
                     }
                 }
