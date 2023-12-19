@@ -644,8 +644,13 @@ public static class TestsRenderer
                     RenderAttribute("Test"),
                     RenderAttribute("Category", "Generated")
                 };
+
                 if (test.IsFatalError)
+                {
                     attributeList.Add(RenderAttribute("Category", "FatalError"));
+                    attributeList.Add(RenderAttribute("Explicit"));
+                }
+
                 var attributes = RenderAttributeList(attributeList);
 
                 var testRenderer = generatedClass.AddMethod(
