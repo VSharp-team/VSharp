@@ -27,7 +27,7 @@ module Contracts =
 
     [<DataContract; CLIMutable>]
     type BooleanData =  {
-        [<DataMember(Order = 1)>] boolValue: bool
+        [<DataMember(Order = 1)>] boolValues: bool[]
     }
 
     [<DataContract; CLIMutable>]
@@ -37,7 +37,7 @@ module Contracts =
 
     [<DataContract; CLIMutable>]
     type CoverageData = {
-        [<DataMember(Order = 1)>] rawData: RawCoverageReport
+        [<DataMember(Order = 1)>] rawData: RawCoverageReport[]
         [<DataMember(Order = 2)>] methods: System.Collections.Generic.Dictionary<int, RawMethodInfo>
     }
 

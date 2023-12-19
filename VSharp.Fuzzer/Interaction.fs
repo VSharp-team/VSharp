@@ -304,18 +304,21 @@ type Interactor (
 
         let onMethodFuzzingFinished () =
             task {
+                successfullyFuzzed <- successfullyFuzzed + 1
                 fuzzingProcess.NotifyMethodFuzzingFinished ()
                 match nextMethod () with
                 | Some method -> do! fuzzingProcess.FuzzMethod method
                 | None -> ()
             } :> Task
 
-        let onTrackCoverage methods (rawData: RawCoverageReport) =
-            let isAlreadyTracked =
-                siliStatisticsConverter.ToSiliStatistic methods rawData.rawCoverageLocations
+        let onTrackCoverage methods (rawData: RawCoverageReport[]) =
+
+            let trackReport report =
+                siliStatisticsConverter.ToSiliStatistic methods report.rawCoverageLocations
                 |> saveStatistic
+
             Task.FromResult {
-                boolValue = isAlreadyTracked
+                boolValues = rawData |> Array.map trackReport
             }
 
         let onTrackExecutionSeed (x: ExecutionData) =
@@ -335,7 +338,7 @@ type Interactor (
                     do! fuzzingProcess.Start()
                     do! fuzzingProcess.FuzzMethod method
                     while isFuzzingFinished () |> not do
-                        do! Task.Delay(1000)
+                        do! Task.Delay(fuzzerOptions.timeLimitPerMethod)
                         do! fuzzingProcess.Poll handleFuzzingProcessState
                     do! fuzzingProcess.WaitForExit()
                 | None -> ()

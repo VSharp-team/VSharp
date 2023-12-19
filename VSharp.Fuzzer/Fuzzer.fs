@@ -135,47 +135,51 @@ type internal Fuzzer(
 
     let handleResults (method: Method) result =
 
-        let onCollected (methods: Dictionary<int, RawMethodInfo>) coverageReport generationData invocationResult =
+        let sendCoverage (methods: Dictionary<int, RawMethodInfo>) coverageReports =
             task {
-
                 let mainMethod =
-                    methods
-                    |> Seq.find (fun x -> int x.Value.methodToken = method.MetadataToken)
+                        methods
+                        |> Seq.find (fun x -> int x.Value.methodToken = method.MetadataToken)
 
-                let filteredLocations =
-                    coverageReport.rawCoverageLocations
-                    |> Array.filter (fun x -> x.methodId = mainMethod.Key)
-
-                let coverageReport = {
-                    coverageReport with rawCoverageLocations = filteredLocations
-                }
-
-                let methods = Dictionary<_,_>(Seq.singleton mainMethod)
+                let reports =
+                    coverageReports
+                    |> Array.map (fun coverageReport ->
+                        coverageReport.rawCoverageLocations
+                        |> Array.filter (fun x -> x.methodId = mainMethod.Key)
+                        |> fun x -> {
+                            coverageReport with rawCoverageLocations = x
+                        }
+                    )
 
                 let! isNewCoverage = symbolicExecutionService.TrackCoverage({
-                    rawData = coverageReport
+                    rawData = reports
                     methods = methods
                 })
 
-                if isNewCoverage.boolValue then
-                    let test = fuzzingResultToTest generationData invocationResult
-                    match test with
-                    | Some test ->
-                        let testPath = $"{currentOutputDir}{Path.DirectorySeparatorChar}fuzzer_test_{testIdGenerator.NextId()}.vst"
-                        generatedCount <- generatedCount + 1
-                        Task.Run(fun () ->
-                            test.Serialize(testPath)
-                            infoFuzzing $"Generated test: {testPath}"
-                        ).ForgetUntilExecutionRequested()
-                        infoFuzzing "Test will be generated"
-                    | None ->
-                        infoFuzzing "Failed to create test"
-                        ignoredCount <- ignoredCount + 1
-                        ()
-                else
-                    ignoredCount <- ignoredCount + 1
-                    infoFuzzing "Coverage already tracked"
+                return isNewCoverage
             }
+
+        let onNewCoverage generationData invocationResult =
+            let test = fuzzingResultToTest generationData invocationResult
+            match test with
+            | Some test ->
+                let testPath = $"{currentOutputDir}{Path.DirectorySeparatorChar}fuzzer_test_{testIdGenerator.NextId()}.vst"
+                generatedCount <- generatedCount + 1
+                Task.Run(fun () ->
+                    test.Serialize(testPath)
+                    infoFuzzing $"Generated test: {testPath}"
+                ).ForgetUntilExecutionRequested()
+                infoFuzzing "Test will be generated"
+            | None ->
+                infoFuzzing "Failed to create test"
+                ignoredCount <- ignoredCount + 1
+                ()
+
+        let onKnownCoverage () =
+            ignoredCount <- ignoredCount + 1
+            infoFuzzing "Coverage already tracked"
+
+
 
         task {
             let (threadIds: int[], data: GenerationData[], invocationResults: InvocationResult[]) = result
@@ -186,16 +190,16 @@ type internal Fuzzer(
             let coverages = CoverageDeserializer.getRawReports rawCoverage
             traceFuzzing $"Coverage reports[{coverages.reports.Length}] deserialized"
             assert (coverages.reports.Length = batchSize)
-            let coverages = {
-                methods = coverages.methods
-                reports = Array.sortBy (fun x -> x.threadId) coverages.reports
-            }
+
+            let reports = coverages.reports |> Array.sortBy (fun x -> x.threadId)
+            let! isNewCoverages = sendCoverage coverages.methods reports
+
             for i in indices do
-                let coverage = coverages.reports[i]
+                let coverage = reports[i]
                 let threadId = threadIds[i]
                 let invocationResult = invocationResults[i]
                 let generationData = data[i]
-
+                let isNewCoverage = isNewCoverages.boolValues[i]
 
                 assert (int coverage.threadId = threadId)
 
@@ -207,8 +211,10 @@ type internal Fuzzer(
                 | _ ->
                     traceFuzzing $"Invoked"
                     assert(not <| Utils.isNull invocationResult)
-                    // TODO: send batches
-                    do! onCollected coverages.methods coverage generationData invocationResult
+                    if isNewCoverage then
+                        onNewCoverage generationData invocationResult
+                    else
+                        onKnownCoverage ()
         }
 
     member this.AsyncFuzz (method: Method) =
