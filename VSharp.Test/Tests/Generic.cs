@@ -499,6 +499,134 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    public static class Arrays
+    {
+        [TestSvm(100)]
+        public static int ArraySubtyping1(object o)
+        {
+            if (o is object[])
+            {
+                if (o is string[])
+                    return 3;
+
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int ArraySubtyping2(Array o)
+        {
+            if (o is IList)
+            {
+                if (o is IList<int>)
+                    return 3;
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int JaggedArray(object o)
+        {
+            if (o is object[])
+            {
+                if (o is object[][])
+                {
+                    if (o is string[][][])
+                        return 4;
+                    return 3;
+                }
+
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int MultidimensionalArray1(object o)
+        {
+            if (o is object[,,])
+            {
+                if (o is string[,,])
+                    return 3;
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int MultidimensionalArray2(object o)
+        {
+            var x = new object[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+            if (o is object[,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,])
+            {
+                if (o is string[,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,])
+                    return 3;
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int ArrayWithGeneric1(object o)
+        {
+            if (o is IEnumerable<int>[])
+            {
+                if (o is List<int>[])
+                    return 3;
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int ArrayWithGeneric2(object o)
+        {
+            if (o is IEnumerable<int>[,])
+            {
+                if (o is List<int>[,])
+                    return 3;
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int ArrayInterfaces1(object o)
+        {
+            if (o is IEnumerable<int>)
+            {
+                if (o is int[])
+                    return 3;
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int ArrayInterfaces2(object o)
+        {
+            if (o is IEnumerable)
+            {
+                if (o is int[,])
+                    return 3;
+                return 2;
+            }
+
+            return 1;
+        }
+    }
+
+    [TestSvmFixture]
     public static class TestUnion
     {
         public static Coord RetCoord(Object obj, Coord coord, int field)

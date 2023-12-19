@@ -225,6 +225,12 @@ module TypeUtils =
         if t = null then []
         else t :: getSupertypes t.BaseType
 
+    let isGenericType (t : Type) = t.IsGenericType
+
+    let isGenericParameter (t : Type) = t.IsGenericParameter
+
+    let containsGenericParameters (t : Type) = t.ContainsGenericParameters
+
     let getTypeDef (t : Type) =
         if t.IsGenericType then t.GetGenericTypeDefinition() else t
 
