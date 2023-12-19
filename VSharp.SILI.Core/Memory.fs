@@ -1626,7 +1626,7 @@ module internal Memory =
     let isSafeContextWrite actualType neededType =
         assert(neededType <> typeof<Void>)
         neededType = actualType
-        || canCastImplicitly neededType actualType
+        || canCastImplicitly actualType neededType
         && internalSizeOf actualType = internalSizeOf neededType
 
     // NOTE: using unsafe write instead of safe, when field intersects,
