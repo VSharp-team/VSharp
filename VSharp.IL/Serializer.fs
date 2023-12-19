@@ -216,8 +216,6 @@ let computeStatistics (gameState:GameState) =
         
     Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
         
-        
- 
 let collectGameState (basicBlocks:ResizeArray<BasicBlock>) (serialize: bool) =
     
     let vertices = ResizeArray<_>()
@@ -341,13 +339,10 @@ let collectGameStateDelta serialize =
 
 let dumpGameState fileForResultWithoutExtension serialize =
     let gameState, statesInfoToDump = collectFullGameState serialize
-    if serialize
-    then
-        let gameStateJson = JsonSerializer.Serialize gameState        
-        let statesInfoJson = JsonSerializer.Serialize statesInfoToDump.Value
-        System.IO.File.WriteAllText(fileForResultWithoutExtension + "_gameState",gameStateJson)
-        System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
-    computeStatistics gameState
+    let gameStateJson = JsonSerializer.Serialize gameState        
+    let statesInfoJson = JsonSerializer.Serialize statesInfoToDump.Value
+    System.IO.File.WriteAllText(fileForResultWithoutExtension + "_gameState",gameStateJson)
+    System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
     
 let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =
     let rewardForCoverage =

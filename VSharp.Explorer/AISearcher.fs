@@ -5,13 +5,21 @@ open VSharp
 open VSharp.IL.Serializer
 open VSharp.ML.GameServer.Messages
 
-type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bool) =
+type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bool, stepsToPlay:uint, pathToSerialize:string) =
+    let folderToStoreSerializationResult = getFolderToStoreSerializationResult pathToSerialize
+    let fileForExpectedResults = getFileForExpectedResults folderToStoreSerializationResult
+    do
+        if serialize
+        then            
+            System.IO.File.AppendAllLines(fileForExpectedResults, ["GraphID ExpectedStateNumber ExpectedRewardForCoveredInStep ExpectedRewardForVisitedInstructionsInStep TotalReachableRewardFromCurrentState"])
     let mutable lastCollectedStatistics = Statistics()
     let mutable (gameState:Option<GameState>) = None
     let mutable useDefaultSearcher = coverageToSwitchToAI > 0u
     let mutable afterFirstAIPeek = false
     let mutable incorrectPredictedStateId = false
-    let defaultSearcher = BFSSearcher() :> IForwardSearcher
+    let defaultSearcher = BFSSearcher() :> IForwardSearcher  
+    let mutable stepsPlayed = 0u
+    let isInAIMode () = (not useDefaultSearcher) && afterFirstAIPeek
     let q = ResizeArray<_>()
     let availableStates = HashSet<_>()
     let updateGameState (delta:GameState) =
@@ -88,34 +96,36 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
             defaultSearcher.Pick()
         elif Seq.length availableStates = 0
         then None
-        else            
+        else
             let gameStateDelta,_ = collectGameStateDelta serialize
             updateGameState gameStateDelta
             let statistics = computeStatistics gameState.Value
+            if isInAIMode()
+            then
+                let reward = computeReward lastCollectedStatistics statistics
+                oracle.Feedback (Feedback.MoveReward reward)
             Application.applicationGraphDelta.Clear()
-            lastCollectedStatistics <- statistics
-            let stateId, _ =
-                let x,y = oracle.Predict gameState.Value
-                x * 1u<stateId>, y
-            afterFirstAIPeek <- true
-            let state = availableStates |> Seq.tryFind (fun s -> s.internalId = stateId)
-            match state with
-            | Some state ->                
-                Some state
-            | None ->
-                incorrectPredictedStateId <- true
-                oracle.Feedback (Feedback.IncorrectPredictedStateId stateId)
-                None
-    member this.LastCollectedStatistics
-        with get () = lastCollectedStatistics
-        and set v = lastCollectedStatistics <- v
-    member this.LastGameState with set v = gameState <- Some v    
-    member this.ProvideOracleFeedback feedback =
-        if not incorrectPredictedStateId
-        then
-            oracle.Feedback feedback
-            incorrectPredictedStateId <- false
-    member this.InAIMode with get () = (not useDefaultSearcher) && afterFirstAIPeek 
+            if stepsToPlay = stepsPlayed
+            then None
+            else
+                let stateId, _ =
+                    let x,y = oracle.Predict gameState.Value
+                    x * 1u<stateId>, y
+                afterFirstAIPeek <- true
+                let state = availableStates |> Seq.tryFind (fun s -> s.internalId = stateId)
+                if serialize
+                then
+                    dumpGameState (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)) serialize
+                    saveExpectedResult fileForExpectedResults stateId lastCollectedStatistics statistics
+                lastCollectedStatistics <- statistics
+                stepsPlayed <- stepsPlayed + 1u
+                match state with
+                | Some state ->                
+                    Some state
+                | None ->
+                    incorrectPredictedStateId <- true
+                    oracle.Feedback (Feedback.IncorrectPredictedStateId stateId)
+                    None
     
     interface IForwardSearcher with
         override x.Init states = init states
