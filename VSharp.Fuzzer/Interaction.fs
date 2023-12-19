@@ -41,15 +41,44 @@ type private SiliStatisticConverter() =
 
         loc |> Seq.map toCodeLocation
 
-type private TestRestorer () =
+type private TestRestorer (fuzzerOptions, assemblyPath, outputDirectory) =
     let executionInfo = System.Collections.Generic.Dictionary<int, ExecutionData>()
+    let typeSolver = TypeSolver()
+    let generator = Generator(fuzzerOptions, typeSolver)
+    let errorTestIdGenerator = VSharp.Fuzzer.Utils.IdGenerator(0)
 
     member this.TrackExecutionInfo threadId executionData =
         executionInfo[threadId] <- executionData
 
-    // TODO: Add test restoring
     member this.RestoreTest threadId exceptionName =
-        ()
+        let executionData = executionInfo[threadId]
+
+        let typeSolverRnd = Random(executionData.typeSolverSeed)
+
+        let assembly = AssemblyManager.LoadFromAssemblyPath assemblyPath
+        let methodBase =
+            Reflection.resolveMethodBaseFromAssembly assembly executionData.moduleName executionData.methodId
+            |> AssemblyManager.NormalizeMethod
+            |> Application.getMethod
+
+        match typeSolver.SolveGenericMethodParameters methodBase (generator.GenerateObject typeSolverRnd) with
+        | Some(methodBase, typeStorage) ->
+
+            let data = generator.Generate methodBase typeStorage executionData.fuzzerSeed
+
+            let thrown =
+                match exceptionName with
+                | "System.AccessViolationException" -> AccessViolationException() :> exn
+                | "System.StackOverflowException" -> StackOverflowException() :> exn
+                | _ -> internalfail $"Unexpected exception: {exceptionName}"
+
+            match TestGeneration.fuzzingResultToTest data (Thrown thrown) with
+            | Some test ->
+                let testPath = $"{outputDirectory}{Path.DirectorySeparatorChar}fuzzer_error_{errorTestIdGenerator.NextId()}.vst"
+                test.Serialize(testPath)
+            | None _ -> error "Failed to create test while restoring"
+
+        | None -> internalfail "Unexpected generic solving fail"
 
 type private FuzzingProcessState =
     | SuccessfullyFuzzedMethod
@@ -101,7 +130,9 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
         elif fuzzerAlive () |> not then
             if File.Exists(unhandledExceptionPath) then
                 let text = File.ReadAllText(unhandledExceptionPath).Split(" ")
+                assert (text.Length = 2)
                 File.Delete unhandledExceptionPath
+                state <- SuccessfullyFuzzedMethodWithException <| Some (int text[0], text[1])
             elif fuzzerProcess.ExitCode = 0 then
                 // In case of StackOverflowException fuzzer can't write exception.info, but will exited with code 0
                 state <- SuccessfullyFuzzedMethodWithException None
@@ -215,7 +246,7 @@ type Interactor (
         }
 
     let siliStatisticsConverter = SiliStatisticConverter()
-    let testRestorer = TestRestorer()
+    let testRestorer = TestRestorer(fuzzerOptions, targetAssemblyPath, outputPath)
     let queued = System.Collections.Generic.Queue<_>(isolated)
     let nextMethod () =
         if queued.Count = 0 then
