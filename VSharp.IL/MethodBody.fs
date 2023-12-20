@@ -334,10 +334,13 @@ type MethodWithBody internal (m : MethodBase) =
 
 module MethodBody =
 
-    let private operandType2operandSize = [| 4<offsets>; 4<offsets>; 4<offsets>; 8<offsets>; 4<offsets>
-                                             0<offsets>; -1<offsets>; 8<offsets>; 4<offsets>; 4<offsets>
-                                             4<offsets>; 4<offsets>; 4<offsets>; 4<offsets>; 2<offsets>
-                                             1<offsets>; 1<offsets>; 4<offsets>; 1<offsets>|]
+    let private operandType2operandSize =
+        [|
+            4<offsets>; 4<offsets>; 4<offsets>; 8<offsets>; 4<offsets>
+            0<offsets>; -1<offsets>; 8<offsets>; 4<offsets>; 4<offsets>
+            4<offsets>; 4<offsets>; 4<offsets>; 4<offsets>; 2<offsets>
+            1<offsets>; 1<offsets>; 4<offsets>; 1<offsets>
+        |]
 
     let private jumpTargetsForNext (opCode : OpCode) _ (pos : offset) =
         let nextInstruction = pos + Offset.from opCode.Size + operandType2operandSize[int opCode.OperandType]
