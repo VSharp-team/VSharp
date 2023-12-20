@@ -22,6 +22,7 @@ type ehcType =
 type public ExceptionHandlingClause = { tryOffset : offset; tryLength : offset; handlerOffset : offset; handlerLength : offset; ehcType : ehcType }
 
 type MethodWithBody internal (m : MethodBase) =
+    let shouldRewriteIL = false
     let desc = Reflection.getMethodDescriptor m
     let name = m.Name
     let fullName = Reflection.getFullMethodName m
@@ -76,14 +77,19 @@ type MethodWithBody internal (m : MethodBase) =
         if isFSharpInternalCall.Value then null
         else actualMethod.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables
-    let methodBody = lazy(
-        if methodBodyBytes = null then None, None, None, None
+
+    let ilBytes = lazy methodBodyBytes.GetILAsByteArray()
+    let exceptionHandlingClauses = lazy Seq.toArray methodBodyBytes.ExceptionHandlingClauses
+    let mappedExceptionHandlingClauses =
+        lazy System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
+
+    let ilRewriter = lazy (
+        if methodBodyBytes = null then None
         else
-            let ilBytes = methodBodyBytes.GetILAsByteArray()
+            let ilBytes = ilBytes.Value
             let methodModule = actualMethod.Module
             let moduleName = methodModule.FullyQualifiedName
             let assemblyName = methodModule.Assembly.FullName
-            let ehcs = System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
             let props : rawMethodProperties =
                 {
                     token = uint actualMethod.MetadataToken
@@ -94,6 +100,7 @@ type MethodWithBody internal (m : MethodBase) =
                     signatureTokensLength = 0u
                 }
             let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<signatureTokens>) :?> signatureTokens
+            let ehcs = mappedExceptionHandlingClauses.Value
             let createEH (eh : System.Reflection.ExceptionHandlingClause) : rawExceptionHandler =
                 let matcher = if eh.Flags = ExceptionHandlingClauseOptions.Filter then eh.FilterOffset else eh.HandlerOffset // TODO: need catch type token?
                 ehcs.Add(matcher, eh)
@@ -105,12 +112,20 @@ type MethodWithBody internal (m : MethodBase) =
                     handlerLength = uint eh.HandlerLength
                     matcher = uint matcher
                 }
-            let ehs = methodBodyBytes.ExceptionHandlingClauses |> Seq.map createEH |> Array.ofSeq
+            let ehs = Array.map createEH exceptionHandlingClauses.Value
             let body : rawMethodBody =
                 {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = tokens; il = ilBytes; ehs = ehs}
             let rewriter = ILRewriter(body, actualMethod)
             rewriter.Import()
+            Some rewriter
+        )
+
+    let methodBody = lazy(
+        if methodBodyBytes = null then None, None
+        elif shouldRewriteIL then
+            let rewriter = Option.get ilRewriter.Value
             let result = rewriter.Export()
+            let ehcs = mappedExceptionHandlingClauses.Value
             let parseEH (eh : rawExceptionHandler) =
                 let oldEH = ehcs[int eh.matcher]
                 let ehcType =
@@ -125,7 +140,24 @@ type MethodWithBody internal (m : MethodBase) =
                     handlerLength = eh.handlerLength |> int |> Offset.from
                     ehcType = ehcType
                 }
-            Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some rewriter.Instructions)
+            Some result.il, Some (Array.map parseEH result.ehs)
+        else
+            let createEH (eh : Reflection.ExceptionHandlingClause) =
+                let ehcType =
+                    if eh.Flags = ExceptionHandlingClauseOptions.Filter then ehcType.Filter (Offset.from eh.FilterOffset)
+                    elif eh.Flags = ExceptionHandlingClauseOptions.Finally then Finally
+                    elif eh.Flags = ExceptionHandlingClauseOptions.Fault then Fault
+                    else Catch eh.CatchType
+                {
+                    tryOffset = Offset.from eh.TryOffset
+                    tryLength = Offset.from eh.TryLength
+                    handlerOffset = Offset.from eh.HandlerOffset
+                    handlerLength = Offset.from eh.HandlerLength
+                    ehcType = ehcType
+                }
+            let exceptionHandlingClauses = Array.map createEH exceptionHandlingClauses.Value
+            Some ilBytes.Value, Some exceptionHandlingClauses
+        )
 
     member x.Name = name
     member x.FullName = fullName
@@ -187,27 +219,27 @@ type MethodWithBody internal (m : MethodBase) =
     member x.HasBody = methodBodyBytes <> null
 
     member x.ILBytes with get() =
-        let ilBytes, _, _, _ = methodBody.Force()
+        let ilBytes, _ = methodBody.Force()
         match ilBytes with
         | Some bytes -> bytes
         | None -> internalfailf $"Getting IL bytes of method {x} without body (extern or abstract)"
 
     member x.ExceptionHandlers with get() =
-        let _, exceptionHandlers, _, _ = methodBody.Force()
+        let _, exceptionHandlers = methodBody.Force()
         match exceptionHandlers with
         | Some handlers -> handlers
         | None -> Array.empty
 
     member x.ILRewriter with get() =
-        let _, _, rewriter, _ = methodBody.Force()
-        match rewriter with
-        | Some rewriter -> rewriter
+        match ilRewriter.Value with
+        | Some rewriter ->
+            assert shouldRewriteIL
+            rewriter
         | None -> internalfailf $"Getting IL rewriter of method {x} without body (extern or abstract)"
 
     member x.ParsedInstructions with get() =
-        let _, _, _, instructions = methodBody.Force()
-        match instructions with
-        | Some instructions -> instructions
+        match ilRewriter.Value with
+        | Some rewriter -> rewriter.Instructions
         | None -> internalfailf $"Getting instructions of method {x} without body (extern or abstract)"
 
     // Helps resolving cyclic dependencies between Application and MethodWithBody
@@ -361,7 +393,7 @@ module MethodBody =
     let private inlineBrTarget extract (opCode : OpCode) ilBytes (pos : offset) =
         let opcodeSize = Offset.from opCode.Size
         let offset = extract ilBytes (pos + opcodeSize)
-        let nextInstruction = pos + opcodeSize + operandType2operandSize.[int opCode.OperandType]
+        let nextInstruction = pos + opcodeSize + operandType2operandSize[int opCode.OperandType]
         ConditionalBranch(nextInstruction, [nextInstruction + offset])
 
     let private inlineSwitch (opCode : OpCode) ilBytes (pos : offset) =

@@ -544,7 +544,7 @@ module EvaluationStackTyper =
             m.GetParameters().[idx].ParameterType |> push s
 
     let typeLdloc (m : MethodBase) (s : stackState) idx =
-        m.GetMethodBody().LocalVariables.[idx].LocalType |> push s
+        m.GetMethodBody().LocalVariables[idx].LocalType |> push s
 
     let typeBinop (s : stackState) =
         // See ECMA-335, sec. III.1.5
@@ -1074,9 +1074,8 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
         // Set the sentinel instruction
         il.next <- il
         il.prev <- il
-        offsetToInstr.[codeSize] <- il
+        offsetToInstr[codeSize] <- il
 
-        // TODO: unify code with Instruction.fs (parseInstruction)
         let mutable branch = false
         let mutable offset = 0<offsets>
         let codeSize : offset = Offset.from codeSize
@@ -1110,14 +1109,14 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
 
             let instr = x.NewInstr (OpCode op)
             instr.offset <- uint32 startOffset
-            offsetToInstr.[int startOffset] <- instr
+            offsetToInstr[int startOffset] <- instr
             x.InsertBefore(il, instr)
-            offsetToInstr.[int startOffset] <- instr
+            offsetToInstr[int startOffset] <- instr
             match op.OperandType with
             | OperandType.InlineNone -> instr.arg <- NoArg
             | OperandType.ShortInlineVar
             | OperandType.ShortInlineI ->
-                instr.arg <- Arg8 code.[int offset]
+                instr.arg <- Arg8 code[int offset]
             | OperandType.InlineVar ->
                 instr.arg <- Arg16 <| BitConverter.ToInt16(code, int offset)
             | OperandType.InlineI
@@ -1133,7 +1132,7 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
             | OperandType.InlineR ->
                 instr.arg <- Arg64 <| BitConverter.ToInt64(code, int offset)
             | OperandType.ShortInlineBrTarget ->
-                instr.arg <- offset + 1<offsets> + (code.[int offset] |> sbyte |> int |> Offset.from) |> int |> Arg32
+                instr.arg <- offset + 1<offsets> + (code[int offset] |> sbyte |> int |> Offset.from) |> int |> Arg32
                 branch <- true;
             | OperandType.InlineBrTarget ->
                 instr.arg <- offset + 4<offsets> + NumberCreator.extractOffset code offset |> int |> Arg32
@@ -1216,7 +1215,7 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
                             if op = OpCodes.Leave_S then instr.opcode <- OpCode OpCodes.Leave
                             else
                                 assert(op.Value >= OpCodes.Br_S.Value && op.Value <= OpCodes.Blt_Un_S.Value)
-                                let op = OpCodeOperations.singleByteOpCodes.[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
+                                let op = OpCodeOperations.singleByteOpCodes[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
                                 assert(op.Value >= OpCodes.Br.Value && op.Value <= OpCodes.Blt_Un.Value)
                                 instr.opcode <- OpCode op
                             tryAgain <- true
@@ -1261,14 +1260,14 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
                 match instr.opcode with
                 | OpCode op ->
                     if uint16 op.Value >= 0x100us then
-                        outputIL.[offset] <- byte OpCodes.Prefix1.Value
+                        outputIL[offset] <- byte OpCodes.Prefix1.Value
                         offset <- offset + 1
-                    outputIL.[offset] <- byte (op.Value &&& 0xFFs)
+                    outputIL[offset] <- byte (op.Value &&& 0xFFs)
                     offset <- offset + 1
                     match instr.arg with
                     | NoArg -> ()
                     | Arg8 arg ->
-                        outputIL.[offset] <- arg
+                        outputIL[offset] <- arg
                         offset <- offset + sizeof<int8>
                     | Arg16 arg ->
                         let success = BitConverter.TryWriteBytes(Span(outputIL, offset, sizeof<int16>), arg)
@@ -1319,11 +1318,11 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
                                     if op = OpCodes.Leave_S then instr.opcode <- OpCode OpCodes.Leave
                                     else
                                         assert(op.Value >= OpCodes.Br_S.Value && op.Value <= OpCodes.Blt_Un_S.Value)
-                                        let op = OpCodeOperations.singleByteOpCodes.[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
+                                        let op = OpCodeOperations.singleByteOpCodes[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
                                         assert(op.Value >= OpCodes.Br.Value && op.Value <= OpCodes.Blt_Un.Value)
                                         instr.opcode <- OpCode op
                                     tryAgain <- true
-                                else outputIL.[int instr.next.offset - sizeof<int8>] <- byte (int8 delta)
+                                else outputIL[int instr.next.offset - sizeof<int8>] <- byte (int8 delta)
                             | OperandType.InlineBrTarget ->
                                 let success = BitConverter.TryWriteBytes(Span(outputIL, int instr.next.offset - sizeof<int32>, sizeof<int32>), delta)
                                 assert success
