@@ -1,6 +1,7 @@
 #include "profilerState.h"
 #include "probes.h"
 #include <codecvt>
+#include <locale>
 
 using namespace vsharp;
 

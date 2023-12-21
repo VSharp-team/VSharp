@@ -91,7 +91,7 @@ set(WINDOWS_LIBRARY_NAME libvsharpCoverage)
 
 # CXX_FLAGS
 set(COMMON_CXX_FLAGS "")
-set(UNIX_CXX_FLAGS -Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions)
+set(UNIX_CXX_FLAGS "-Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions")
 set(WINDOWS_CXX_FLAGS "")
 
 # TARGET_OS
