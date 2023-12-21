@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Threading;
 using NUnit.Framework;
 using VSharp.Test;
 
@@ -9,6 +10,17 @@ namespace IntegrationTests
     [Ignore("Need exceptions for all tests")]
     public sealed class Arithmetics_CIL
     {
+        [TestSvm]
+        public static bool JustSleep()
+        {
+            throw new AccessViolationException();
+            // if (Random.Shared.NextInt64(0, 2) == 0)
+            // {
+            //     Thread.Sleep(10000);
+            // }
+            return true;
+        }
+
         [TestSvm]
         public static bool MultiplicationOfFloatsIsNotAssociative()
         {

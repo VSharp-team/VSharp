@@ -23,12 +23,7 @@ let traceFuzzingInteraction msg = VSharp.Logger.traceWithTag VSharp.Logger.fuzzi
 
 let setupLogger outputDir =
     #if DEBUG
-    let logPath = $"{outputDir}{System.IO.Path.DirectorySeparatorChar}fuzzer.log"
-    if System.IO.File.Exists(logPath) then
-        System.IO.File.Delete(logPath)
-    let writer = new System.IO.StreamWriter (
-        System.IO.File.OpenWrite $"{outputDir}{System.IO.Path.DirectorySeparatorChar}fuzzer.log"
-    )
+    let writer = System.IO.File.AppendText $"{outputDir}{System.IO.Path.DirectorySeparatorChar}fuzzer.log"
 
     VSharp.Logger.configureWriter writer
 

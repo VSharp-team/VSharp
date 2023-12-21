@@ -60,6 +60,8 @@ public static class FuzzerTests
                 .Where(x => x.GetCustomAttribute<TestSvmFixtureAttribute>() != null)
                 .SelectMany(x => x.GetMethods())
                 .Where(x => x.GetCustomAttribute<TestSvmAttribute>() != null)
+                .Where(x => x is { Name: "JustSleep" } or { Name: "AbsMethod" })
+                //.Where(x => x.DeclaringType is { Name: "Arithmetics" })
                 .Select(x => (MethodBase) x)
                 .ToArray();
     }
@@ -80,6 +82,7 @@ public static class FuzzerTests
         var reporter = new FuzzerReporter();
         var explorer = new Explorer.Explorer(explorerOptions, reporter);
         var methodsToTest = LoadTestMethods();
+        Logger.printLogString(Logger.Error, "Methods loaded");
 
         explorer.StartExploration(methodsToTest, global::System.Array.Empty<Tuple<MethodBase,string[]>>());
     }
@@ -122,6 +125,7 @@ public static class FuzzerTests
     [Test, Explicit]
     public static void Tests()
     {
+        DotnetExecutablePath.OverridePath("\"C:\\Users\\vikto\\.dotnet\\dotnet.exe\"");
         Logger.enableTag("Communication", Logger.Trace);
         PrepareOutputDirectory();
         RunFuzzer();

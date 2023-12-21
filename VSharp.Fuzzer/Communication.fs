@@ -138,7 +138,16 @@ module Services =
         interface Contracts.IMasterProcessService with
             member this.TrackCoverage data =
                 traceData data
-                onTrackCoverage data.methods data.rawData
+                // [||] due the deserialization is null
+                // https://github.com/protobuf-net/protobuf-net/issues/221
+                let rawData =
+                    data.rawData
+                    |> Array.map (fun x ->
+                        if x.rawCoverageLocations = null then
+                            {x with rawCoverageLocations = [||] }
+                        else x
+                )
+                onTrackCoverage data.methods rawData
             member this.TrackExecutionSeed data =
                 traceData data
                 onTrackExecutionSeed data

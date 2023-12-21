@@ -138,8 +138,8 @@ type internal Fuzzer(
         let sendCoverage (methods: Dictionary<int, RawMethodInfo>) coverageReports =
             task {
                 let mainMethod =
-                        methods
-                        |> Seq.find (fun x -> int x.Value.methodToken = method.MetadataToken)
+                    methods
+                    |> Seq.find (fun x -> int x.Value.methodToken = method.MetadataToken)
 
                 let reports =
                     coverageReports
@@ -192,29 +192,36 @@ type internal Fuzzer(
             assert (coverages.reports.Length = batchSize)
 
             let reports = coverages.reports |> Array.sortBy (fun x -> x.threadId)
-            let! isNewCoverages = sendCoverage coverages.methods reports
 
-            for i in indices do
-                let coverage = reports[i]
-                let threadId = threadIds[i]
-                let invocationResult = invocationResults[i]
-                let generationData = data[i]
-                let isNewCoverage = isNewCoverages.boolValues[i]
+            let existNonAborted = reports |> Seq.exists (fun x -> x.rawCoverageLocations <> [||])
 
-                assert (int coverage.threadId = threadId)
+            if existNonAborted then
+                let! isNewCoverages = sendCoverage coverages.methods reports
 
-                traceFuzzing $"Handler result for {threadIds[i]}"
-                match coverage.rawCoverageLocations with
-                | [||] ->
-                    abortedCount <- abortedCount + 1
-                    traceFuzzing "Aborted"
-                | _ ->
-                    traceFuzzing $"Invoked"
-                    assert(not <| Utils.isNull invocationResult)
-                    if isNewCoverage then
-                        onNewCoverage generationData invocationResult
-                    else
-                        onKnownCoverage ()
+                for i in indices do
+                    let coverage = reports[i]
+                    let threadId = threadIds[i]
+                    let invocationResult = invocationResults[i]
+                    let generationData = data[i]
+                    let isNewCoverage = isNewCoverages.boolValues[i]
+
+                    assert (int coverage.threadId = threadId)
+
+                    traceFuzzing $"Handler result for {threadIds[i]}"
+                    match coverage.rawCoverageLocations with
+                    | [||] ->
+                        traceFuzzing "Aborted"
+                        abortedCount <- abortedCount + 1
+                    | _ ->
+                        traceFuzzing "Invoked"
+                        assert(not <| Utils.isNull invocationResult)
+                        if isNewCoverage then
+                            onNewCoverage generationData invocationResult
+                        else
+                            onKnownCoverage ()
+            else
+                traceFuzzing "All aborted"
+                abortedCount <- abortedCount + reports.Length
         }
 
     member this.AsyncFuzz (method: Method) =

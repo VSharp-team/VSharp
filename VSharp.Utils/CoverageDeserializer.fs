@@ -28,7 +28,7 @@ type RawCoverageLocation = {
 }
 
 type RawMethodInfo = {
-    methodToken: uint32 
+    methodToken: uint32
     moduleName: string
     assemblyName: string
 }
@@ -164,7 +164,7 @@ module CoverageDeserializer =
         let toReport (x: RawCoverageReport) =
             {
                 threadId = x.threadId
-                coverageLocations = x.rawCoverageLocations |> Array.map toLocation 
+                coverageLocations = x.rawCoverageLocations |> Array.map toLocation
             }
 
         rawReports.reports |> Array.map toReport

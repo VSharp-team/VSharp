@@ -88,60 +88,85 @@ type private FuzzingProcessState =
     | TimeoutReached
     | UnhandledException of exn
     | NotStarted
+    | Started
+    | RestartingInProcess
+    | Restarted
 
 type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzzerDeveloperOptions) =
     let mutable fuzzerService = Unchecked.defaultof<IFuzzerService>
     let mutable fuzzerProcess = Unchecked.defaultof<Process>
     let mutable state = NotStarted
-    let mutable lastFuzzedMethodTime = Unchecked.defaultof<DateTime>
-    let mutable lastFuzzingRequestTime = Unchecked.defaultof<DateTime>
+    let mutable lastRequestTime = Unchecked.defaultof<DateTime>
 
-    let fuzzerExternalTimeLimitPerMethod =
-        let needToAttach =
-            fuzzerDeveloperOptions.waitDebuggerAttachedFuzzer
-            || fuzzerDeveloperOptions.waitDebuggerAttachedCoverageTool
-            || fuzzerDeveloperOptions.waitDebuggerAttachedOnAssertCoverageTool
-        if needToAttach then
-            TimeSpan.MaxValue
-        else
-            TimeSpanBuilders.FromMilliseconds(fuzzerOptions.timeLimitPerMethod * 3)
 
     let unhandledExceptionPath = $"{outputPath}{Path.DirectorySeparatorChar}exception.info"
-
     let logFuzzingProcess msg = traceCommunication $"[FuzzingProcess] {msg}"
 
     let fuzzerStarted () = fuzzerProcess <> null
     let fuzzerAlive () = fuzzerStarted () && (not fuzzerProcess.HasExited)
 
-    let markFinished newState =
-        assert fuzzerStarted ()
-        assert (state = FuzzingInProcess)
-        assert (newState <> FuzzingInProcess)
-        lastFuzzedMethodTime <- DateTime.Now
-        state <- newState
-
     let markException ex =
-        UnhandledException ex |> markFinished
+        state <- UnhandledException ex
 
-    let updateState () =
-        assert (state = FuzzingInProcess)
-        if DateTime.Now - lastFuzzingRequestTime > fuzzerExternalTimeLimitPerMethod then
-            state <- TimeoutReached
-        elif fuzzerAlive () |> not then
-            if File.Exists(unhandledExceptionPath) then
-                let text = File.ReadAllText(unhandledExceptionPath).Split(" ")
-                assert (text.Length = 2)
-                File.Delete unhandledExceptionPath
-                state <- SuccessfullyFuzzedMethodWithException <| Some (int text[0], text[1])
-            elif fuzzerProcess.ExitCode = 0 then
-                // In case of StackOverflowException fuzzer can't write exception.info, but will exited with code 0
-                state <- SuccessfullyFuzzedMethodWithException None
+    let mutable newSuccessfullyFuzzedNotificationReceived = false
+
+    let waitStartupTimeout = TimeSpanBuilders.FromMilliseconds(10000)
+    let waitFuzzerNotificationTimeout = TimeSpanBuilders.FromMilliseconds(fuzzerOptions.timeLimitPerMethod * 3)
+    let pollingDelay = TimeSpanBuilders.FromMilliseconds(fuzzerOptions.timeLimitPerMethod / 2)
+
+    let mutable currentTimeout = waitStartupTimeout
+
+    let updateTimerOnFuzzingRequest () =
+        lastRequestTime <- DateTime.Now
+        currentTimeout <- waitFuzzerNotificationTimeout
+
+    let updateTimerOnStartRequest () =
+        lastRequestTime <- DateTime.Now
+        currentTimeout <- waitStartupTimeout
+
+    let timeoutReached () =
+        DateTime.Now - lastRequestTime > currentTimeout
+
+    let (|UnhandledExn|StackOverflow|UnexpectedExit|TimeoutReached|WorkInProgress|SuccessfullyFuzzed|) () =
+            assert (state = FuzzingInProcess)
+            if newSuccessfullyFuzzedNotificationReceived then
+                newSuccessfullyFuzzedNotificationReceived <- false
+                SuccessfullyFuzzed
+            elif timeoutReached () then
+                TimeoutReached
+            elif fuzzerAlive () |> not then
+                if File.Exists(unhandledExceptionPath) then
+                    UnhandledExn unhandledExceptionPath
+                elif fuzzerProcess.ExitCode = 0 then
+                    // In case of StackOverflowException fuzzer can't write exception.info, but will exited with code 0
+                    StackOverflow
+                else
+                    UnexpectedExit
             else
-                state <- UnexpectedExit
+                WorkInProgress
+
+    let updateState =
+        function
+        | UnhandledExn path ->
+            let text = File.ReadAllText(path).Split(" ")
+            assert (text.Length = 2)
+            File.Delete path
+            state <- SuccessfullyFuzzedMethodWithException <| Some (int text[0], text[1])
+        | StackOverflow ->
+            state <- SuccessfullyFuzzedMethodWithException None
+        | UnexpectedExit ->
+            state <- UnexpectedExit
+        | TimeoutReached ->
+            state <- TimeoutReached
+        | SuccessfullyFuzzed ->
+            state <- SuccessfullyFuzzedMethod
+        | WorkInProgress -> ()
+
 
     member this.Start () =
         logFuzzingProcess "Starting"
-        assert (fuzzerStarted () |> not)
+        assert (fuzzerAlive () |> not)
+        updateTimerOnStartRequest ()
         task {
             fuzzerProcess <- startFuzzer fuzzerOptions fuzzerDeveloperOptions
             fuzzerService <- connectFuzzerService ()
@@ -149,15 +174,17 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
             logFuzzingProcess $"Setup Fuzzer: {outputPath} {targetAssemblyPath}"
             do! fuzzerService.SetupOutputDirectory { stringValue = outputPath }
             do! fuzzerService.SetupAssembly { assemblyName = targetAssemblyPath }
+            state <- Started
         }
 
     member this.FuzzMethod (method: MethodBase) =
         logFuzzingProcess $"Fuzzing method: {method.Name}"
         assert fuzzerAlive ()
         assert (state <> FuzzingInProcess)
+        updateTimerOnFuzzingRequest ()
         task {
             try
-                lastFuzzingRequestTime <- DateTime.Now
+                lastRequestTime <- DateTime.Now
                 state <- FuzzingInProcess
                 do! fuzzerService.Fuzz {
                     moduleName = method.Module.FullyQualifiedName
@@ -167,31 +194,35 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
         }
 
     member this.RestartFuzzing () =
+        state <- RestartingInProcess
         logFuzzingProcess "Restarting fuzzing"
         task {
             assert fuzzerStarted ()
             try
-                if fuzzerAlive () |> not then
+                if fuzzerAlive () then
                     logFuzzingProcess "Fuzzer alive, killing"
                     fuzzerProcess.Kill()
+                    fuzzerProcess.WaitForExit()
                 do! this.Start ()
+                state <- Restarted
             with e -> markException e
         }
 
     member this.NotifyMethodFuzzingFinished () =
         logFuzzingProcess "Fuzzing method finished"
-        try
-            markFinished SuccessfullyFuzzedMethod
-        with e -> markException e
+        newSuccessfullyFuzzedNotificationReceived <- true
 
     member this.Poll handleState =
-        assert fuzzerStarted ()
-        try
-            Logger.error $"{state}"
-            if state = FuzzingInProcess then
-                updateState ()
-        with e -> markException e
-        handleState state
+        task {
+            try
+                if state = FuzzingInProcess then
+                    updateState ()
+                while state = FuzzingInProcess do
+                    do! Task.Delay(pollingDelay)
+                    updateState()
+            with e -> markException e
+            do! handleState state
+        }
 
     member this.WaitForExit () =
         logFuzzingProcess "Wait for exit"
@@ -248,8 +279,11 @@ type Interactor (
     let siliStatisticsConverter = SiliStatisticConverter()
     let testRestorer = TestRestorer(fuzzerOptions, targetAssemblyPath, outputPath)
     let queued = System.Collections.Generic.Queue<_>(isolated)
+
+    let hasNextMethod () = queued.Count <> 0
+
     let nextMethod () =
-        if queued.Count = 0 then
+        if hasNextMethod () |> not then
             None
         else
             queued.Dequeue() |> Some
@@ -265,33 +299,45 @@ type Interactor (
         (successfullyFuzzed + failedFuzzed) = methodsCount
         || cancellationToken.IsCancellationRequested
 
-
-
     let handleFuzzingProcessState state =
 
         let onFailed () =
             failedFuzzed <- failedFuzzed + 1
             task {
-                match nextMethod () with
-                | Some method ->
+                if hasNextMethod () then
                     do! fuzzingProcess.RestartFuzzing ()
-                    do! fuzzingProcess.FuzzMethod method
+            }
+
+        let fuzzNextMethod () =
+            task {
+                match nextMethod () with
+                | Some method -> do! fuzzingProcess.FuzzMethod method
                 | None -> ()
             }
 
+        Logger.error $"Current state: {state}"
         task {
             match state with
             | SuccessfullyFuzzedMethod ->
                 successfullyFuzzed <- successfullyFuzzed + 1
+                do! fuzzNextMethod ()
             | SuccessfullyFuzzedMethodWithException (Some (threadId, exceptionName)) ->
+                successfullyFuzzed <- successfullyFuzzed + 1
                 testRestorer.RestoreTest threadId exceptionName
+            | UnexpectedExit ->
+                do! onFailed()
             | SuccessfullyFuzzedMethodWithException None
-            | UnexpectedExit
             | TimeoutReached ->
                 do! onFailed ()
-            | NotStarted
+            | NotStarted ->
+                do! fuzzingProcess.Start()
             | FuzzingInProcess ->
                 ()
+            | Started
+            | Restarted ->
+                do! fuzzNextMethod ()
+            | RestartingInProcess as x ->
+                failwith $"Unexpected state: {x}"
             | UnhandledException exn when (exn :? TaskCanceledException) ->
                 onCancelled ()
             | UnhandledException exn when (exn :? Grpc.Core.RpcException || exn :? System.Net.Http.HttpRequestException) ->
@@ -304,11 +350,7 @@ type Interactor (
 
         let onMethodFuzzingFinished () =
             task {
-                successfullyFuzzed <- successfullyFuzzed + 1
                 fuzzingProcess.NotifyMethodFuzzingFinished ()
-                match nextMethod () with
-                | Some method -> do! fuzzingProcess.FuzzMethod method
-                | None -> ()
             } :> Task
 
         let onTrackCoverage methods (rawData: RawCoverageReport[]) =
@@ -331,17 +373,12 @@ type Interactor (
     member this.StartFuzzing () =
         task {
             try
-                match nextMethod () with
-                | Some method ->
-                    cancellationToken.Register(fun () -> fuzzingProcess.Kill()) |> ignore
-                    startMasterProcessService masterProcessService CancellationToken.None |> ignore
-                    do! fuzzingProcess.Start()
-                    do! fuzzingProcess.FuzzMethod method
-                    while isFuzzingFinished () |> not do
-                        do! Task.Delay(fuzzerOptions.timeLimitPerMethod)
-                        do! fuzzingProcess.Poll handleFuzzingProcessState
-                    do! fuzzingProcess.WaitForExit()
-                | None -> ()
+                cancellationToken.Register(fun () -> fuzzingProcess.Kill()) |> ignore
+                startMasterProcessService masterProcessService CancellationToken.None |> ignore
+                while isFuzzingFinished () |> not do
+                    Logger.error $"{successfullyFuzzed} + {failedFuzzed} = {methodsCount}"
+                    do! fuzzingProcess.Poll handleFuzzingProcessState
+                do! fuzzingProcess.WaitForExit()
             finally
                 fuzzingProcess.Kill()
         }

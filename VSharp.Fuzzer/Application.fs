@@ -72,9 +72,10 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
 
     member this.Start () =
         try
+            traceFuzzing "Start Fuzzer"
             let fuzzerService = createFuzzerService ()
             let fuzzerTask = startFuzzerService fuzzerService fuzzerCancellationToken.Token
-
+            traceFuzzing "Start Fuzzer service, wait for handshake"
             waitMasterProcessForReady masterProcessService
 
             traceFuzzing "Ready to work"

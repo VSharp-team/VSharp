@@ -514,9 +514,10 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
                 let emptyState = Memory.EmptyState()
                 (Option.defaultValue method (x.TrySubstituteTypeParameters emptyState method), emptyState)
             let isolated =
-                List.ofSeq isolated
-                |> List.map trySubstituteTypeParameters
-                |> List.map (fun (m, s) -> Application.getMethod m, s)
+                isolated
+                |> Seq.map trySubstituteTypeParameters
+                |> Seq.map (fun (m, s) -> Application.getMethod m, s) |> Seq.toList
+            Logger.error "Generics resolved"
             let entryPoints =
                 entryPoints
                 |> Seq.map (fun (m, a) ->

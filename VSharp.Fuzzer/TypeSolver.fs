@@ -54,21 +54,24 @@ type internal TypeSolver() =
             systemTypeCache.Add(mock, dynamicType)
             dynamicType
 
-    member this.MockType (t: System.Type) (generate: System.Type -> obj) =
-        Logger.traceTypeSolving $"Mock type {t.Name}"
+    let mockTypes (ts: System.Type list) (generate: System.Type -> obj) =
+        Logger.traceTypeSolving $"Mock type {ts}"
         let mock =
-            match mockCache.TryGetValue [t] with
+            match mockCache.TryGetValue ts with
             | true, v ->
-                Logger.traceTypeSolving $"{t.Name} got from cache"
+                Logger.traceTypeSolving $"{ts} got from cache"
                 v
             | false, _ ->
-                Logger.traceTypeSolving $"{t.Name} new TypeMock"
-                let mock = TypeMock([t])
-                mockCache.Add([t], mock)
+                Logger.traceTypeSolving $"{ts} new TypeMock"
+                let mock = TypeMock(ts)
+                mockCache.Add(ts, mock)
                 mock
         let encodedMock = encodeMock mock generate
         let typ = mockToType encodedMock
         mock, typ
+
+    member this.MockType (t: System.Type) (generate: System.Type -> obj) =
+        mockTypes [t] generate
 
     member this.GetMocks () = mockTypeCache
 
@@ -80,8 +83,8 @@ type internal TypeSolver() =
                 function
                 | ConcreteType t -> t
                 | MockType m ->
-                    mockCache.Add (m.SuperTypes |> Seq.toList, m)
-                    encodeMock m generate |> mockToType
+                    mockTypes (m.SuperTypes |> Seq.toList) generate
+                    |> snd
 
             let methodBase = (method :> IMethod).MethodBase
             let classParams = classParams |> Array.map getConcreteType
