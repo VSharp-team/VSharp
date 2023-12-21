@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net7.0</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>
@@ -20,6 +20,8 @@
       <ProjectReference Include="..\C-Sharp-Algorithms\Algorithms\Algorithms.csproj" />
       <ProjectReference Include="..\C-Sharp-Algorithms\DataStructures\DataStructures.csproj" />
       <ProjectReference Include="..\Lifetimes\Lifetimes.csproj" />
+      <ProjectReference Include="..\LiteDB\LiteDB\LiteDB.csproj" />
+      <ProjectReference Include="..\StandaloneUnity\Unity\Unity.csproj" />
     </ItemGroup>
 
 </Project>
