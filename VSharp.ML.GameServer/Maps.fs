@@ -41,9 +41,7 @@ let trainMaps, validationMaps =
     //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     //add 70u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     
-    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
-    //add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
-    
+        
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
     //add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
     
@@ -82,8 +80,7 @@ let trainMaps, validationMaps =
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "KMPSearchMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinSearchMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixMultiplicationMain"
-    //add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MergeSortMain"
-    add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixInverseMain"
+    //add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MergeSortMain"    
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "SudokuMain"
     //add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "WordWrapMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "LCSMain"
