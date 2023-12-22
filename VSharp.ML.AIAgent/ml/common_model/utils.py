@@ -63,12 +63,12 @@ def csv2best_models(ref_model_init: t.Callable[[], torch.nn.Module]):
                 )
                 ref_model = load_model(Path(path_to_model), model=ref_model_init())
 
-            ref_model.to(GeneralConfig.DEVICE)
-            best_models[map_name] = (
-                ref_model,
-                best_model_score[map_name],
-                best_model_name,
-            )
+                ref_model.to(GeneralConfig.DEVICE)
+                best_models[map_name] = (
+                    ref_model,
+                    best_model_score[map_name],
+                    best_model_name,
+                )
     return best_models
 
 
