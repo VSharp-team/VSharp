@@ -41,7 +41,8 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
                 edges.AddRange delta.Map
                 let activeStates = vertices |> Seq.collect (fun v -> v.States) |> HashSet
                 let states =
-                    s.States |> Array.filter (fun s -> activeStates.Contains s.Id && (not <| updatedStates.Contains s.Id))
+                    s.States
+                    |> Array.filter (fun s -> activeStates.Contains s.Id && (not <| updatedStates.Contains s.Id))
                     |> Array.map (fun s -> State(s.Id
                                                  , s.Position
                                                  , s.PredictedUsefulness

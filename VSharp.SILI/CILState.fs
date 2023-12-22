@@ -447,10 +447,8 @@ module CilState =
             let clone = { x with state = x.state }
             let mkCilState state' =
                 if LanguagePrimitives.PhysicalEquality state' x.state then x
-                else
-                    let s = clone.Copy(state')
-                    s.internalId <- getNextStateId()
-                    s
+                else clone.Copy(state')
+                    
             StatedConditionalExecution x.state conditionInvocation
                 (fun state k -> thenBranch (mkCilState state) k)
                 (fun state k -> elseBranch (mkCilState state) k)
@@ -486,7 +484,7 @@ module CilState =
         // -------------------- Changing inner state --------------------
 
         member x.Copy(state : state) =
-            { x with state = state }
+            { x with state = state ;internalId = getNextStateId(); children = [] }
 
         // This function copies cilState, instead of mutation
         member x.ChangeState state' : cilState =

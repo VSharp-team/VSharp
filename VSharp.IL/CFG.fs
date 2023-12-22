@@ -708,6 +708,8 @@ module Application =
     let terminateState (state: IGraphTrackableState) =
         // TODO: gsv: propagate this into application graph
         let removed = state.CodeLocation.BasicBlock.AssociatedStates.Remove state
+        let added = applicationGraphDelta.TouchedBasicBlocks.Add state.CodeLocation.BasicBlock
+        let added = applicationGraphDelta.TouchedStates.Add state
         visualizer.TerminateState state
 
     let addCallEdge = graph.AddCallEdge
