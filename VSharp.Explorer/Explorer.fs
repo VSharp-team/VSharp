@@ -305,6 +305,11 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                 sIsStopped <- true
                 goodStates @ iieStates @ errors
         Application.moveState loc s (Seq.cast<_> newStates)
+        for newState in newStates do
+            let historyCopy = System.Collections.Generic.Dictionary<_,_>()
+            for kvp in s._history do historyCopy.Add(kvp.Key, kvp.Value)
+            newState._history <- historyCopy
+        s.children <- s.children @ newStates
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
         if sIsStopped then

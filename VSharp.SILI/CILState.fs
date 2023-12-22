@@ -104,7 +104,7 @@ module CilState =
             /// <summary>
             /// Deterministic state id.
             /// </summary>
-            internalId : uint<VSharp.ML.GameServer.Messages.stateId>
+            mutable internalId : uint<VSharp.ML.GameServer.Messages.stateId>
             mutable visitedAgainVertices: uint
             mutable visitedNotCoveredVerticesInZone: uint
             mutable visitedNotCoveredVerticesOutOfZone: uint
@@ -447,7 +447,10 @@ module CilState =
             let clone = { x with state = x.state }
             let mkCilState state' =
                 if LanguagePrimitives.PhysicalEquality state' x.state then x
-                else clone.Copy(state')
+                else
+                    let s = clone.Copy(state')
+                    s.internalId <- getNextStateId()
+                    s
             StatedConditionalExecution x.state conditionInvocation
                 (fun state k -> thenBranch (mkCilState state) k)
                 (fun state k -> elseBranch (mkCilState state) k)
