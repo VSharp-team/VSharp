@@ -87,12 +87,13 @@ class FullDataset:
                 filtered_map_steps.append(step)
         return filtered_map_steps
 
-    def get_plain_data(self):
+    def get_plain_data(self, threshold: int = 100):
         result = []
-        for _, map_steps in self.maps_data.values():
-            for step in map_steps:
-                if step.use_for_train:
-                    result.append(step)
+        for map_result, map_steps in self.maps_data.values():
+            if map_result[0] >= threshold:
+                for step in map_steps:
+                    if step.use_for_train:
+                        result.append(step)
         return result
 
     def save(self):
