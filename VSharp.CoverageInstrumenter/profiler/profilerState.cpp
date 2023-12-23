@@ -67,14 +67,6 @@ ProfilerState::ProfilerState(ICorProfilerInfo8 *corProfilerInfo) {
     coverageTracker = new CoverageTracker(threadTracker, threadInfo, collectMainOnly);
 }
 
-void vsharp::ProfilerState::dumpUnCatchableException(const std::string& exceptionName) {
-    std::ofstream stream;
-    stream.open("exception.info");
-    auto threadId = threadTracker->getCurrentThreadMappedId();
-    stream << threadId << " " << exceptionName;
-    stream.close();
-}
-
 void vsharp::ProfilerState::setEntryMain(char *assemblyName, int assemblyNameLength, char *moduleName, int moduleNameLength, int methodToken) {
     auto* wcharAssemblyName = new WCHAR[assemblyNameLength];
     memcpy(wcharAssemblyName, assemblyName, assemblyNameLength * sizeof(WCHAR));

@@ -59,13 +59,18 @@ private:
     bool collectMainOnly;
     std::mutex collectedMethodsMutex;
     std::vector<MethodInfo> collectedMethods;
+    std::mutex visitedMethodsMutex;
+    std::set<int> visitedMethods;
     ThreadStorage<CoverageHistory*>* trackedCoverage;
     ThreadTracker* threadTracker;
+    std::mutex serializedCoverageMutex;
+    std::vector<std::vector<char>> serializedCoverage;
 public:
     explicit CoverageTracker(ThreadTracker* threadTracker, ThreadInfo* threadInfo, bool collectMainOnly);
     bool isCollectMainOnly() const;
     void addCoverage(OFFSET offset, CoverageEvent event, int methodId);
     void invocationAborted();
+    void invocationFinished();
     size_t collectMethod(MethodInfo info);
     char* serializeCoverageReport(size_t* size);
     void clear();

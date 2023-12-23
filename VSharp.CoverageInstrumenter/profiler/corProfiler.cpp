@@ -430,13 +430,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionThrown(ObjectID thrownObjectId)
             profilerState->threadTracker->loseCurrentThread();
             profilerState->coverageTracker->invocationAborted();
         }
-        else if (
-            exceptionName == "System.AccessViolationException" ||
-            exceptionName == "System.StackOverflowException"
-        ) {
-            profilerState->dumpUnCatchableException(exceptionName);
-            exit(0);
-        }
     }
     return S_OK;
 }

@@ -13,6 +13,7 @@ private:
     ThreadStorage<int>* inFilterMapping;
 public:
     void mapCurrentThread(int mapId);
+    bool hasMapping();
     int getCurrentThreadMappedId();
     std::vector<std::pair<ThreadID, int>> getMapping();
     bool isCurrentThreadTracked();

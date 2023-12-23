@@ -75,37 +75,53 @@ void CoverageTracker::addCoverage(UINT32 offset, CoverageEvent event, int method
     }
 }
 
-char* CoverageTracker::serializeCoverageReport(size_t* size) {
-    auto coverage = trackedCoverage->items();
-    auto threadMapping = threadTracker->getMapping();
-    int coverageCount = static_cast<int>(coverage.size());
+void CoverageTracker::invocationFinished() {
+    auto buffer = std::vector<char>();
+    auto coverage = trackedCoverage->load();
 
-    trackedCoverage->clear();
+    int threadId = 0;
+    if (threadTracker->hasMapping()) {
+        threadId = threadTracker->getCurrentThreadMappedId();
+    }
+
+    visitedMethodsMutex.lock();
+    visitedMethods.insert(coverage->visitedMethods.begin(), coverage->visitedMethods.end());
+    visitedMethodsMutex.unlock();
+
+    LOG(tout << "Serialize thread id: " << threadId);
+    serializePrimitive(threadId, buffer);
+
+    if (coverage == nullptr) {
+        serializePrimitive(1, buffer);
+    } else {
+        serializePrimitive(0, buffer);
+        coverage->serialize(buffer);
+    }
+
+
+
+    trackedCoverage->remove();
+
+    serializedCoverageMutex.lock();
+    serializedCoverage.push_back(buffer);
+    serializedCoverageMutex.unlock();
+}
+
+char* CoverageTracker::serializeCoverageReport(size_t* size) {
+    int coverageCount = static_cast<int>(serializedCoverage.size());
+
     collectedMethodsMutex.lock();
 
     auto buffer = std::vector<char>();
     auto methodsToSerialize = std::vector<std::pair<int, MethodInfo>>();
-    auto visitedMethodsByAllThreads = std::set<int>();
-
-    for (int i = 0; i < coverageCount; i++) {
-        if (coverage[i].second != nullptr) {
-            auto visitedByI = coverage[i].second->visitedMethods;
-            visitedMethodsByAllThreads.insert(visitedByI.begin(), visitedByI.end());
-        }
-    }
-
-    LOG(
-    for (auto x: visitedMethodsByAllThreads) {
-        tout << "Visited by all: " << x << std::endl;
-    }
-    );
 
     for (int i = 0; i < collectedMethods.size(); i++) {
-        if (visitedMethodsByAllThreads.count(i) > 0) {
+        if (visitedMethods.count(i) > 0) {
             methodsToSerialize.emplace_back(i, collectedMethods[i]);
         }
     }
 
+    LOG(tout << "Serialize methods count: " << methodsToSerialize.size());
     serializePrimitive(static_cast<int> (methodsToSerialize.size()), buffer);
     for (auto el: methodsToSerialize) {
         serializePrimitive(el.first, buffer);
@@ -115,29 +131,12 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
     serializePrimitive(static_cast<int> (coverageCount), buffer);
     LOG(tout << "Serialize coverage count: " << coverageCount);
     for (int i = 0; i < coverageCount; i++) {
-        if (threadMapping.empty()) {
-            serializePrimitive(0, buffer);
-        } else {
-            for (auto &j : threadMapping) {
-                if (j.first == coverage[i].first) {
-                    LOG(tout << "Serialize thread id: " << j.second);
-                    serializePrimitive(j.second, buffer);
-                    break;
-                }
-            }
-        }
-        if (coverage[i].second != nullptr) {
-            LOG(tout << "Serialize coverage: " << coverage[i].first);
-            serializePrimitive(0, buffer);
-            coverage[i].second->serialize(buffer);
-        } else {
-            LOG(tout << "Serialize coverage (aborted): " << coverage[i].first);
-            serializePrimitive(1, buffer);
-        }
+        serializePrimitiveArray(&serializedCoverage[i][0], serializedCoverage[i].size(), buffer);
     }
 
+    trackedCoverage->clear();
+    serializedCoverage.clear();
     methodsToSerialize.clear();
-    visitedMethodsByAllThreads.clear();
     collectedMethodsMutex.unlock();
 
     *size = buffer.size();

@@ -23,8 +23,6 @@ public:
 
     bool isCorrectFunctionId(FunctionID id);
 
-    void dumpUnCatchableException(const std::string& exceptionName);
-
     void setEntryMain(char* assemblyName, int assemblyNameLength, char* moduleName, int moduleNameLength, int methodToken);
 
     explicit ProfilerState(ICorProfilerInfo8 *corProfilerInfo);
