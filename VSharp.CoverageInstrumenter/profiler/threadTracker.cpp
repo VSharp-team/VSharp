@@ -46,7 +46,9 @@ void ThreadTracker::loseCurrentThread() {
     profilerState->coverageTracker->invocationFinished();
     stackBalances->remove();
     inFilterMapping->remove();
-    threadIdMapping->remove();
+    if (!profilerState->isPassiveRun) {
+        threadIdMapping->remove();
+    }
 }
 
 void ThreadTracker::unwindFunctionEnter(FunctionID functionId) {
