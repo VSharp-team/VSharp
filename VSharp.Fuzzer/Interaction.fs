@@ -113,6 +113,7 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
     let waitStartupTimeout = TimeSpanBuilders.FromMilliseconds(10000)
     let waitFuzzerNotificationTimeout = TimeSpanBuilders.FromMilliseconds(fuzzerOptions.timeLimitPerMethod * 3)
     let pollingDelay = TimeSpanBuilders.FromMilliseconds(fuzzerOptions.timeLimitPerMethod / 2)
+    let exitTimeout = TimeSpanBuilders.FromMilliseconds(fuzzerOptions.timeLimitPerMethod * 3)
 
     let mutable currentTimeout = waitStartupTimeout
 
@@ -233,7 +234,14 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
                 match fuzzerDeveloperOptions.sanitizersMode with
                 | Disabled ->
                     logFuzzingProcess "Sanitizers disabled, wait for exit"
-                    do! fuzzerProcess.WaitForExitAsync ()
+                    let exitCtsSource = new CancellationTokenSource()
+                    exitCtsSource.CancelAfter(exitTimeout)
+                    try
+                        do! fuzzerProcess.WaitForExitAsync exitCtsSource.Token
+                    with
+                        | :? OperationCanceledException ->
+                            logFuzzingProcess "Exit timeout reached, killing process"
+                            this.Kill()
                 | Enabled _ ->
                     logFuzzingProcess "Sanitizers enabled, killing process"
                     this.Kill()
