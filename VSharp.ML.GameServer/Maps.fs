@@ -16,7 +16,8 @@ let trainMaps, validationMaps =
     let add = add' trainMaps 10000000u<step>
    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"    
-    //add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+    add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"    
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
@@ -29,28 +30,28 @@ let trainMaps, validationMaps =
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"    
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchKMP"
-    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchKMP"
+    add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchKMP"
    
     //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchWords"
     //add 10u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchWords"
       
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"    
-    //add 60u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
+    add 60u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    //add 70u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    add 70u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     
         
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
-    //add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
+    add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "getCofactor"
-    //add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "getCofactor"
+    add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "getCofactor"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
-    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
-    //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"   
+    add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
+    add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"   
     
     //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
     //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
@@ -61,18 +62,18 @@ let trainMaps, validationMaps =
     //add 70u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "waysToIncreaseLCSBy1"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1BFS"
-    //add 30u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1BFS"
-    //add 70u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1BFS"
+    add 30u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1BFS"
+    add 70u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1BFS"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "findShortestPathLength"
-    //add 30u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "findShortestPathLength"
-    //add 80u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "findShortestPathLength"
+    add 30u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "findShortestPathLength"
+    add 80u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "findShortestPathLength"
    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "countIslands"
-    //add 30u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "countIslands"
+    add 30u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "countIslands"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixQueryModifyMatrix"
-    //add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixQueryModifyMatrix"
+    add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixQueryModifyMatrix"
     
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "RedBlackTreeInsert"
         
@@ -94,7 +95,7 @@ let trainMaps, validationMaps =
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "Compress"
         
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindGCD"
-    //add 50u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindGCD"
+    add 50u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindGCD"
     
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindIntersections"
     
@@ -179,57 +180,18 @@ let trainMaps, validationMaps =
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.Add"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.ToArray"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.RemoveAt"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.Clear"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.GetEnumerator"
-   
-    
+        
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Add"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Clear"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Remove"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.RemoveAt"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Insert"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Contains"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.CopyTo"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.GetEnumerator"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.IndexOf"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "BitHacks.Log2Floor"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "BitHacks.Log2Ceil"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "BitHacks.NumberOfBitSet"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.AddFirst"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.AddLast"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.ForEachValue"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.PeekFirst"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.PeekLast"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.RemoveLastReferenceEqual"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.ReplaceFirst"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Statics.For"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Memory.Barrier"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Memory.CopyMemory"
-    
+        
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.Add"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.Clear"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.TryExtract"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.TryPeek"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseUntil"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseOnce"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.ToString"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.OptionalTypeInfo"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CollectionEx.ContentHashCode"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CollectionEx.TryDequeue"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CollectionEx.Enqueued"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "SingleThreadScheduler.RunInCurrentStackFrame"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "SingleThreadScheduler.RunOnSeparateThread"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "SingleThreadScheduler.CreateOverExisting"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "SingleThreadScheduler.Queue"
-        
+              
     //--add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.FlowInto"
     //--add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseAddRemove"
        
@@ -295,7 +257,6 @@ let trainMaps, validationMaps =
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "I8048.ExecuteOne"
     
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.BuildInstructionTable"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.ExecuteOne"
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.Disassemble"
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.ADDS_Func"
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.DA_Func"
@@ -360,53 +321,6 @@ let trainMaps, validationMaps =
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Vic.ExecutePhase1"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Vic.Read"
     
-    add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "LoanExamBuild"    
-    add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"    
-    add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
-    add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bridge"
-    add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "PrimeFactorCount"
-    
-    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "bucketSort"    
-    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "GetMaxBiPartiteMatchingMain"
-    
-    
-    
-    add 0u<percent> "Unity.dll" CoverageZone.Method "ShaderStringBuilder.AppendLines"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "ShaderStringBuilder.Concat"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "ShaderStringBuilder.Dispose"    
-    add 0u<percent> "Unity.dll" CoverageZone.Method "SlotValueHelper.AreCompatible"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "HlslTokenizer.GetOperatorToken"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "HlslTokenizer.ParseNumericLiteral"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "HlslTokenizer.Init"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "PartialDerivUtilWriter.MakeBinaryFunc"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "PartialDerivUtilWriter.MakeSingleFunc"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "PartialDerivUtilWriter.MakeImplicitCast"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "PartialDerivUtilWriter.GenerateDefinitionsAndFuncs"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "HlslParser.ParseStruct"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "HlslParser.ParseStatement"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "HlslGenerator.MarkApdNodesAndVariablesIsLegal"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "HlslGenerator.CalculateApdDependenciesRecurse"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "HlslGenerator.GenerateNodeExpression"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "Collections.Bitwise.FindUlong"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "Collections.Bitwise.FindUpto6bits"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "xxHash3.Hash64Internal"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "ObserverManager.NotifyObservers"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "PropertyBag.Accept"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "PropertyBag.AcceptWithSpecializedVisitor"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "PropertyBag.Register"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "UnsafeList.InsertRangeWithBeginEnd"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "UnsafeHashMap.TryRemove"
-    add 0u<percent> "Unity.dll" CoverageZone.Method "UnsafeHashMap.ResizeExact"
-    
-    add 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.DropCollection"
-    add 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.RenameCollection"
-    add 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.Delete"
-    add 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.EnsureIndex"
-    add 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.DropIndex"
-    add 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.Insert"
-    add 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.Rebuild"
-    add 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.Update"
-    
     //add 0u<percent> "Virtu.dll" CoverageZone.Method "Keyboard.SetKeys"
     
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "TopologicalSorter.Sort"
@@ -442,4 +356,81 @@ let trainMaps, validationMaps =
     add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseUntil"
     add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseOnce"
     add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.ToString"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.Clear"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.GetEnumerator"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Contains"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.CopyTo"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.GetEnumerator"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.IndexOf"
+    
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "BitHacks.Log2Floor"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "BitHacks.Log2Ceil"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "BitHacks.NumberOfBitSet"
+    
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.AddFirst"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.AddLast"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.ForEachValue"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.PeekFirst"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.PeekLast"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.RemoveLastReferenceEqual"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "StaticsForType.ReplaceFirst"
+    
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Statics.For"
+    
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Memory.Barrier"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Memory.CopyMemory"
+    
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseUntil"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseOnce"
+    
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.ToString"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.OptionalTypeInfo"
+    
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CollectionEx.ContentHashCode"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CollectionEx.TryDequeue"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CollectionEx.Enqueued"
+    
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "SingleThreadScheduler.RunInCurrentStackFrame"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "SingleThreadScheduler.RunOnSeparateThread"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "SingleThreadScheduler.CreateOverExisting"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "SingleThreadScheduler.Queue"
+    
+    add 5000u<step> 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.ExecuteOne"
+    
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "ShaderStringBuilder.AppendLines"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "ShaderStringBuilder.Concat"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "ShaderStringBuilder.Dispose"    
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "SlotValueHelper.AreCompatible"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "HlslTokenizer.GetOperatorToken"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "HlslTokenizer.ParseNumericLiteral"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "HlslTokenizer.Init"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "PartialDerivUtilWriter.MakeBinaryFunc"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "PartialDerivUtilWriter.MakeSingleFunc"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "PartialDerivUtilWriter.MakeImplicitCast"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "PartialDerivUtilWriter.GenerateDefinitionsAndFuncs"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "HlslParser.ParseStruct"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "HlslParser.ParseStatement"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "HlslGenerator.MarkApdNodesAndVariablesIsLegal"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "HlslGenerator.CalculateApdDependenciesRecurse"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "HlslGenerator.GenerateNodeExpression"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "Collections.Bitwise.FindUlong"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "Collections.Bitwise.FindUpto6bits"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "xxHash3.Hash64Internal"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "ObserverManager.NotifyObservers"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "PropertyBag.Accept"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "PropertyBag.AcceptWithSpecializedVisitor"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "PropertyBag.Register"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "UnsafeList.InsertRangeWithBeginEnd"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "UnsafeHashMap.TryRemove"
+    add 5000u<step> 0u<percent> "Unity.dll" CoverageZone.Method "UnsafeHashMap.ResizeExact"
+        
+    add 5000u<step> 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.DropCollection"
+    add 5000u<step> 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.RenameCollection"
+    add 5000u<step> 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.Delete"
+    add 5000u<step> 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.EnsureIndex"
+    add 5000u<step> 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.DropIndex"
+    add 5000u<step> 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.Insert"
+    add 5000u<step> 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.Rebuild"
+    add 5000u<step> 0u<percent> "LiteDB.dll" CoverageZone.Method "LiteEngine.Update"
+    
     trainMaps, validationMaps
