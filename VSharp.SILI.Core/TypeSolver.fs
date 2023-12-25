@@ -603,7 +603,7 @@ module TypeSolver =
 
     let refineTypes (state : state) =
         match solveTypes state.model state with
-        | TypeSat _ -> ()
+        | TypeSat -> ()
         | TypeUnsat -> internalfail "Refining types: branch is unreachable"
 
     let keepOnlyMock state thisRef =

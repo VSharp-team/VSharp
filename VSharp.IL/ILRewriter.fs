@@ -976,7 +976,7 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
                         | Target t ->
                             match t.opcode with
                             | OpCode op -> sprintf "(%x) %s" t.offset op.Name
-                            | SwitchArg _ -> "<SwitchArg>"
+                            | SwitchArg -> "<SwitchArg>"
                 op.Name, arg
             | SwitchArg -> "<SwitchArg>", ""
         sprintf "[%x] %s %s" instr.offset opcode arg
