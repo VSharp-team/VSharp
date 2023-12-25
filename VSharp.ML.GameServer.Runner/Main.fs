@@ -59,20 +59,29 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
         let predict =
             let mutable cnt = 0u
             fun (gameState:GameState) ->
-                let toDot () =
+                let toDot drawHistory =
                     let file = System.IO.Path.Join ("dot",$"{cnt}.dot")
                     let vertices = ResizeArray<_>()
                     let edges = ResizeArray<_>()
                     for v in gameState.GraphVertices do
-                        vertices.Add($"{v.Id} [label={v.Id}, shape=box]")
+                        let color = if v.CoveredByTest
+                                    then "green"
+                                    elif v.VisitedByState
+                                    then "red"
+                                    elif v.TouchedByState
+                                    then "yellow"
+                                    else "white"
+                        vertices.Add($"{v.Id} [label={v.Id}, shape=box, style=filled, fillcolor={color}]")
                         for s in v.States do
                             edges.Add($"99{s}00 -> {v.Id} [label=L]")
                     for s in gameState.States do
                         vertices.Add($"99{s.Id}00 [label={s.Id}, shape=circle]")
                         for v in s.Children do
                             edges.Add($"99{s.Id}00 -> 99{v}00 [label=ch]")
-                        for v in s.History do
-                            edges.Add($"99{s.Id}00 -> {v.GraphVertexId} [label={v.NumOfVisits}]")
+                        if drawHistory
+                        then 
+                            for v in s.History do
+                                edges.Add($"99{s.Id}00 -> {v.GraphVertexId} [label={v.NumOfVisits}]")
                     for e in gameState.Map do
                         edges.Add($"{e.VertexFrom}->{e.VertexTo}[label={e.Label.Token}]")
                     let dot =
@@ -85,7 +94,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                             }
                     System.IO.File.WriteAllLines(file,dot)
                     cnt <- cnt + 1u
-                toDot()
+                //toDot false
                 let res = 
                     socket {
                         do! sendResponse (ReadyForNextStep gameState)
