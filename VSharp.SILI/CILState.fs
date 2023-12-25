@@ -484,7 +484,9 @@ module CilState =
         // -------------------- Changing inner state --------------------
 
         member x.Copy(state : state) =
-            { x with state = state ;internalId = getNextStateId(); children = [] }
+            let historyCopy = Dictionary<_,_>()
+            for kvp in x._history do historyCopy.Add(kvp.Key, kvp.Value)            
+            { x with state = state ;internalId = getNextStateId(); children = []; _history = historyCopy }
 
         // This function copies cilState, instead of mutation
         member x.ChangeState state' : cilState =

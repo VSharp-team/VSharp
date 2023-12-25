@@ -40,9 +40,16 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
                     |> ResizeArray<_>
                 edges.AddRange delta.Map
                 let activeStates = vertices |> Seq.collect (fun v -> v.States) |> HashSet
+                
                 let states =
-                    s.States
-                    |> Array.filter (fun s -> activeStates.Contains s.Id && (not <| updatedStates.Contains s.Id))
+                    let part1 =
+                        s.States
+                        |> Array.filter (fun s -> activeStates.Contains s.Id && (not <| updatedStates.Contains s.Id))
+                        |> ResizeArray<_>
+                    
+                    part1.AddRange delta.States
+                    
+                    part1.ToArray()                    
                     |> Array.map (fun s -> State(s.Id
                                                  , s.Position
                                                  , s.PredictedUsefulness
@@ -51,12 +58,14 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
                                                  , s.VisitedNotCoveredVerticesInZone
                                                  , s.VisitedNotCoveredVerticesOutOfZone
                                                  , s.History
-                                                 , s.Children |> Array.filter activeStates.Contains )
+                                                 , s.Children |> Array.filter activeStates.Contains)
                     )
-                    |> ResizeArray<_>
-                states.AddRange delta.States
+                    
                 
-                gameState <- Some <| GameState (vertices.ToArray(), states.ToArray(), edges.ToArray())
+               
+
+                
+                gameState <- Some <| GameState (vertices.ToArray(), states, edges.ToArray())
                 
                         
     let init states =

@@ -525,13 +525,16 @@ type ApplicationGraphDelta() =
     let loadedMethods = ResizeArray<Method>()
     let touchedBasicBlocks = HashSet<BasicBlock>()
     let touchedStates = HashSet<IGraphTrackableState>()
+    let removedStates = HashSet<IGraphTrackableState>()
     member this.LoadedMethods = loadedMethods
     member this.TouchedBasicBlocks = touchedBasicBlocks
     member this.TouchedStates = touchedStates
+    member this.RemovedStates = removedStates
     member this.Clear() =
         loadedMethods.Clear()
         touchedBasicBlocks.Clear()
         touchedStates.Clear()
+        removedStates.Clear()
     
 type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:ApplicationGraphDelta) =
     
@@ -709,7 +712,8 @@ module Application =
         // TODO: gsv: propagate this into application graph
         let removed = state.CodeLocation.BasicBlock.AssociatedStates.Remove state
         let added = applicationGraphDelta.TouchedBasicBlocks.Add state.CodeLocation.BasicBlock
-        let added = applicationGraphDelta.TouchedStates.Add state
+        //let added = applicationGraphDelta.TouchedStates.Add state
+        //let added = applicationGraphDelta.RemovedStates state
         visualizer.TerminateState state
 
     let addCallEdge = graph.AddCallEdge

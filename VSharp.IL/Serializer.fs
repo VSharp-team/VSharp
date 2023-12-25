@@ -246,7 +246,7 @@ let collectGameState (basicBlocks:ResizeArray<BasicBlock>) (serialize: bool) =
                       s.VisitedNotCoveredVerticesInZone,
                       s.VisitedNotCoveredVerticesOutOfZone,
                       s.History |> Seq.map (fun kvp -> StateHistoryElem(kvp.Key.Id, kvp.Value)) |> Array.ofSeq,
-                      s.Children |> Array.map (fun s -> s.Id) // |> Array.filter activeStates.Contains
+                      s.Children |> Array.map (fun s -> s.Id)
                       )
                 |> allStates.Add
                 |> ignore
