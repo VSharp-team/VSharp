@@ -22,10 +22,12 @@ type internal GenerationData = {
 }
 
 type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) =
-    let instancesCache = Dictionary<Type, Type option>()
+    let instancesCache = Dictionary<Type, Type[] option>()
     let mutable allocatedObjects = HashSet<obj>()
     let mutable instantiatedMocks = Dictionary<obj, ITypeMock>()
     let mutable referencedObjects = HashSet<obj>()
+
+    let mutable mockedGenerics = Dictionary<Type, ITypeMock>()
 
     let traceGeneration (t: Type) msg = Logger.traceGeneration $"[{t.Name}] {msg}"
 
@@ -57,14 +59,13 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
                 | :? TargetInvocationException as e ->
                     traceGeneration t $"Constructor thrown an exception: {e}"
                     None
-
-    let getInstance (t: Type) (rnd: Random) _ =
-        traceGeneration t "Try get installable type"
+ 
+    let findInstances (t: Type) =
+        traceGeneration t "Try find installable type"
         match instancesCache.TryGetValue t with
-        | true, instance ->
-            let none = "None"
-            traceGeneration t $"Installable type got from cache: {match instance with | Some x -> x.Name | None -> none}"
-            instance
+        | true, instances ->
+            traceGeneration t "Installable types got from cache"
+            instances
         | false, _ ->
             let instances =
                 t.Assembly.GetTypes()
@@ -79,9 +80,8 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
                 traceGeneration t "Installable type not found"
                 instancesCache.Add(t, None)
             else
-                let installableType = instances[rnd.Next(0, instances.Length)]
-                traceGeneration t $"Installable type found: {installableType}"
-                instancesCache.Add(t, Some installableType)
+                traceGeneration t "Installable types found"
+                instancesCache.Add(t, Some instances)
             instancesCache[t]
 
     let generateUnboxedChar (rnd: Random) =
@@ -160,15 +160,21 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
             // TODO: LowerBound
             __notImplemented__ ()
 
-    let generateAbstractClass commonGenerator (rnd: Random) (t: Type) =
-        traceGeneration t "Generate abstract class"
-        match getInstance t rnd commonGenerator with
-        | Some instance -> commonGenerator rnd instance
-        | None ->
-            let mock, typ = typeSolver.MockType t (commonGenerator rnd)
-            let result = commonGenerator rnd typ
-            instantiatedMocks.Add(result, mock)
-            result
+    let generateAbstractClassWithInstances commonGenerator (rnd: Random) (t: Type) =
+        traceGeneration t "Generate abstract class with instances"
+        let instances = findInstances t |> Option.defaultWith (fun () ->
+            internalfailf "Incorrect usage of generateAbstractClassWithInstances"
+        )
+        let instance = instances[rnd.Next(0, instances.Length)]
+        commonGenerator rnd instance
+
+    let generateAbstractClassWithoutInstances commonGenerator (rnd: Random) (t: Type) =
+        traceGeneration t "Generate abstract class without instances"
+        assert (findInstances t |> Option.isNone)
+        let mock, typ = typeSolver.MockType t (commonGenerator rnd)
+        let result = commonGenerator rnd typ
+        instantiatedMocks.Add(result, mock)
+        result
 
     let generateByRef commonGenerator (rnd: Random) (t: Type) =
         traceGeneration t "Generate ByRef"
@@ -214,11 +220,15 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
         else OtherStruct
 
     // Reference types
-    let (|Array|Delegate|String|AbstractClass|OtherClass|) (t: Type) =
+    let (|Array|Delegate|String|AbstractClassWithInstances|AbstractClassWithoutInstances|OtherClass|) (t: Type) =
         if t.IsArray then Array
         elif t = typeof<string> then String
         elif t.IsSubclassOf typeof<System.Delegate> then Delegate
-        elif t.IsAbstract || t.IsInterface then AbstractClass
+        elif t.IsAbstract || t.IsInterface then
+            if findInstances t |> Option.isSome then
+                AbstractClassWithInstances
+            else
+                AbstractClassWithoutInstances
         else OtherClass
 
     let rec commonGenerate (rnd: Random) (t: Type) =
@@ -240,7 +250,8 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
                 | Array -> generateArray
                 | Delegate -> generateDelegate
                 | String -> generateString
-                | AbstractClass -> __notImplemented__ ()
+                | AbstractClassWithoutInstances -> __notImplemented__ ()
+                | AbstractClassWithInstances -> generateAbstractClassWithInstances
                 | OtherClass -> generateClass
             | ByRefType -> __notImplemented__ ()
             | PointerType -> __notImplemented__ ()
@@ -249,11 +260,19 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
 
     member private this.GenerateObject rnd (t: Type) =
         Logger.traceGeneration $"Target type: {t.Name}"
-        match t with
-        | ByRefType -> generateByRef commonGenerate rnd t
-        | PointerType -> generatePointer commonGenerate rnd t
-        | AbstractClass -> generateAbstractClass commonGenerate rnd t
-        | _ -> commonGenerate rnd t
+
+        let result = 
+            match t with
+            | ByRefType -> generateByRef commonGenerate rnd t
+            | PointerType -> generatePointer commonGenerate rnd t
+            | AbstractClassWithoutInstances -> generateAbstractClassWithoutInstances commonGenerate rnd t
+            | _ -> commonGenerate rnd t
+
+        if mockedGenerics.ContainsKey t then
+            traceGeneration t "Added generated object to instantiated mocks"
+            instantiatedMocks.Add(result, mockedGenerics[t])
+
+        result
 
     member private this.RefreshInstantiatedMocks () =
         let result = instantiatedMocks
@@ -290,7 +309,8 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
 
         {| this = methodThis; thisType = methodThisType; args = args; argsTypes = argsTypes |}
 
-    member this.Generate (method: MethodBase) typeStorage rndSeed =
+    member this.Generate methodMockedGenerics (method: MethodBase) typeStorage rndSeed =
+        mockedGenerics <- methodMockedGenerics
         let case = this.GenerateCase method rndSeed
         {
             seed = rndSeed

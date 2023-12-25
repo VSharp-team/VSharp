@@ -79,11 +79,11 @@ type internal Fuzzer(
             let generationData = generationDatas[i]
             results[i] <- invoke method generationData.this generationData.args
 
-    let fuzzBatch typeSolverSeed (rnd: Random) (method: MethodBase) typeStorage =
+    let fuzzBatch mockedGenerics typeSolverSeed (rnd: Random) (method: MethodBase) typeStorage =
         use fuzzingCancellationTokenSource = new CancellationTokenSource()
 
         traceFuzzing "Generate data"
-        let data = Array.init batchSize (fun _ -> generator.Generate method typeStorage (rnd.Next()))
+        let data = Array.init batchSize (fun _ -> generator.Generate mockedGenerics method typeStorage (rnd.Next()))
         let invocationResults = Array.init batchSize (fun _ -> Unchecked.defaultof<InvocationResult>)
         let threadIds = Array.init batchSize (fun _ -> threadIdGenerator.NextId())
         traceFuzzing "Data generated"
@@ -235,14 +235,14 @@ type internal Fuzzer(
                 let typeSolverRnd = Random(typeSolverSeed)
 
                 match typeSolver.SolveGenericMethodParameters method (generator.GenerateClauseObject typeSolverRnd) with
-                | Some(methodBase, typeStorage) ->
+                | Some(methodBase, typeStorage, mockedGenerics) ->
 
                     traceFuzzing "Generics successfully solved"
                     while int stopwatch.ElapsedMilliseconds < fuzzerOptions.timeLimitPerMethod do
                         traceFuzzing "Start fuzzing iteration"
 
                         stopwatch.Start()
-                        match fuzzBatch typeSolverSeed rnd methodBase typeStorage with
+                        match fuzzBatch mockedGenerics typeSolverSeed rnd methodBase typeStorage with
                         | Some results -> do! handleResults method results
                         | None -> ()
                         stopwatch.Stop()

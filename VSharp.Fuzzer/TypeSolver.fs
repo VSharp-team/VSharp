@@ -82,13 +82,18 @@ type internal TypeSolver() =
     member this.SolveGenericMethodParameters (method: Method) (generate: System.Type -> obj) =
         // TODO: Receive type parameters substitution from master process
         Logger.traceTypeSolving $"Solve generics for {method.Name}"
+
+        let mockedGenerics = System.Collections.Generic.Dictionary<System.Type, ITypeMock>()
+
         let substituteGenerics classParams methodParams =
             let getConcreteType =
                 function
                 | ConcreteType t -> t
                 | MockType m ->
-                    mockTypes (m.SuperTypes |> Seq.toList) generate
-                    |> snd
+                    let typeMock, systemType = mockTypes (m.SuperTypes |> Seq.toList) generate
+                    if mockedGenerics.ContainsKey(systemType) |> not then
+                        mockedGenerics.Add(systemType, typeMock)
+                    systemType
 
             let methodBase = (method :> IMethod).MethodBase
             let classParams = classParams |> Array.map getConcreteType
@@ -103,7 +108,7 @@ type internal TypeSolver() =
         | Some(classParams, methodParams) ->
             let method = substituteGenerics classParams methodParams
             Logger.traceTypeSolving $"Solved generics for {method.Name}"
-            Some (method, typeStorage)
+            Some (method, typeStorage, mockedGenerics)
         | _ ->
             Logger.traceTypeSolving $"Failed solve generics for {method.Name}"
             None

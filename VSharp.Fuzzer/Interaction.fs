@@ -62,9 +62,9 @@ type private TestRestorer (fuzzerOptions, assemblyPath, outputDirectory) =
             |> Application.getMethod
 
         match typeSolver.SolveGenericMethodParameters methodBase (generator.GenerateClauseObject typeSolverRnd) with
-        | Some(methodBase, typeStorage) ->
+        | Some(methodBase, typeStorage, mockedGenerics) ->
 
-            let data = generator.Generate methodBase typeStorage executionData.fuzzerSeed
+            let data = generator.Generate mockedGenerics methodBase typeStorage executionData.fuzzerSeed
 
             let thrown =
                 match exceptionName with
