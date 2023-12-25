@@ -47,4 +47,4 @@ TEMP_EPOCH_INFERENCE_TIMES_DIR = Path(".epoch_inference_times/")
 BASE_NN_OUT_FEATURES_NUM = 8
 
 # assuming we start from /VSharp/VSharp.ML.AIAgent
-SERVER_WORKING_DIR = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"
+SERVER_WORKING_DIR = "../VSharp.ML.GameServer.Runner/bin/Release/net7.0/"
