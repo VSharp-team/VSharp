@@ -240,18 +240,19 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
                 | Array -> generateArray
                 | Delegate -> generateDelegate
                 | String -> generateString
-                | AbstractClass -> generateAbstractClass
+                | AbstractClass -> __notImplemented__ ()
                 | OtherClass -> generateClass
             | ByRefType -> __notImplemented__ ()
             | PointerType -> __notImplemented__ ()
 
         concreteGenerate commonGenerate rnd t
 
-    member this.GenerateObject rnd (t: Type) =
+    member private this.GenerateObject rnd (t: Type) =
         Logger.traceGeneration $"Target type: {t.Name}"
         match t with
         | ByRefType -> generateByRef commonGenerate rnd t
         | PointerType -> generatePointer commonGenerate rnd t
+        | AbstractClass -> generateAbstractClass commonGenerate rnd t
         | _ -> commonGenerate rnd t
 
     member private this.RefreshInstantiatedMocks () =
@@ -304,3 +305,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
             instantiatedMocks = this.RefreshInstantiatedMocks ()
             mocks = typeSolver.GetMocks ()
         }
+
+    member this.GenerateClauseObject rnd (t: Type) =
+        Logger.traceGeneration $"Target clause type: {t.Name}"
+        commonGenerate rnd t

@@ -234,7 +234,7 @@ type internal Fuzzer(
                 let typeSolverSeed = rnd.Next()
                 let typeSolverRnd = Random(typeSolverSeed)
 
-                match typeSolver.SolveGenericMethodParameters method (generator.GenerateObject typeSolverRnd) with
+                match typeSolver.SolveGenericMethodParameters method (generator.GenerateClauseObject typeSolverRnd) with
                 | Some(methodBase, typeStorage) ->
 
                     traceFuzzing "Generics successfully solved"

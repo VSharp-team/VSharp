@@ -61,7 +61,7 @@ type private TestRestorer (fuzzerOptions, assemblyPath, outputDirectory) =
             |> AssemblyManager.NormalizeMethod
             |> Application.getMethod
 
-        match typeSolver.SolveGenericMethodParameters methodBase (generator.GenerateObject typeSolverRnd) with
+        match typeSolver.SolveGenericMethodParameters methodBase (generator.GenerateClauseObject typeSolverRnd) with
         | Some(methodBase, typeStorage) ->
 
             let data = generator.Generate methodBase typeStorage executionData.fuzzerSeed
