@@ -19,7 +19,11 @@ type internal TypeSolver() =
 
     let mockMethod (freshMock: Mocking.Type) (generate: System.Type -> obj) (method: Mocking.Method) =
         let baseMethod = method.BaseMethod
-        let implementation = Array.init defaultClausesCount (fun _ -> generate baseMethod.ReturnType)
+        let implementation =
+            if baseMethod.ReturnType = typeof<System.Void> then
+                Array.empty
+            else
+                Array.init defaultClausesCount (fun _ -> generate baseMethod.ReturnType)
         let outParams = baseMethod.GetParameters() |> Array.filter (fun p -> p.IsOut)
         let outImplementations =
             if Array.isEmpty outParams then Array.empty
