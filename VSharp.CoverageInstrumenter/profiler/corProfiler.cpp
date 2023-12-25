@@ -423,12 +423,18 @@ HRESULT STDMETHODCALLTYPE CorProfiler::RootReferences(ULONG cRootRefs, ObjectID 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionThrown(ObjectID thrownObjectId)
 {
     auto exceptionName = GetObjectTypeName(thrownObjectId);
-    LOG(tout << "EXCEPTION THROWN: " << GetObjectTypeName(thrownObjectId));
+    LOG(
+        if(profilerState->threadTracker->hasMapping()) {
+            tout << "EXCEPTION THROWN: " << exceptionName << " on mapped thread " << profilerState->threadTracker->getCurrentThreadMappedId();
+        } else {
+            tout << "EXCEPTION THROWN: " << exceptionName;
+        }
+    );
     if (profilerState->threadTracker->isCurrentThreadTracked()) {
         if (exceptionName == "System.Threading.ThreadAbortException") {
             LOG(tout << "Invocation aborted");
-            profilerState->threadTracker->loseCurrentThread();
             profilerState->coverageTracker->invocationAborted();
+            profilerState->threadTracker->loseCurrentThread();
         }
     }
     return S_OK;

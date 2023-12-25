@@ -88,29 +88,28 @@ void CoverageTracker::invocationFinished() {
     visitedMethods.insert(coverage->visitedMethods.begin(), coverage->visitedMethods.end());
     visitedMethodsMutex.unlock();
 
-    LOG(tout << "Serialize thread id: " << threadId);
     serializePrimitive(threadId, buffer);
 
     if (coverage == nullptr) {
+        LOG(tout << "Serialize empty coverage (aborted) for thread id: " << threadId);
         serializePrimitive(1, buffer);
     } else {
+        LOG(tout << "Serialize coverage for thread id: " << threadId);
         serializePrimitive(0, buffer);
         coverage->serialize(buffer);
     }
 
-
-
     trackedCoverage->remove();
 
     serializedCoverageMutex.lock();
+    serializedCoverageThreadIds.push_back(threadId);
     serializedCoverage.push_back(buffer);
     serializedCoverageMutex.unlock();
 }
 
 char* CoverageTracker::serializeCoverageReport(size_t* size) {
-    int coverageCount = static_cast<int>(serializedCoverage.size());
-
     collectedMethodsMutex.lock();
+    serializedCoverageMutex.lock();
 
     auto buffer = std::vector<char>();
     auto methodsToSerialize = std::vector<std::pair<int, MethodInfo>>();
@@ -128,6 +127,21 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
         el.second.serialize(buffer);
     }
 
+    auto threadMapping = profilerState->threadTracker->getMapping();
+    for (auto mapping: threadMapping) {
+        auto threadId = mapping.second;
+        if (std::count(serializedCoverageThreadIds.begin(), serializedCoverageThreadIds.end(), threadId) == 0) {
+            auto coverageBuffer = std::vector<char>();
+            // Thread may not enter main, but we still need empty coverage for this thread
+            LOG(tout << "Serialize empty coverage (not entered) for thread id: " << threadId);
+            serializePrimitive(threadId, coverageBuffer);
+            serializePrimitive(1, coverageBuffer);
+            serializedCoverageThreadIds.push_back(threadId);
+            serializedCoverage.push_back(coverageBuffer);
+        }
+    }
+
+    int coverageCount = static_cast<int>(serializedCoverage.size());
     serializePrimitive(static_cast<int> (coverageCount), buffer);
     LOG(tout << "Serialize coverage count: " << coverageCount);
     for (int i = 0; i < coverageCount; i++) {
@@ -137,6 +151,8 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
     trackedCoverage->clear();
     serializedCoverage.clear();
     methodsToSerialize.clear();
+
+    serializedCoverageMutex.unlock();
     collectedMethodsMutex.unlock();
 
     *size = buffer.size();

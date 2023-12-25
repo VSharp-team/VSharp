@@ -65,6 +65,7 @@ private:
     ThreadTracker* threadTracker;
     std::mutex serializedCoverageMutex;
     std::vector<std::vector<char>> serializedCoverage;
+    std::vector<int> serializedCoverageThreadIds;
 public:
     explicit CoverageTracker(ThreadTracker* threadTracker, ThreadInfo* threadInfo, bool collectMainOnly);
     bool isCollectMainOnly() const;
