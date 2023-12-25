@@ -47,17 +47,23 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
             traceGeneration t "Constructor not found"
             None
         else
-            traceGeneration t "Constructor found"
-            let constructor = constructors[rnd.Next(0, constructors.Length)]
-            let constructorArgsTypes = constructor.GetParameters() |> Array.map (fun p -> p.ParameterType)
-            let constructorArgs = constructorArgsTypes |> Array.map (commonGenerator rnd)
-            constructor.Invoke(constructorArgs) |> Some
+            try
+                traceGeneration t "Constructor found"
+                let constructor = constructors[rnd.Next(0, constructors.Length)]
+                let constructorArgsTypes = constructor.GetParameters() |> Array.map (fun p -> p.ParameterType)
+                let constructorArgs = constructorArgsTypes |> Array.map (commonGenerator rnd)
+                constructor.Invoke(constructorArgs) |> Some
+            with
+                | :? TargetInvocationException as e ->
+                    traceGeneration t $"Constructor thrown an exception: {e}"
+                    None
 
     let getInstance (t: Type) (rnd: Random) _ =
         traceGeneration t "Try get installable type"
         match instancesCache.TryGetValue t with
         | true, instance ->
-            traceGeneration t $"Installable type got from cache: {match instance with | Some x -> x.Name | None -> instance.ToString()}"
+            let none = "None"
+            traceGeneration t $"Installable type got from cache: {match instance with | Some x -> x.Name | None -> none}"
             instance
         | false, _ ->
             let instances =
