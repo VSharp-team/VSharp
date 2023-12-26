@@ -547,6 +547,7 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
         let callFrom = callSource.BasicBlock
         let callTo = calledMethodCfgInfo.EntryPoint
         let exists, location = callerMethodCfgInfo.Calls.TryGetValue callSource.BasicBlock
+        
         if not <| callTo.IncomingCallEdges.Contains callFrom then
             let mutable returnTo = callFrom
             // if not exists then it should be from exception mechanism
@@ -570,11 +571,13 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
                     returnFrom.OutgoingEdges.Add(dummyTerminalForReturnEdge, HashSet [|returnTo|])
                 let added = returnTo.IncomingCallEdges.Add returnFrom
                 assert added
+                let added = applicationGraphDelta.TouchedBasicBlocks.Add returnFrom
+                ()
                     )
             
             let added = callTo.IncomingCallEdges.Add callFrom
             assert added
-            let removed = callFrom.OutgoingEdges.Remove CallGraph.dummyTerminalForCallShortcut
+            let removed = callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge //CallGraph.dummyTerminalForCallShortcut
             assert removed
         else ()
 
