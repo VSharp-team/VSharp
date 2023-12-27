@@ -11,6 +11,8 @@ private:
     ThreadStorage<int>* stackBalances;
     ThreadStorage<FunctionID>* unwindFunctionIds;
     ThreadStorage<int>* inFilterMapping;
+
+    void onCurrentThreadFinished();
 public:
     void mapCurrentThread(int mapId);
     bool hasMapping();
@@ -19,6 +21,7 @@ public:
     bool isCurrentThreadTracked();
     void trackCurrentThread();
     void loseCurrentThread();
+    void abortCurrentThread();
     // returns 'true' if the stack is not empty
     bool stackBalanceDown();
     void stackBalanceUp();

@@ -434,7 +434,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionThrown(ObjectID thrownObjectId)
         if (exceptionName == "System.Threading.ThreadAbortException") {
             LOG(tout << "Invocation aborted");
             profilerState->coverageTracker->invocationAborted();
-            profilerState->threadTracker->loseCurrentThread();
+            profilerState->threadTracker->abortCurrentThread();
         }
     }
     return S_OK;

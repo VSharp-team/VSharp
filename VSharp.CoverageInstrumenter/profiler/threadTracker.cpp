@@ -38,17 +38,26 @@ bool ThreadTracker::isCurrentThreadTracked() {
     return stackBalances->exist();
 }
 
-void ThreadTracker::loseCurrentThread() {
-    profiler_assert(isCurrentThreadTracked());
-    profiler_assert(stackBalances->load() == 0);
-    profiler_assert(inFilterMapping->load() == 0);
-    LOG(tout << "<<Thread lost>>" << std::endl);
+void ThreadTracker::onCurrentThreadFinished() {
     profilerState->coverageTracker->invocationFinished();
     stackBalances->remove();
     inFilterMapping->remove();
     if (!profilerState->isPassiveRun) {
         threadIdMapping->remove();
     }
+}
+
+void ThreadTracker::loseCurrentThread() {
+    profiler_assert(isCurrentThreadTracked());
+    profiler_assert(stackBalances->load() == 0);
+    profiler_assert(inFilterMapping->load() == 0);
+    LOG(tout << "<<Thread lost>>" << std::endl);
+    onCurrentThreadFinished();
+}
+
+void ThreadTracker::abortCurrentThread() {
+    LOG(tout << "<<Thread aborted>>" << std::endl);
+    onCurrentThreadFinished();
 }
 
 void ThreadTracker::unwindFunctionEnter(FunctionID functionId) {
