@@ -353,7 +353,7 @@ module TypeUtils =
             | Vector -> 1
             | ConcreteDimension d -> d
             | SymbolicDimension -> __insufficientInformation__ "Can't get precise array rank of System.Array object!"
-        | t -> internalfailf "Getting rank of an array: expected array type, but got %O" t
+        | t -> internalfail $"Getting rank of an array: expected array type, but got {t}"
 
     // Performs syntactical unification of types, returns the infimum of x and y (where x < y iff x is more generic).
     let rec structuralInfimum (x : Type) (y : Type) =
@@ -406,6 +406,18 @@ module TypeUtils =
 
     let numericSameSign t1 t2 =
         isUnsigned t1 && isUnsigned t2 || isSigned t1 && isSigned t2
+
+    let private solidTypes = [
+        typeof<Type>
+        systemRuntimeType
+        typeof<System.Threading.Thread>
+        typeof<System.Diagnostics.Tracing.EventSource>
+        typeof<FieldInfo>
+        typeof<System.Reflection.Pointer>
+    ]
+
+    let isSolidType (typ : Type) =
+        List.exists typ.IsAssignableTo solidTypes
 
     // --------------------------------------- Conversions ---------------------------------------
 

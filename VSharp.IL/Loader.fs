@@ -15,6 +15,7 @@ module Loader =
         let bindingFlags = BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
         let internalCalls = ResizeArray<string * MethodInfo>()
         for t in ts do
+            assert(t <> null)
             for m in t.GetMethods(bindingFlags) do
                 let mutable found = false
                 for attr in m.GetCustomAttributes<ImplementsAttribute>() do
@@ -263,7 +264,6 @@ module Loader =
             "System.Object System.Runtime.InteropServices.GCHandle.InternalGet(System.IntPtr)"
             "System.Span`1[System.Byte] System.Runtime.InteropServices.MemoryMarshal.AsBytes(System.Span`1[T]))"
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
-//            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
 
             // Diagnostics
@@ -408,6 +408,12 @@ module Loader =
             "System.Void VSharp.CSharpUtils.Exceptions.CreateArgumentNullException()"
             "System.Void VSharp.CSharpUtils.Exceptions.CreateOutOfMemoryException()"
 
+            // Testing concrete memory
+            "System.Int32 IntegrationTests.Lists.ConcreteMemoryTestHelper(System.Collections.Generic.List`1[IntegrationTests.Lists+Bucket])"
+            "System.Int32 IntegrationTests.Lists.ConcreteMemoryTestHelper1(System.Collections.Generic.List`1[System.Object])"
+            "System.Int32 IntegrationTests.Lists.ConcreteMemoryTestHelper2(System.Collections.Generic.List`1[IntegrationTests.Lists+IBucket])"
+            "System.Int32 IntegrationTests.Delegates.ConcreteMemoryHelper(IntegrationTests.Delegates+A)"
+
             // Arithmetics
             "System.Double System.Math.Pow(System.Double, System.Double)"
             "System.Double System.Math.Min(System.Double, System.Double)"
@@ -469,6 +475,15 @@ module Loader =
             "System.Boolean System.Collections.Generic.Dictionary`2[TKey,TValue].TryGetValue(this, TKey, TValue&)"
             "System.Void System.Collections.Generic.SortedDictionary`2+KeyValuePairComparer[TKey,TValue]..ctor(this, System.Collections.Generic.IComparer`1[TKey])"
 
+            // Hashtable
+            "System.Void System.Collections.Hashtable..ctor(this)"
+            "System.Void System.Collections.Hashtable.set_Item(this, System.Object, System.Object)"
+            "System.Void System.Collections.Hashtable.Insert(this, System.Object, System.Object, System.Boolean)"
+            "System.Void System.Collections.Hashtable.Insert(this, System.Object, System.Object, System.Boolean)"
+            "System.Void System.Collections.Hashtable.rehash(this, System.Int32)"
+            "System.Void System.Collections.Hashtable.expand(this)"
+            "System.Object System.Collections.Hashtable.get_Item(this, System.Object)"
+
             // Set
             "System.Int32 System.Collections.Generic.HashSet`1[T].Initialize(this, System.Int32)"
             "System.Void System.Collections.Generic.HashSet`1[T].UnionWith(this, System.Collections.Generic.IEnumerable`1[T])"
@@ -504,6 +519,7 @@ module Loader =
 
             // List
             "System.Void System.Collections.Generic.List`1[T]..ctor(this)"
+            "T System.Collections.Generic.List`1[T].get_Item(this, System.Int32)"
             "T[] System.Collections.Generic.List`1[T].ToArray(this)"
             "System.Void System.Collections.Generic.List`1[T].Add(this, T)"
             "System.Void System.Collections.Generic.List`1[T].AddWithResize(this, T)"

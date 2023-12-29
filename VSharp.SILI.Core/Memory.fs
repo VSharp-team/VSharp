@@ -576,30 +576,36 @@ module internal Memory =
 
     // ---------------- Try term to object ----------------
 
-    let tryAddressToObj (state : state) address =
+    let private tryAddressToObj (state : state) fullyConcrete address =
         if address = VectorTime.zero then Some null
+        elif fullyConcrete then state.concreteMemory.TryFullyConcrete address
         else state.concreteMemory.TryVirtToPhys address
 
-    let tryPointerToObj state address (offset : int) =
-        let cm = state.concreteMemory
-        match cm.TryVirtToPhys address with
+    let private tryPointerToObj state fullyConcrete address (offset : int) =
+        match tryAddressToObj state fullyConcrete address with
+        | Some obj when obj = null ->
+            Some (nativeint offset :> obj)
         | Some obj ->
             let gch = Runtime.InteropServices.GCHandle.Alloc(obj, Runtime.InteropServices.GCHandleType.Pinned)
             let pObj = gch.AddrOfPinnedObject() + (nativeint offset)
             Some (pObj :> obj)
         | None -> None
 
-    let rec tryTermToObj (state : state) term =
+    let rec private commonTryTermToObj (state : state) fullyConcrete term =
         match term.term with
         | ConcreteDelegate _
         | CombinedDelegate _ -> None
         | Concrete(obj, _) -> Some obj
-        | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state fields typ
-        | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state fields typ
-        | HeapRef({term = ConcreteHeapAddress a}, _) -> tryAddressToObj state a
+        | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state fullyConcrete fields typ
+        | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state fullyConcrete fields typ
+        | HeapRef({term = ConcreteHeapAddress a}, _) -> tryAddressToObj state fullyConcrete a
         | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, ConcreteT (:? int as offset, _)) ->
-            tryPointerToObj state a offset
+            tryPointerToObj state fullyConcrete a offset
         | _ -> None
+
+    and tryTermToObj (state : state) term = commonTryTermToObj state false term
+
+    and tryTermToFullyConcreteObj (state : state) term = commonTryTermToObj state true term
 
     and private castAndSet (fieldInfo : FieldInfo) structObj v =
         let v =
@@ -609,30 +615,30 @@ module internal Memory =
             else v
         fieldInfo.SetValue(structObj, v)
 
-    and tryStructTermToObj (state : state) fields typ =
+    and private tryStructTermToObj (state : state) fullyConcrete fields typ =
         let structObj = Reflection.createObject typ
         let addField _ (fieldId, value) k =
             let fieldInfo = Reflection.getFieldInfo fieldId
             // field was not found in the structure, skipping it
             if fieldInfo = null then k ()
             else
-                match tryTermToObj state value with
+                match commonTryTermToObj state fullyConcrete value with
                 // field can be converted to obj, so continue
                 | Some v -> castAndSet fieldInfo structObj v |> k
                 // field can not be converted to obj, so break and return None
                 | None -> None
         Cps.Seq.foldlk addField () (PersistentDict.toSeq fields) (fun _ -> Some structObj)
 
-    and tryNullableTermToObj (state : state) fields typ =
+    and private tryNullableTermToObj (state : state) fullyConcrete fields typ =
         let valueField, hasValueField = Reflection.fieldsOfNullable typ
         let value = PersistentDict.find fields valueField
         let hasValue = PersistentDict.find fields hasValueField
-        match tryTermToObj state value with
+        match commonTryTermToObj state fullyConcrete value with
         | Some obj when hasValue = True() -> Some obj
         | _ when hasValue = False() -> Some null
         | _ -> None
 
-    let tryTermListToObjects state (terms : term list) =
+    let private tryTermListToObjects state (terms : term list) =
         let toObj (t : term) acc k =
             match tryTermToObj state t with
             | Some o -> o :: acc |> k
@@ -967,7 +973,7 @@ module internal Memory =
         let typ = mostConcreteType typeFromMemory sightType
         match state.memoryMode, address.term with
         | ConcreteMode, ConcreteHeapAddress address when cm.Contains address ->
-            let value = cm.VirtToPhys address
+            let value = cm.ReadBoxedLocation address
             objToTerm state typ value
         | _ -> readBoxedSymbolic state address typ
 
@@ -1423,8 +1429,7 @@ module internal Memory =
         let cm = state.concreteMemory
         match state.memoryMode, address.term, tryTermToObj state value with
         | ConcreteMode, ConcreteHeapAddress a, Some value when cm.Contains(a) ->
-            cm.Remove a
-            cm.Allocate a value
+            cm.WriteBoxedLocation a value
         | ConcreteMode, ConcreteHeapAddress a, Some value ->
             cm.Allocate a value
         | ConcreteMode, ConcreteHeapAddress a, None when cm.Contains(a) ->
@@ -1769,7 +1774,7 @@ module internal Memory =
         // 'value' may be null, if it's nullable value type
         | ConcreteMode, Some value when value <> null ->
             assert(value :? ValueType)
-            state.concreteMemory.Allocate concreteAddress value
+            state.concreteMemory.AllocateBoxedLocation concreteAddress value typ
         | _ -> writeBoxedLocationSymbolic state address value typ
         HeapRef address typeof<obj>
 
@@ -1821,9 +1826,7 @@ module internal Memory =
         let cm = state.concreteMemory
         match reference.term with
         | HeapRef({term = ConcreteHeapAddress address}, _) when cm.Contains address ->
-            let d = cm.VirtToPhys address
-            assert(d :? Delegate && d <> null)
-            let d = d :?> Delegate
+            let d = cm.ReadDelegate address
             let delegateType = d.GetType()
             let invokeList = d.GetInvocationList()
             if invokeList <> null then
@@ -1871,7 +1874,7 @@ module internal Memory =
         match state.memoryMode, tryTermToObj state target with
         | ConcreteMode, Some target ->
             let d = methodInfo.CreateDelegate(delegateType, target)
-            state.concreteMemory.Allocate concreteAddress d
+            state.concreteMemory.AllocateDelegate concreteAddress d
             HeapRef address delegateType
         | _ ->
             let d = concreteDelegate methodInfo target delegateType

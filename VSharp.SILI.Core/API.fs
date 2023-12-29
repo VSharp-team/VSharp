@@ -167,6 +167,8 @@ module API =
                 fork state condition sightType zero
 
         let TryTermToObj state term = Memory.tryTermToObj state term
+        let TryTermToFullyConcreteObj state term = Memory.tryTermToFullyConcreteObj state term
+        let ReTrackObject state (obj : obj) = state.concreteMemory.ReTrackObject obj
 
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 

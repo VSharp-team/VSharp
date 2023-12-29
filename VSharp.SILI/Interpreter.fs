@@ -767,13 +767,11 @@ type ILInterpreter() as this =
         let error = Memory.AllocateConcreteObject cilState.state e (e.GetType())
         x.CommonThrow cilState error isRuntime
 
-    member private x.TryConcreteInvoke (method : Method) (args : term list) thisOption (cilState : cilState) =
+    member private x.TryConcreteInvoke (method : Method) (termArgs : term list) thisOption (cilState : cilState) =
         let state = cilState.state
         if method.CanCallConcrete then
-            // Before term args, type args are located
-            let termArgs = List.skip (List.length args - method.Parameters.Length) args
             // TODO: support out parameters
-            let objArgs = List.choose (TryTermToObj state) termArgs
+            let objArgs = List.choose (TryTermToFullyConcreteObj state) termArgs
             let hasThis = Option.isSome thisOption
             let declaringType = method.DeclaringType
             let thisIsStruct = declaringType.IsValueType
@@ -781,58 +779,68 @@ type ILInterpreter() as this =
                 match thisOption with
                 | Some thisRef when thisIsStruct ->
                     let structTerm = Memory.Read state thisRef
-                    TryTermToObj state structTerm
-                | Some thisRef -> TryTermToObj state thisRef
+                    TryTermToFullyConcreteObj state structTerm
+                | Some thisRef -> TryTermToFullyConcreteObj state thisRef
                 | None -> None
             match thisObj with
             | _ when List.length objArgs <> List.length termArgs -> false
             | None when hasThis -> false
             | _ ->
                 try
-                    let result = method.Invoke thisObj (List.toArray objArgs)
-                    let resultType = TypeUtils.getTypeOfConcrete result
-                    let returnType = method.ReturnType
-                    match resultType with
-                    | _ when resultType <> null && resultType.IsValueType && (returnType = typeof<obj> || returnType.IsInterface) ->
-                        // When return type is interface or 'object', but real type is struct,
-                        // it should be boxed, so allocating it in heap
-                        let resultTerm = Memory.AllocateConcreteObject state result resultType
-                        cilState.Push resultTerm
-                    | _ when returnType <> typeof<Void> ->
-                        // Case when method returns something
-                        let typ = TypeUtils.mostConcreteType resultType returnType
-                        let resultTerm = Memory.ObjectToTerm state result typ
-                        cilState.Push resultTerm
-                    | _ when thisIsStruct && method.IsConstructor ->
-                        match thisOption, thisObj with
-                        | Some thisRef, Some thisObj ->
-                            let structTerm = Memory.ObjectToTerm state thisObj declaringType
-                            let states = Memory.Write state thisRef structTerm
-                            assert(List.length states = 1 && List.head states = state)
-                        | _ -> __unreachable__()
+                    try
+                        let result = method.Invoke thisObj (List.toArray objArgs)
+                        let resultType = TypeUtils.getTypeOfConcrete result
+                        let returnType = method.ReturnType
+                        match resultType with
+                        | _ when resultType <> null && resultType.IsValueType && (returnType = typeof<obj> || returnType.IsInterface) ->
+                            // When return type is interface or 'object', but real type is struct,
+                            // it should be boxed, so allocating it in heap
+                            let resultTerm = Memory.AllocateConcreteObject state result resultType
+                            cilState.Push resultTerm
+                        | _ when returnType <> typeof<Void> ->
+                            // Case when method returns something
+                            let typ = TypeUtils.mostConcreteType resultType returnType
+                            let resultTerm = Memory.ObjectToTerm state result typ
+                            cilState.Push resultTerm
+                        | _ when thisIsStruct && method.IsConstructor ->
+                            match thisOption, thisObj with
+                            | Some thisRef, Some thisObj ->
+                                let structTerm = Memory.ObjectToTerm state thisObj declaringType
+                                let states = Memory.Write state thisRef structTerm
+                                assert(List.length states = 1 && List.head states = state)
+                            | _ -> __unreachable__()
+                        | _ -> ()
+                    with :? TargetInvocationException as e ->
+                        let isRuntime = method.IsRuntimeException
+                        x.ConcreteInvokeCatch e.InnerException cilState isRuntime
+                finally
+                    match thisObj with
+                    | Some obj -> ReTrackObject state obj
                     | _ -> ()
-                with :? TargetInvocationException as e ->
-                    let isRuntime = method.IsRuntimeException
-                    x.ConcreteInvokeCatch e.InnerException cilState isRuntime
+                    for arg in objArgs do
+                        ReTrackObject state arg
                 true
         else false
 
     member private x.InlineOrCall (method : Method) (args : term list) thisOption (cilState : cilState) k =
-        let _, genericArgs, _ = method.Generalize()
-        let wrapType arg = Concrete arg typeof<Type>
-        // TODO: do not wrap types, pass them through state.typeVariables!
-        let typeArgs = genericArgs |> Seq.map wrapType |> List.ofSeq
-        let typeAndMethodArgs = typeArgs @ args
         x.InstantiateThisIfNeed cilState.state thisOption method
+
+        let typeAndMethodArgs() =
+            let _, genericArgs, _ = method.Generalize()
+            let wrapType arg = Concrete arg typeof<Type>
+            // TODO: do not wrap types, pass them through state.typeVariables!
+            let typeArgs = genericArgs |> Seq.map wrapType |> List.ofSeq
+            typeArgs @ args
 
         let fallThroughCall (cilState : cilState) =
             if not cilState.IsUnhandledExceptionOrError then
                 ILInterpreter.FallThroughCall cilState
             cilState
 
-        if x.TryConcreteInvoke method typeAndMethodArgs thisOption cilState then
+        if x.TryConcreteInvoke method args thisOption cilState then
             fallThroughCall cilState |> List.singleton |> k
         elif method.IsFSharpInternalCall then
+            let typeAndMethodArgs = typeAndMethodArgs()
             let thisAndArguments = optCons typeAndMethodArgs thisOption
             let internalCall = method.GetInternalCall
             x.InternalCall method internalCall thisAndArguments cilState (List.map fallThroughCall >> k)
@@ -842,6 +850,7 @@ type ILInterpreter() as this =
             [cilState] |> k
         // TODO: add Address function for array and return Ptr #do
         elif x.IsArrayGetOrSet method then
+            let typeAndMethodArgs = typeAndMethodArgs()
             x.InvokeArrayGetOrSet cilState method thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
         elif ExternMocker.ExtMocksSupported && x.ShouldMock method then
             let mockMethod = ExternMockAndCall cilState.state method None args

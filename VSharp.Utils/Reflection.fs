@@ -545,6 +545,12 @@ module public Reflection =
         let extractFieldInfo (field : FieldInfo) = wrapField field, field
         FSharp.Collections.Array.map extractFieldInfo fields
 
+    let delegateTargetField = lazy(
+            let field = typeof<Delegate>.GetField("_target", instanceBindingFlags)
+            assert(field <> null)
+            field
+        )
+
     // Returns pair (valueFieldInfo, hasValueFieldInfo)
     let fieldsOfNullable typ =
         let fs = fieldsOf false typ
@@ -641,17 +647,26 @@ module public Reflection =
 
     let private cachedTypes = Dictionary<Type, bool>()
 
-    let rec private isReferenceOrContainsReferencesHelper (t : Type) =
-        if t.IsValueType |> not then true
-        else
-            t.GetFields(allBindingFlags)
-            |> Array.exists (fun field -> field.FieldType = t || isReferenceOrContainsReferencesHelper field.FieldType)
+    let private hasNoRefs (t : Type) =
+        t.IsPrimitive || t.IsEnum || t.IsPointer
+        || t = typeof<IntPtr> || t = typeof<UIntPtr>
 
     let isReferenceOrContainsReferences (t : Type) =
         let result = ref false
         if cachedTypes.TryGetValue(t, result) then result.Value
         else
-            let result = isReferenceOrContainsReferencesHelper t
+            let queue = Queue<Type>()
+            let cache = HashSet<Type>()
+            queue.Enqueue t
+            let mutable result = false
+            while (queue.Count > 0 && not result) do
+                let t = queue.Dequeue()
+                if not (hasNoRefs t) && cache.Add t then
+                    if not t.IsValueType then
+                        result <- true
+                    else
+                        for field in t.GetFields(allBindingFlags) do
+                            queue.Enqueue field.FieldType
             cachedTypes.Add(t, result)
             result
 
