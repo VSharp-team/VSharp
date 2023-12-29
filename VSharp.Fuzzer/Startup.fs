@@ -12,6 +12,7 @@ type internal FuzzerOptions = {
     timeLimitPerMethod: int
     arrayMaxSize: int
     stringMaxSize: int
+    outputDir: string
 }
 
 type internal SanitizersMode =
@@ -34,6 +35,7 @@ let internal fuzzerOptionsFromEnv () =
         timeLimitPerMethod = fromEnv "TIME_LIMIT" |> int
         arrayMaxSize = fromEnv "ARRAY_MAX_SIZE" |> int
         stringMaxSize = fromEnv "STRING_MAX_SIZE" |> int
+        outputDir = fromEnv "OUTPUT_DIR"
     }
 
 let internal getLogPath () =
@@ -51,30 +53,13 @@ let internal startFuzzer options developerOptions =
     info.FileName <- DotnetExecutablePath.ExecutablePath
     info.Arguments <- "VSharp.Fuzzer.dll"
 
-    // info.EnvironmentVariables["CORECLR_PROFILER"] <- coreclrProfiler
-    // info.EnvironmentVariables["CORECLR_ENABLE_PROFILING"] <- enabled
-    // info.EnvironmentVariables["CORECLR_PROFILER_PATH"] <- coreclrProfilerPath
-
-    // if developerOptions.waitDebuggerAttachedFuzzer then
-    //     info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_FUZZER"] <- enabled
-    // if developerOptions.waitDebuggerAttachedCoverageTool then
-    //     info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_COVERAGE_TOOL"] <- enabled
-    // if developerOptions.waitDebuggerAttachedOnAssertCoverageTool then
-    //     info.EnvironmentVariables["WAIT_DEBUGGER_ATTACHED_ON_ASSERT_COVERAGE_TOOL"] <- enabled
-
-    // match developerOptions.sanitizersMode with
-    // | Disabled -> ()
-    // | Enabled path ->
-    //     match getPlatform () with
-    //     | Windows -> Prelude.__notImplemented__ ()
-    //     | Linux -> info.EnvironmentVariables["LD_PRELOAD"] <- path
-    //     | MacOs -> info.EnvironmentVariables["DYLD_INSERT_LIBRARIES"] <- path
-
+    // TODO: Refactor using EnvironmentConfigurationAttribute
     info.EnvironmentVariables["LOG_PATH"] <- System.IO.Directory.GetCurrentDirectory()
     info.EnvironmentVariables["INITIAL_SEED"] <- options.initialSeed |> string
     info.EnvironmentVariables["TIME_LIMIT"] <- options.timeLimitPerMethod |> string
     info.EnvironmentVariables["ARRAY_MAX_SIZE"] <- options.arrayMaxSize |> string
     info.EnvironmentVariables["STRING_MAX_SIZE"] <- options.stringMaxSize |> string
+    info.EnvironmentVariables["OUTPUT_DIR"] <- options.outputDir |> string
 
     if developerOptions.redirectStderr then
         info.RedirectStandardError <- true

@@ -72,7 +72,6 @@ module Contracts =
     type IFuzzerService =
         abstract Finish: UnitData -> Task
         abstract SetupAssembly: AssemblyData -> Task
-        abstract SetupOutputDirectory: StringData -> Task
         abstract Fuzz: FuzzingData -> Task
         abstract WaitForReady: UnitData -> CallContext -> Task
 
@@ -116,7 +115,7 @@ module private Grpc =
 module Services =
     let private traceData x = Logger.traceCommunication $"Received: {x}"
 
-    type FuzzerService (onFinish, onFuzz, onSetupAssembly, onSetupDir) =
+    type FuzzerService (onFinish, onFuzz, onSetupAssembly) =
         interface Contracts.IFuzzerService with
             member this.Finish _ =
                 traceData "Finish"
@@ -127,9 +126,6 @@ module Services =
             member this.SetupAssembly data =
                 traceData data
                 onSetupAssembly data.assemblyName
-            member this.SetupOutputDirectory data =
-                traceData data
-                onSetupDir data.stringValue
             member this.WaitForReady _ _ =
                 traceData "WaitForReady"
                 Task.FromResult() :> Task

@@ -128,33 +128,20 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
     let timeoutReached () =
         DateTime.Now - lastRequestTime > currentTimeout
 
-    let (|UnhandledExn|StackOverflow|UnexpectedExit|TimeoutReached|WorkInProgress|SuccessfullyFuzzed|) () =
+    let (|UnexpectedExit|TimeoutReached|WorkInProgress|SuccessfullyFuzzed|) () =
             assert (state = FuzzingInProcess)
             if newSuccessfullyFuzzedNotificationReceived then
                 newSuccessfullyFuzzedNotificationReceived <- false
                 SuccessfullyFuzzed
+            elif fuzzerAlive () |> not then
+                UnexpectedExit
             elif timeoutReached () then
                 TimeoutReached
-            elif fuzzerAlive () |> not then
-                if File.Exists(unhandledExceptionPath) then
-                    UnhandledExn unhandledExceptionPath
-                elif fuzzerProcess.ExitCode = 0 then
-                    // In case of StackOverflowException fuzzer can't write exception.info, but will exited with code 0
-                    StackOverflow
-                else
-                    UnexpectedExit
             else
                 WorkInProgress
 
     let updateState =
         function
-        | UnhandledExn path ->
-            let text = File.ReadAllText(path).Split(" ")
-            assert (text.Length = 2)
-            File.Delete path
-            state <- SuccessfullyFuzzedMethodWithException <| Some (int text[0], text[1])
-        | StackOverflow ->
-            state <- SuccessfullyFuzzedMethodWithException None
         | UnexpectedExit ->
             state <- UnexpectedExit
         | TimeoutReached ->
@@ -172,8 +159,7 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
             fuzzerProcess <- startFuzzer fuzzerOptions fuzzerDeveloperOptions
             fuzzerService <- connectFuzzerService ()
             waitFuzzerForReady fuzzerService
-            logFuzzingProcess $"Setup Fuzzer: {outputPath} {targetAssemblyPath}"
-            do! fuzzerService.SetupOutputDirectory { stringValue = outputPath }
+            logFuzzingProcess $"Setup Fuzzer: {targetAssemblyPath}"
             do! fuzzerService.SetupAssembly { assemblyName = targetAssemblyPath }
             state <- Started
         }
@@ -271,6 +257,7 @@ type Interactor (
             timeLimitPerMethod = 1000
             arrayMaxSize = 10
             stringMaxSize = 10
+            outputDir = outputPath
         }
 
     let fuzzerDeveloperOptions =
@@ -333,6 +320,7 @@ type Interactor (
                 successfullyFuzzed <- successfullyFuzzed + 1
                 testRestorer.RestoreTest threadId exceptionName
             | UnexpectedExit ->
+                assert false
                 do! onFailed()
             | SuccessfullyFuzzedMethodWithException None
             | TimeoutReached ->

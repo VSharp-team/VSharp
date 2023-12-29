@@ -52,7 +52,8 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
 
                     (masterProcessService.NotifyFinished (UnitData())).Wait()
                     traceFuzzing $"Notified master process: finished {moduleName} {methodToken}"
-                with e -> errorFuzzing $"{e}"
+                with e ->
+                    logUnhandledException e
             ).Forget()
 
             System.Threading.Tasks.Task.FromResult() :> System.Threading.Tasks.Task
@@ -63,12 +64,8 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
                 fuzzerCancellationToken.Cancel()
             } |> withExceptionLogging
 
-        let onSetupDir dir =
-            task {
-                fuzzer.SetOutputDirectory dir
-            } |> withExceptionLogging
 
-        FuzzerService(onFinish, onFuzz, onSetupAssembly, onSetupDir)
+        FuzzerService(onFinish, onFuzz, onSetupAssembly)
 
     member this.Start () =
         try

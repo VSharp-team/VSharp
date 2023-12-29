@@ -18,25 +18,40 @@ open Logger
 module private CancellableThreads =
     let private internalAbort = typeof<System.Runtime.ControlledExecution>.GetMethod("AbortThread", Reflection.allBindingFlags)
     let private internalGetThreadHandle = typeof<Thread>.GetMethod("GetNativeHandle", Reflection.allBindingFlags)
+    let private abortedWasTrying = HashSet<int>()
+    let mutable private cancellableThreadStartedCount = 0
+    let private cancellableThreadHandledCount = ref 0
 
-    let startCancellableThread f (cancellationToken: CancellationToken) =
+    let startCancellableThread f threadId (cancellationToken: CancellationToken) =
+        cancellableThreadStartedCount <- cancellableThreadStartedCount + 1
+
         let systemThread =
-            let thread = Thread(fun () -> f())
+            let thread = Thread(fun () -> f(); Interlocked.Increment(cancellableThreadHandledCount) |> ignore)
             thread.Start()
             thread
 
         let abortThread () =
             if systemThread.IsAlive then
+                abortedWasTrying.Add(threadId) |> ignore
                 traceFuzzing $"Start aborting: {systemThread.ManagedThreadId}"
                 let nativeHandle = internalGetThreadHandle.Invoke(systemThread, [||])
                 internalAbort.Invoke(null, [| nativeHandle |]) |> ignore
                 systemThread.Join()
                 traceFuzzing $"Aborted: {systemThread.ManagedThreadId}"
+                Interlocked.Increment(cancellableThreadHandledCount) |> ignore
+                Logger.error $"{cancellableThreadStartedCount} = {cancellableThreadHandledCount.Value}"
             else
                 traceFuzzing $"Thread is dead: {systemThread.ManagedThreadId}"
 
         Action abortThread |> cancellationToken.Register |> ignore
         systemThread
+
+    let wasAbortTried = abortedWasTrying.Contains
+
+    let waitAllThreadsHandled () =
+        let spinner = SpinWait()
+        while cancellableThreadStartedCount <> cancellableThreadHandledCount.Value do
+            spinner.SpinOnce()
 
 type internal Fuzzer(
     fuzzerOptions: FuzzerOptions,
@@ -47,10 +62,23 @@ type internal Fuzzer(
     let typeSolver = TypeSolver()
     let generator = Generator(fuzzerOptions, typeSolver)
     let threadIdGenerator = Utils.IdGenerator(0)
-    let testIdGenerator = Utils.IdGenerator(0)
-    let batchSize = Process.GetCurrentProcess().Threads.Count
+    let testIdGenerator =
+        let testDir = DirectoryInfo(fuzzerOptions.outputDir)
+        let tests = testDir.EnumerateFiles("*.vst")
 
-    let mutable currentOutputDir = ""
+        let lastTestId =
+            tests
+            |> Seq.map (fun x -> x.Name)
+            |> Seq.filter (fun x -> x.StartsWith "fuzzer_test_")
+            |> Seq.map (fun x -> x.Replace("fuzzer_test_", "").Replace(".vst", "") |> int)
+            |> Seq.cons 0
+            |> Seq.max
+
+        Utils.IdGenerator(lastTestId)
+
+    let batchSize = Process.GetCurrentProcess().Threads.Count
+    let outputDir = fuzzerOptions.outputDir
+
     let mutable generatedCount = 0
     let mutable abortedCount = 0
     let mutable ignoredCount = 0
@@ -72,12 +100,21 @@ type internal Fuzzer(
         with
         | :? TargetInvocationException as e ->
             Thrown e.InnerException
+        | e ->
+            logUnhandledException e
 
     let fuzzOnce method (generationDatas: GenerationData[]) (results: InvocationResult[]) i threadId =
         fun () ->
             coverageTool.SetCurrentThreadId threadId
             let generationData = generationDatas[i]
             results[i] <- invoke method generationData.this generationData.args
+
+    let generateTest (test: UnitTest) =
+        let testPath = $"{outputDir}{Path.DirectorySeparatorChar}fuzzer_test_{testIdGenerator.NextId()}.vst"
+        Task.Run(fun () ->
+            test.Serialize(testPath)
+            infoFuzzing $"Generated test: {testPath}"
+        ).ForgetUntilExecutionRequested()
 
     let fuzzBatch mockedGenerics typeSolverSeed (rnd: Random) (method: MethodBase) typeStorage =
         use fuzzingCancellationTokenSource = new CancellationTokenSource()
@@ -116,10 +153,12 @@ type internal Fuzzer(
                 |> Array.map (fun i  ->
                     CancellableThreads.startCancellableThread
                         (fuzzOnce method data invocationResults i threadIds[i])
+                        threadIds[i]
                         fuzzingCancellationTokenSource.Token
                 )
             fuzzingCancellationTokenSource.CancelAfter(availableTime)
             threads |> Array.iter (fun t -> t.Join())
+            CancellableThreads.waitAllThreadsHandled ()
             traceFuzzing "Method invoked"
 
             (threadIds, data, invocationResults) |> Some
@@ -163,12 +202,8 @@ type internal Fuzzer(
             let test = fuzzingResultToTest generationData invocationResult
             match test with
             | Some test ->
-                let testPath = $"{currentOutputDir}{Path.DirectorySeparatorChar}fuzzer_test_{testIdGenerator.NextId()}.vst"
+                generateTest test
                 generatedCount <- generatedCount + 1
-                Task.Run(fun () ->
-                    test.Serialize(testPath)
-                    infoFuzzing $"Generated test: {testPath}"
-                ).ForgetUntilExecutionRequested()
                 infoFuzzing "Test will be generated"
             | None ->
                 infoFuzzing "Failed to create test"
@@ -177,9 +212,7 @@ type internal Fuzzer(
 
         let onKnownCoverage () =
             ignoredCount <- ignoredCount + 1
-            infoFuzzing "Coverage already tracked"
-
-
+            traceFuzzing "Coverage already tracked"
 
         task {
             let (threadIds: int[], data: GenerationData[], invocationResults: InvocationResult[]) = result
@@ -191,7 +224,19 @@ type internal Fuzzer(
             traceFuzzing $"Coverage reports[{coverages.reports.Length}] deserialized"
             assert (coverages.reports.Length = batchSize)
 
-            let reports = coverages.reports |> Array.sortBy (fun x -> x.threadId)
+            let reports =
+                coverages.reports
+                |> Array.sortBy (fun x -> x.threadId)
+                |> Array.mapi (fun i x ->
+                    let abortedInsideFuzzerCode =
+                        x.rawCoverageLocations <> [||]
+                        && Utils.isNull invocationResults[i]
+                        && CancellableThreads.wasAbortTried x.threadId
+                    if abortedInsideFuzzerCode then
+                        { x with rawCoverageLocations = [| |] }
+                    else
+                        x
+                )
 
             let existNonAborted = reports |> Seq.exists (fun x -> x.rawCoverageLocations <> [||])
 
@@ -256,5 +301,3 @@ type internal Fuzzer(
                     errorFuzzing $"Not implemented: {e.Message}\nStack trace:\n{e.StackTrace}"
         }
 
-    member this.SetOutputDirectory dir =
-        currentOutputDir <- dir
