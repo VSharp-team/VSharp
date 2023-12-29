@@ -19,6 +19,7 @@ type IMethod =
     abstract HasThis : bool
     abstract HasParameterOnStack : bool
     abstract IsConstructor : bool
+    abstract IsStaticConstructor : bool
     abstract IsExternalMethod : bool
     abstract ContainsGenericParameters : bool
     abstract GenericArguments : Type[]

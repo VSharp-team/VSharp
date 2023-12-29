@@ -31,4 +31,5 @@ type public ConcreteMemory =
     member internal CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> int -> unit
     member internal CopyCharArrayToStringLen : concreteHeapAddress -> concreteHeapAddress -> int -> int -> unit
     member internal ReTrackObject : obj -> unit
+    member internal StaticFieldChanged : fieldId -> unit
     member internal Remove : concreteHeapAddress -> unit

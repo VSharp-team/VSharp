@@ -280,6 +280,7 @@ type MethodWithBody internal (m : MethodBase) =
         override x.HasThis = hasThis
         override x.HasParameterOnStack = x.HasParameterOnStack
         override x.IsConstructor = isConstructor
+        override x.IsStaticConstructor = x.IsStaticConstructor
         override x.IsExternalMethod with get() = x.IsExternalMethod
         override x.ContainsGenericParameters with get() = x.ContainsGenericParameters
         override x.GenericArguments with get() = genericArguments.Value

@@ -1402,6 +1402,9 @@ module internal Memory =
         let key = {typ = typ}
         let mr' = MemoryRegion.write mr key value
         state.staticFields <- PersistentDict.add field mr' state.staticFields
+        let currentMethod = CallStack.getCurrentFunc state.stack
+        if not currentMethod.IsStaticConstructor then
+            state.concreteMemory.StaticFieldChanged field
 
     let private fillArrayBoundsSymbolic state address lengths lowerBounds arrayType =
         let d = List.length lengths
