@@ -4,16 +4,11 @@
 #include "cor.h"
 #include "corprof.h"
 #include "logging.h"
-//#include "cstring"
 #include "profilerDebug.h"
 #include <map>
-//#include <set>
 #include <vector>
 #include "threadInfo.h"
-//#include <functional>
-//#include <shared_mutex>
-//#include <mutex>
-//#include <atomic>
+
 
 template <typename T> class ThreadStorage {
 private:

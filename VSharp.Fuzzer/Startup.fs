@@ -4,7 +4,6 @@ open System
 open VSharp
 open VSharp.CSharpUtils
 open VSharp.CoverageTool
-open VSharp.Fuzzer.Utils
 open VSharp.Utils.EnvironmentUtils
 
 type internal FuzzerOptions = {

@@ -431,16 +431,6 @@ namespace IntegrationTests
     [TestSvmFixture]
     public sealed class Arithmetics
     {
-        [TestSvm]
-        public static bool JustSleep()
-        {
-            for (int i = 0; i < 1000; i++)
-            {
-                Thread.Sleep(100);
-            }
-            return true;
-        }
-
         // 7 + n
         [Ignore("Exceptions handling")]
         public static int ArithmeticsMethod1(int n, int m)

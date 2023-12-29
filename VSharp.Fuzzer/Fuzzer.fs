@@ -140,7 +140,6 @@ type internal Fuzzer(
         )
         traceFuzzing "Execution seeds sent"
 
-
         let availableTime = getAvailableTime ()
 
         if availableTime <= 0 then
@@ -300,4 +299,3 @@ type internal Fuzzer(
                 | :? NotImplementedException as e ->
                     errorFuzzing $"Not implemented: {e.Message}\nStack trace:\n{e.StackTrace}"
         }
-

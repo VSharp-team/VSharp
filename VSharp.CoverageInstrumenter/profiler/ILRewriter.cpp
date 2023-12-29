@@ -1275,19 +1275,6 @@ HRESULT RewriteIL(
     IfFailRet(rewriter.Import());
     countOffsets(&rewriter);
 
-//    // if main-only requested, keeping enter/leave probes for stack balances, cutting everything else
-//    if (collectMainOnly && !isMain) {
-//        IfFailRet(AddExitProbe(pilr, methodId));
-//        IfFailRet(AddEnterProbe(pilr, enterMethod->addr, enterMethod->getSig(), methodId));
-//        IfFailRet(rewriter.Export());
-//        return S_OK;
-//    }
-
-//    if (isMain) {
-//        LOG(tout << "original main method: ");
-//        PrintILInstructions(pilr);
-//    }
-
     BOOL isTailCall = FALSE;
 
     std::vector<ProbeInsertion> addPriorityProbe;

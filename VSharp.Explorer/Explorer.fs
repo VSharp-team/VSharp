@@ -509,7 +509,6 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
     member x.StartExploration (isolated : MethodBase seq) (entryPoints : (MethodBase * string[]) seq) : unit =
 
         try
-            Logger.error "StartExploration: start"
             let trySubstituteTypeParameters method =
                 let emptyState = Memory.EmptyState()
                 (Option.defaultValue method (x.TrySubstituteTypeParameters emptyState method), emptyState)
@@ -517,7 +516,6 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
                 isolated
                 |> Seq.map trySubstituteTypeParameters
                 |> Seq.map (fun (m, s) -> Application.getMethod m, s) |> Seq.toList
-            Logger.error "Generics resolved"
             let entryPoints =
                 entryPoints
                 |> Seq.map (fun (m, a) ->

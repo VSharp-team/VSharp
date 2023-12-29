@@ -4,8 +4,6 @@ open System
 open System.Diagnostics
 open VSharp
 
-
-
 let optionalFromEnv name =
     let value = Environment.GetEnvironmentVariable(name)
     if value = null then
@@ -17,7 +15,6 @@ let fromEnv name =
     match optionalFromEnv name with
     | Some value -> value
     | None -> internalfail $"Required env var[{name}] not specified"
-
 
 type EnvironmentConfigurationAttribute() =
     inherit Attribute()

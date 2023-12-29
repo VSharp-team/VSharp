@@ -40,7 +40,6 @@ module private Configuration =
 
     let private enabled = "1"
 
-
     [<EnvironmentConfiguration>]
     type private BaseCoverageToolConfiguration = {
         [<EnvironmentVariable("CORECLR_PROFILER")>]
@@ -52,7 +51,6 @@ module private Configuration =
         [<EnvironmentVariable("COVERAGE_TOOL_INSTRUMENT_MAIN_ONLY")>]
         instrumentMainOnly: string
     }
-
 
     [<EnvironmentConfiguration>]
     type private PassiveModeConfiguration = {
@@ -131,7 +129,6 @@ type InteractionCoverageTool() =
     member this.SetCurrentThreadId id =
         ExternalCalls.SetCurrentThreadId(id)
 
-
     static member WithCoverageTool (procInfo: ProcessStartInfo) =
         Configuration.withMainOnlyCoverageToolConfiguration procInfo
 
@@ -186,7 +183,6 @@ type PassiveCoverageTool(workingDirectory: DirectoryInfo, method: MethodBase) =
 
         (double coveredSize) / (double cfg.MethodSize) * 100. |> int
 
-
     member this.RunWithCoverage (args: string) =
         let procInfo =
             ProcessStartInfo()
@@ -199,7 +195,6 @@ type PassiveCoverageTool(workingDirectory: DirectoryInfo, method: MethodBase) =
             |> Configuration.withMainOnlyCoverageToolConfiguration
             |> Configuration.withPassiveModeConfiguration method resultName
 
-
         let applicationMethod = Application.getMethod(method)
 
         if applicationMethod.HasBody |> not then
@@ -209,7 +204,7 @@ type PassiveCoverageTool(workingDirectory: DirectoryInfo, method: MethodBase) =
 
             let proc = procInfo.StartWithLogging(
                 (fun x -> Logger.info $"{x}"),
-                (fun x-> Logger.error $"{x}")
+                (fun x -> Logger.error $"{x}")
             )
             proc.WaitForExit()
 

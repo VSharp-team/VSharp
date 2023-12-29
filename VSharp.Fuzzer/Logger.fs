@@ -30,12 +30,7 @@ let setupLogger outputDir =
     let writer = System.IO.File.AppendText $"{outputDir}{System.IO.Path.DirectorySeparatorChar}fuzzer.log"
 
     VSharp.Logger.configureWriter writer
-
-    VSharp.Logger.enableTag communicationTraceTag VSharp.Logger.Trace
-    VSharp.Logger.enableTag fuzzingTag VSharp.Logger.Info
-    //VSharp.Logger.enableTag testGenerationTraceTag VSharp.Logger.Trace
-    //VSharp.Logger.enableTag generationTag VSharp.Logger.Info
-    //VSharp.Logger.enableTag typeSolverTag VSharp.Logger.Trace
+    // Enable tags here
 
     VSharp.Logger.changeVerbosity VSharp.Logger.defaultTag VSharp.Logger.Warning
     #endif
