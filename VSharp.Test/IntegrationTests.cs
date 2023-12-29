@@ -72,6 +72,17 @@ namespace VSharp.Test
         }
     }
 
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = true)]
+    public class IgnoreFuzzerAttribute: Attribute
+    {
+        public string Reason { get; init; }
+
+        public IgnoreFuzzerAttribute(string reason)
+        {
+            Reason = reason;
+        }
+    }
+
     public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
     {
         private const string CsvPathParameterName = "csvPath";

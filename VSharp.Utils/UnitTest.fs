@@ -155,6 +155,13 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
     // if @concreteParameters[i] is null, then @mockedParameters[i] is non-null and vice versa
     member x.SetTypeGenericParameters (concreteParameters : Type array) (mockedParameters : Mocking.Type option array) =
         let t = typeof<testInfo>
+        
+        Logger.error "SetTypeGenericParameters"
+        for mocked in mockedParameters do
+            match mocked with
+            | Some value -> Logger.error $"Some {value.Id}, {value.BaseClass.Name}"
+            | None -> Logger.error "None"
+
         let cp = t.GetProperty("classTypeParameters")
         cp.SetValue(info, concreteParameters |> Array.map typeRepr.Encode)
         let mp = t.GetProperty("mockClassTypeParameters")

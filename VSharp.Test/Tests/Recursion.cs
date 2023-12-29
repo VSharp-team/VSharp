@@ -46,6 +46,8 @@ namespace IntegrationTests
         }
 
         [TestSvm(100, strat: SearchStrategy.BFS)]
+        [IgnoreFuzzer("Need StackOverflow handling")]
+        [IgnoreFuzzer("Need static field support")]
         public static int FibUnbound(int n)
         {
             _c = 42;
@@ -81,6 +83,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("Need StackOverflow handling")]
     public static class McCarthy91
     {
         [TestSvm(100, strat: SearchStrategy.BFS)]
@@ -137,6 +140,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100, strat: SearchStrategy.BFS)]
+        [IgnoreFuzzer("Need StackOverflow handling")]
         public static SmallClass MutationAfterRecursionTest(int n)
         {
             var s1 = new BigClass {Small = new SmallClass()};

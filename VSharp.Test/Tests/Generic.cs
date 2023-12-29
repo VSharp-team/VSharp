@@ -473,6 +473,7 @@ namespace IntegrationTests
         }
 
         [TestSvmFixture]
+        [IgnoreFuzzer("Need send type-solving result into fuzzer")]
         public static class MethodParameters3<T, U>
             where T : IGenericInterface1<U>, IGenericInterface2<U>
         {
@@ -484,6 +485,7 @@ namespace IntegrationTests
         }
 
         [TestSvmFixture]
+        [IgnoreFuzzer("Need send type-solving result into fuzzer")]
         public static class MethodParameters4<T1, T2, U>
             where T1: class, IForSpecialConstraints<U>, new()
             where T2: struct, IForSpecialConstraints<U>
@@ -547,6 +549,7 @@ namespace IntegrationTests
     public static class NestedGenerics
     {
         [TestSvm(100)]
+        [IgnoreFuzzer("Need recursion constraints in generators")]
         public static int NestedGenericsSmokeTest(List<Bag<int>> list)
         {
             if (list.Count > 0)
@@ -558,6 +561,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
+        [IgnoreFuzzer("Need recursion constraints in generators")]
         public static int NestedGenericsSmokeTest2(Dictionary<int, Bag<int>> dict)
         {
             if (dict.Count > 0)

@@ -58,10 +58,10 @@ public static class FuzzerTests
                 .GetExecutingAssembly()
                 .GetTypes()
                 .Where(x => x.GetCustomAttribute<TestSvmFixtureAttribute>() != null)
+                .Where(x => x.GetCustomAttributes<IgnoreFuzzerAttribute>().Any() == false)
                 .SelectMany(x => x.GetMethods())
                 .Where(x => x.GetCustomAttribute<TestSvmAttribute>() != null)
-                .Where(x => x is { Name: "JustSleep" } or { Name: "AbsMethod" })
-                //.Where(x => x.DeclaringType is { Name: "Arithmetics" })
+                .Where(x => x.GetCustomAttributes<IgnoreFuzzerAttribute>().Any() == false)
                 .Select(x => (MethodBase) x)
                 .ToArray();
     }
@@ -93,44 +93,12 @@ public static class FuzzerTests
         if (!reproduced) throw new Exception("Reproducing tests failed");
     }
 
-    private static void RenderGeneratedTests()
-    {
-        var generatedTests = OutputDirectoryInfo.EnumerateFiles("*.vst");
-        Renderer.Render(
-            generatedTests,
-            wrapErrors: true,
-            singleFile: false,
-            declaringType: null,
-            outputDir: OutputDirectoryInfo
-        );
-    }
-
-    private static void ReproduceRenderedGeneratedTests()
-    {
-        var processInfo = new ProcessStartInfo
-        {
-            WorkingDirectory = $"{OutputDirectory}{Path.DirectorySeparatorChar}VSharp.Test.Tests",
-            FileName = DotnetExecutablePath.ExecutablePath,
-            Arguments = "test -c Release --filter \"TestCategory=Generated&TestCategory!=FatalError\""
-        };
-        var process = Process.Start(processInfo);
-
-        if (process == null) throw new Exception("Can't run reproduce generated tests process");
-        process.WaitForExit();
-
-        if (process.ExitCode != 0) throw new Exception($"Reproducing tests failed, process exit code: {process.ExitCode}");
-
-    }
-
     [Test, Explicit]
     public static void Tests()
     {
-        DotnetExecutablePath.OverridePath("\"C:\\Users\\vikto\\.dotnet\\dotnet.exe\"");
         Logger.enableTag("Communication", Logger.Trace);
         PrepareOutputDirectory();
         RunFuzzer();
         ReproduceGeneratedTests();
-        RenderGeneratedTests();
-        ReproduceRenderedGeneratedTests();
     }
 }

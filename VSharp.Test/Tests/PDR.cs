@@ -14,6 +14,7 @@ namespace IntegrationTests
     public static class PDR
     {
         [TestSvmFixture]
+        [IgnoreFuzzer("Need static field support")]
         public static class WithStaticMembersUsedInCFA
         {
             public static int x = 100;

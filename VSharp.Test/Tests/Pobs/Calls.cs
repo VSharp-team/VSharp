@@ -5,6 +5,7 @@ namespace IntegrationTests;
 public class Calls
 {
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) coverage tool assertions failed")]
     public class NestedCalls
     {
         [TestSvm(100)]
@@ -76,6 +77,7 @@ public class Calls
         }
 
         [TestSvm(88, strat: SearchStrategy.BFS)]
+        [IgnoreFuzzer("Need StackOverflow handling")]
         public static int TrickyCycle(int x, int y)
         {
             int sum = 0;

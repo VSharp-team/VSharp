@@ -6,6 +6,7 @@ using VSharp.Test;
 namespace IntegrationTests
 {
     [TestSvmFixture]
+    [IgnoreFuzzer("Need AccessViolation handling")]
     public unsafe class Unsafe
     {
         [TestSvm]

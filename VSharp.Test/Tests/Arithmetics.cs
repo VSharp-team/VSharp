@@ -8,18 +8,9 @@ namespace IntegrationTests
 {
     [TestSvmFixture]
     [Ignore("Need exceptions for all tests")]
+    [IgnoreFuzzer("(Known bug) Reproducing tests failed")]
     public sealed class Arithmetics_CIL
     {
-        [TestSvm]
-        public static bool JustSleep()
-        {
-            throw new AccessViolationException();
-            // if (Random.Shared.NextInt64(0, 2) == 0)
-            // {
-            //     Thread.Sleep(10000);
-            // }
-            return true;
-        }
 
         [TestSvm]
         public static bool MultiplicationOfFloatsIsNotAssociative()
@@ -440,6 +431,16 @@ namespace IntegrationTests
     [TestSvmFixture]
     public sealed class Arithmetics
     {
+        [TestSvm]
+        public static bool JustSleep()
+        {
+            for (int i = 0; i < 1000; i++)
+            {
+                Thread.Sleep(100);
+            }
+            return true;
+        }
+
         // 7 + n
         [Ignore("Exceptions handling")]
         public static int ArithmeticsMethod1(int n, int m)

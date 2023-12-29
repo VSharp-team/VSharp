@@ -196,6 +196,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100, strat: SearchStrategy.BFS)]
+        [IgnoreFuzzer("Need StackOverflow handling")]
         public int FactResult(int n)
         {
             try
@@ -209,6 +210,7 @@ namespace IntegrationTests
         }
 
         [Ignore("Exceptions handling")]
+        [IgnoreFuzzer("Need StackOverflow handling")]
         public int CheckFactSafe(int n)
         {
             try
@@ -222,6 +224,7 @@ namespace IntegrationTests
         }
 
         [Ignore("Exceptions handling")]
+        [IgnoreFuzzer("Need StackOverflow handling")]
         public int CheckFactUnsafe(int n)
         {
             try

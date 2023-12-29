@@ -1045,6 +1045,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
+        [IgnoreFuzzer("Need recursion constraints in generators")]
         public static int ListTest1(List<object> l, object e)
         {
             var i = l.LastIndexOf(e);
@@ -1130,6 +1131,7 @@ namespace IntegrationTests
     public static class SpanTests
     {
         [TestSvm(96)]
+        [IgnoreFuzzer("Need AccessViolation handling")]
         public static unsafe byte SpanTest(int[] a, byte b, int i)
         {
             fixed (void* ptr = a)
@@ -1208,6 +1210,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("Need recursion constraints in generators")]
     public static class RecursiveAccess
     {
         public static First G(First f)
@@ -2045,6 +2048,7 @@ namespace IntegrationTests
 
 
         [TestSvm(100)]
+        [IgnoreFuzzer("(known bug) DecodeString: unexpected representation")]
         public int GetValue(int index)
         {
             if (index < 0 || index > 10)
@@ -2053,6 +2057,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
+        [IgnoreFuzzer("(known bug) DecodeString: unexpected representation")]
         public void SetValue(int index, int value)
         {
             if (index < 0 || index > 10)

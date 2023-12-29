@@ -87,6 +87,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) Input test is incorrect && Failed to reproduce")]
     public class Events
     {
         public struct IRQContext
