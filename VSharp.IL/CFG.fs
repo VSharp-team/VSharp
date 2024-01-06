@@ -551,14 +551,15 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
         if not <| callTo.IncomingCallEdges.Contains callFrom then
             let mutable returnTo = callFrom
             // if not exists then it should be from exception mechanism
-            if not callTarget.method.IsStaticConstructor && exists then
+            if (not callTarget.method.IsStaticConstructor) && exists then
                 returnTo <- callerMethodCfgInfo.ResolveBasicBlock location.ReturnTo
-                let exists, callEdges = callFrom.OutgoingEdges.TryGetValue dummyTerminalForCallEdge
-                if exists then
-                    let added = callEdges.Add callTo
-                    assert added
-                else
-                    callFrom.OutgoingEdges.Add(dummyTerminalForCallEdge, HashSet [|callTo|])
+                
+            let exists, callEdges = callFrom.OutgoingEdges.TryGetValue dummyTerminalForCallEdge
+            if exists then
+                let added = callEdges.Add callTo
+                assert added
+            else
+                callFrom.OutgoingEdges.Add(dummyTerminalForCallEdge, HashSet [|callTo|])
             
             calledMethodCfgInfo.Sinks                
             |> ResizeArray.iter (fun returnFrom ->
