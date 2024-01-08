@@ -1,9 +1,0 @@
-[submodule "BizHawk"]
-	path = BizHawk
-	url = https://github.com/TASEmulators/BizHawk.git
-[submodule "LiteDB"]
-	path = LiteDB
-	url = https://github.com/mbdavid/LiteDB.git
-[submodule "StandaloneUnity"]
-	path = StandaloneUnity
-	url = https://github.com/mxprshn/StandaloneUnity.git

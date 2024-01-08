@@ -9,19 +9,4 @@
         <Compile Include="Maps.fs" />
     </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\Advanced.Algorithms\Advanced.Algorithms.csproj" />
-      <ProjectReference Include="..\BizHawk\ExternalCoreProjects\Virtu\Virtu.csproj" />
-      <ProjectReference Include="..\BizHawk\src\BizHawk.BizInvoke\BizHawk.BizInvoke.csproj" />
-      <ProjectReference Include="..\BizHawk\src\BizHawk.Common\BizHawk.Common.csproj" />
-      <ProjectReference Include="..\BizHawk\src\BizHawk.Emulation.Common\BizHawk.Emulation.Common.csproj" />
-      <ProjectReference Include="..\BizHawk\src\BizHawk.Emulation.Cores\BizHawk.Emulation.Cores.csproj" />
-      <ProjectReference Include="..\BizHawk\src\BizHawk.Emulation.DiscSystem\BizHawk.Emulation.DiscSystem.csproj" />
-      <ProjectReference Include="..\C-Sharp-Algorithms\Algorithms\Algorithms.csproj" />
-      <ProjectReference Include="..\C-Sharp-Algorithms\DataStructures\DataStructures.csproj" />
-      <ProjectReference Include="..\Lifetimes\Lifetimes.csproj" />
-      <ProjectReference Include="..\LiteDB\LiteDB\LiteDB.csproj" />
-      <ProjectReference Include="..\StandaloneUnity\Unity\Unity.csproj" />
-    </ItemGroup>
-
 </Project>
