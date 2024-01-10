@@ -15,8 +15,10 @@ type IRawOutgoingMessageBody = interface end
 
 type [<Measure>] test
 type [<Measure>] error
-
+type [<Measure>] step
+type [<Measure>] percent
 type [<Measure>] basicBlockGlobalId
+type [<Measure>] instruction
 
 [<Struct>]
 type GameOverMessageBody =    
@@ -61,10 +63,12 @@ type InputMessage =
 type StateHistoryElem =
     val GraphVertexId: uint<basicBlockGlobalId>
     val NumOfVisits: uint
-    new (graphVertexId, numOfVisits) =
+    val StepWhenVisitedLastTime: uint<step>
+    new (graphVertexId, numOfVisits, stepWhenVisitedLastTime) =
         {
             GraphVertexId = graphVertexId
             NumOfVisits = numOfVisits
+            StepWhenVisitedLastTime = stepWhenVisitedLastTime
         }
 
 type [<Measure>] stateId
@@ -73,60 +77,66 @@ type [<Measure>] stateId
 type State =
     val Id: uint<stateId>
     val Position: uint
-    val PredictedUsefulness: float
     val PathConditionSize: uint
     val VisitedAgainVertices: uint
     val VisitedNotCoveredVerticesInZone: uint
     val VisitedNotCoveredVerticesOutOfZone: uint
+    val StepWhenMovedLastTime: uint<step>
+    val InstructionsVisitedInCurrentBlock: uint<instruction>
     val History: array<StateHistoryElem>
     val Children: array<uint<stateId>> 
     new(id,
-        position,
-        predictedUsefulness,
+        position,        
         pathConditionSize,
         visitedAgainVertices,
         visitedNotCoveredVerticesInZone,
         visitedNotCoveredVerticesOutOfZone,
+        stepWhenMovedLastTime,
+        instructionsVisitedInCurrentBlock,
         history,
         children) =
         {
             Id = id
             Position = position
-            PredictedUsefulness = predictedUsefulness
             PathConditionSize = pathConditionSize
             VisitedAgainVertices = visitedAgainVertices
             VisitedNotCoveredVerticesInZone = visitedNotCoveredVerticesInZone
             VisitedNotCoveredVerticesOutOfZone = visitedNotCoveredVerticesOutOfZone
+            StepWhenMovedLastTime = stepWhenMovedLastTime
+            InstructionsVisitedInCurrentBlock = instructionsVisitedInCurrentBlock
             History = history
             Children = children
         }
     
 [<Struct>]    
 type GameMapVertex =
-    val Uid: uint
     val Id: uint<basicBlockGlobalId>
     val InCoverageZone: bool
     val BasicBlockSize: uint
     val CoveredByTest: bool
     val VisitedByState: bool
     val TouchedByState: bool
+    val ContainsCall: bool
+    val ContainsThrow: bool
     val States: uint<stateId>[]
-    new (uid,
-         id,
+    new (id,
          inCoverageZone,
          basicBlockSize,
+         containsCall,
+         containsThrow,
          coveredByTest,
          visitedByState,
          touchedByState,
          states) =
         {
-            Uid = uid
             Id = id
             InCoverageZone = inCoverageZone
             BasicBlockSize = basicBlockSize
             CoveredByTest = coveredByTest
             VisitedByState = visitedByState
             TouchedByState = touchedByState
+            ContainsCall = containsCall
+            ContainsThrow = containsThrow
             States = states
         }
 
@@ -159,8 +169,8 @@ type MoveReward =
     val ForCoverage: uint<coverageReward>
     val ForVisitedInstructions: uint<visitedInstructionsReward>
     new (forCoverage, forVisitedInstructions) = {ForCoverage = forCoverage; ForVisitedInstructions = forVisitedInstructions}
-[<Struct>]    
 
+[<Struct>]
 type Reward =
     interface IRawOutgoingMessageBody
     val ForMove: MoveReward
@@ -173,31 +183,33 @@ type Feedback =
     | IncorrectPredictedStateId of uint<stateId>
     | ServerError of string
 
-type CoverageZone =
-    | Method = 0
-    | Class = 1
-
-type [<Measure>] step
-type [<Measure>] percent
-
 [<Struct>]
 type GameMap =
     val Id: uint
     val MaxSteps: uint<step>
     val CoverageToStart: uint<percent>
     val AssemblyFullName: string
-    val CoverageZone: CoverageZone
     val NameOfObjectToCover: string
     val MapName: string
-    new (id, maxSteps, coverageToStart, assembly, coverageZone, objectToCover) =
+    new (id, maxSteps, coverageToStart, assembly, objectToCover) =
         {
             Id = id
             MaxSteps = maxSteps
             CoverageToStart = coverageToStart
             AssemblyFullName = assembly
-            CoverageZone = coverageZone
             NameOfObjectToCover = objectToCover
-            MapName = $"{objectToCover}_{coverageZone}_{coverageToStart}"
+            MapName = $"{objectToCover}_{coverageToStart}"
+        }
+        
+    [<JsonConstructor>]
+    new (id, maxSteps, coverageToStart, assemblyFullName, nameOfObjectToCover, mapName) =
+        {
+            Id = id
+            MaxSteps = maxSteps
+            CoverageToStart = coverageToStart
+            AssemblyFullName = assemblyFullName
+            NameOfObjectToCover = nameOfObjectToCover
+            MapName = mapName
         }
 
 [<Struct>]

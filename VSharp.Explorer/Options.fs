@@ -54,7 +54,7 @@ type SVMOptions = {
     coverageToSwitchToAI: uint
     stepsToPlay: uint
     serialize: bool
-    pathToSerialize: string
+    mapName: string
 }
 
 type explorationModeOptions =

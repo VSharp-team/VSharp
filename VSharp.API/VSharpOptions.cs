@@ -114,6 +114,8 @@ public readonly record struct VSharpOptions
     public readonly Oracle? Oracle = null;
     public readonly uint CoverageToSwitchToAI = 0;
     public readonly uint StepsToPlay = 0;
+    public readonly string MapName = "";
+    public readonly bool Serialize = false;
 
     /// <summary>
     /// Symbolic virtual machine options.
@@ -145,7 +147,9 @@ public readonly record struct VSharpOptions
         uint stepsLimit = DefaultStepsLimit,
         Oracle? oracle = null,
         uint coverageToSwitchToAI = 0,
-        uint stepsToPlay = 0)
+        uint stepsToPlay = 0,
+        string mapName = "",
+        bool serialize = false)
     {
         Timeout = timeout;
         SolverTimeout = solverTimeout;
@@ -162,6 +166,8 @@ public readonly record struct VSharpOptions
         Oracle = oracle;
         CoverageToSwitchToAI = coverageToSwitchToAI;
         StepsToPlay = stepsToPlay;
+        MapName = mapName;
+        Serialize = serialize;
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+open System.Collections.Generic
 open System.IO
 open System.Reflection
 open Argu
@@ -12,23 +13,37 @@ open Suave.WebSocket
 open VSharp
 open VSharp.Core
 open VSharp.Explorer
-open VSharp.Interpreter.IL
 open VSharp.ML.GameServer.Messages
 open VSharp.ML.GameServer.Maps
 open VSharp.Runner
    
+type Mode =
+    | Server = 0
+    | Generator = 1
 type CliArguments =
     | [<Unique>] Port of int
-    | [<Unique>] CheckActualCoverage
+    | [<Unique>] DatasetBasePath of string
+    | [<Unique>] DatasetDescription of string
+    | [<Unique; Mandatory>] Mode of Mode
+    | [<Unique>] OutFolder of string
+    | [<Unique>] StepsToSerialize of uint
     interface IArgParserTemplate with
         member s.Usage =
             match s with
             | Port _ -> "Port to communicate with game client."
-            | CheckActualCoverage -> "Check actual coverage using external coverage tool."
+            | DatasetBasePath _ -> "Full path to dataset root directory. Dll location is <DatasetBasePath>/<AssemblyFullName>"
+            | DatasetDescription _ -> "Full paths to JSON-file with dataset description."
+            | Mode _ -> "Mode to run application. Server --- to train network, Generator --- to generate data for training."
+            | OutFolder _ -> "Folder to store generated data."
+            | StepsToSerialize _ -> "Maximal number of steps for each method to serialize."
             
 let mutable inTrainMode = true
 
-let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: HttpContext) =
+let loadGameMaps (datasetDescriptionFilePath:string) =
+    let jsonString = File.ReadAllText datasetDescriptionFilePath
+    System.Text.Json.JsonSerializer.Deserialize<Dictionary<uint32, GameMap>> jsonString
+
+let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
   let mutable loop = true
   
   socket {
@@ -60,7 +75,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
             let mutable cnt = 0u
             fun (gameState:GameState) ->
                 let toDot drawHistory =
-                    let file = System.IO.Path.Join ("dot",$"{cnt}.dot")
+                    let file = Path.Join ("dot",$"{cnt}.dot")
                     let vertices = ResizeArray<_>()
                     let edges = ResizeArray<_>()
                     for v in gameState.GraphVertices do
@@ -92,7 +107,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                                 yield! edges
                                 "}"
                             }
-                    System.IO.File.WriteAllLines(file,dot)
+                    File.WriteAllLines(file,dot)
                     cnt <- cnt + 1u
                 //toDot false
                 let res = 
@@ -135,34 +150,24 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                         else validationMaps.[gameStartParams.MapId]
                     let assembly = RunnerProgram.TryLoadAssembly <| FileInfo settings.AssemblyFullName
                     
-                    let actualCoverage,testsCount,errorsCount = 
-                        match settings.CoverageZone with
-                        | CoverageZone.Method ->
-                            let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                            let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
-                            let statistics = TestGenerator.Cover(method, options)
-                            let actualCOverage = 
-                                if checkActualCoverage
-                                then
-                                    try 
-                                        let testsDir = statistics.OutputDir
-                                        let _expectedCoverage = 100
-                                        let exploredMethodInfo = AssemblyManager.NormalizeMethod method
-                                        let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
-                                        printfn $"Actual coverage for {settings.MapName}: {actualCoverage}"
-                                        System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
-                                    with
-                                    e ->
-                                        printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
-                                        System.Nullable(0u)
-                                else System.Nullable()
-                            actualCOverage, statistics.TestsCount * 1u<test>, statistics.ErrorsCount *1u<error>
-                            
-                        | CoverageZone.Class ->
-                            let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
-                            //TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore
-                            System.Nullable(), 0u<test>, 0u<error>
-                        | x -> failwithf $"Unexpected coverage zone: %A{x}"
+                    let actualCoverage,testsCount,errorsCount =                         
+                        let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
+                        let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
+                        let statistics = TestGenerator.Cover(method, options)
+                        let actualCoverage = 
+                            try 
+                                let testsDir = statistics.OutputDir
+                                let _expectedCoverage = 100
+                                let exploredMethodInfo = AssemblyManager.NormalizeMethod method
+                                let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
+                                printfn $"Actual coverage for {settings.MapName}: {actualCoverage}"
+                                System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
+                            with
+                            e ->
+                                printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
+                                System.Nullable(0u)
+
+                        actualCoverage, statistics.TestsCount * 1u<test>, statistics.ErrorsCount *1u<error>
                     
                     Application.reset()
                     API.Reset()
@@ -177,33 +182,71 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
         | _ -> ()
     }
   
-let app checkActualCoverage port : WebPart =
+let app port : WebPart =
     choose [
-        path "/gameServer" >=> handShake (ws checkActualCoverage port)
+        path "/gameServer" >=> handShake (ws port)
     ]
-    
+
+let generateDataForPretraining outputDirectory datasetBasePath (maps:Dictionary<uint32,GameMap>) stepsToSerialize =
+    for kvp in maps do
+        if kvp.Value.CoverageToStart = 0u<percent>
+        then
+            printfn $"Generation for {kvp.Value.MapName} started."
+            let assembly = RunnerProgram.TryLoadAssembly <| FileInfo(Path.Combine (datasetBasePath, kvp.Value.AssemblyFullName)) 
+            let method = RunnerProgram.ResolveMethod(assembly, kvp.Value.NameOfObjectToCover)
+            let options = VSharpOptions(timeout = 5 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.ExecutionTreeContributedCoverage, stepsLimit = stepsToSerialize, solverTimeout=2, mapName = kvp.Value.MapName, serialize = true)
+            let statistics = TestGenerator.Cover(method, options)
+            printfn $"Generation for {kvp.Value.MapName} finished."
+            Application.reset()
+            API.Reset()
+            HashMap.hashMap.Clear()
+
 [<EntryPoint>]
 let main args =
     let parser = ArgumentParser.Create<CliArguments>(programName = "VSharp.ML.GameServer.Runner.exe")
     let args = parser.Parse args
-    let checkActualCoverage =
-        match args.TryGetResult <@CheckActualCoverage@> with
-        | Some _ -> true
-        | None -> false
+    
+    let mode = args.GetResult <@Mode@>
+        
     let port =
         match args.TryGetResult <@Port@> with
         | Some port -> port
         | None -> 8100
     
+    let datasetBasePath = 
+        match args.TryGetResult <@DatasetBasePath@> with
+        | Some path -> path
+        | None -> ""
+        
+    let datasetDescription = 
+        match args.TryGetResult <@DatasetDescription@> with
+        | Some path -> path
+        | None -> ""
+
+    let stepsToSerialize =
+        match args.TryGetResult <@StepsToSerialize@> with
+        | Some steps -> steps
+        | None -> 500u
+        
     let outputDirectory =
         Path.Combine(Directory.GetCurrentDirectory(), string port)
+    
     if Directory.Exists outputDirectory
     then Directory.Delete(outputDirectory,true)
     let testsDirInfo = Directory.CreateDirectory outputDirectory
     printfn $"outputDir: {outputDirectory}"                
-  
     
-    startWebServer {defaultConfig with
-                        logger = Targets.create Verbose [||]
-                        bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app checkActualCoverage outputDirectory)
+    //let s = System.Text.Json.JsonSerializer.Serialize(trainMaps)
+    //printfn $"{s}"
+    
+    let maps = loadGameMaps datasetDescription 
+    
+    match mode with
+    | Mode.Server -> 
+        startWebServer {defaultConfig with
+                            logger = Targets.create Verbose [||]
+                            bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app outputDirectory)
+    | Mode.Generator ->
+        generateDataForPretraining outputDirectory datasetBasePath maps stepsToSerialize
+        
     0

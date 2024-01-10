@@ -13,6 +13,7 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
+open VSharp.ML.GameServer.Messages
 open VSharp.Utils
 
 open CilState
@@ -160,6 +161,7 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
 
     member x.TrackStepForward (s : cilState) (ip : instructionPointer) =
         stepsCount <- stepsCount + 1u
+        s.stepWhenMovedLastTime <- stepsCount * 1u<step>
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.internalId}"
 
         let setCoveredIfNeeded (loc : codeLocation) =

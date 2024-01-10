@@ -467,7 +467,7 @@ namespace VSharp.Test
                         coverageToSwitchToAI:0,
                         stepsToPlay:0,
                         serialize:_serialize,
-                        pathToSerialize:_pathToSerialize
+                        mapName:_pathToSerialize
                     );
 
                     var fuzzerOptions = new FuzzerOptions(

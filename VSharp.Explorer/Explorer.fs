@@ -27,10 +27,9 @@ type private IExplorer =
     abstract member StartExploration: (Method * state) list -> (Method * string[] * state) list -> Task
 
 type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVMStatistics, reporter: IReporter) =
-
-    let mutable stepsCount = 0
-    let options = explorationOptions.svmOptions
-
+    let options = explorationOptions.svmOptions 
+    let folderToStoreSerializationResult =
+        getFolderToStoreSerializationResult explorationOptions.outputDirectory.FullName options.mapName    
     let hasTimeout = explorationOptions.timeout.TotalMilliseconds > 0
 
     let solverTimeout =
@@ -79,7 +78,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
     let rec mkForwardSearcher mode =
         let getRandomSeedOption() = if options.randomSeed < 0 then None else Some options.randomSeed
         match mode with
-        | AIMode -> AISearcher(options.coverageToSwitchToAI, options.oracle.Value, options.serialize, options.stepsToPlay, options.pathToSerialize) :> IForwardSearcher
+        | AIMode -> AISearcher(options.coverageToSwitchToAI, options.oracle.Value, options.stepsToPlay) :> IForwardSearcher
         | BFSMode -> BFSSearcher() :> IForwardSearcher
         | DFSMode -> DFSSearcher() :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
@@ -340,7 +339,11 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while not isStopped && not <| isStepsLimitReached() && not <| isTimeoutReached() && pick() do
-            stepsCount <- stepsCount + 1
+            if options.serialize
+            then
+                dumpGameState (System.IO.Path.Combine(folderToStoreSerializationResult, string firstFreeEpisodeNumber))
+                firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1
+            
             if shouldReleaseBranches() then
                 releaseBranches()
             match action with

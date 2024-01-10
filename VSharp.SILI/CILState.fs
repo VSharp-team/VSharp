@@ -6,6 +6,7 @@ open System.Collections.Generic
 open VSharp.Core
 open VSharp.Interpreter.IL
 open IpOperations
+open VSharp.ML.GameServer.Messages
 
 module CilState =
 
@@ -104,11 +105,13 @@ module CilState =
             /// <summary>
             /// Deterministic state id.
             /// </summary>
-            mutable internalId : uint<VSharp.ML.GameServer.Messages.stateId>
+            mutable internalId : uint<stateId>
             mutable visitedAgainVertices: uint
             mutable visitedNotCoveredVerticesInZone: uint
             mutable visitedNotCoveredVerticesOutOfZone: uint
-            mutable _history: Dictionary<BasicBlock,uint>
+            mutable stepWhenMovedLastTime: uint<step>
+            mutable instructionsVisitedInCurrentBlock: uint<instruction>
+            mutable _history: Dictionary<BasicBlock,StateHistoryElem>
             mutable children: list<cilState>
         }
 
@@ -136,6 +139,8 @@ module CilState =
                 visitedAgainVertices = 0u
                 visitedNotCoveredVerticesInZone = 0u
                 visitedNotCoveredVerticesOutOfZone = 0u
+                stepWhenMovedLastTime = 0u<step>
+                instructionsVisitedInCurrentBlock = 0u<instruction>
                 _history = Dictionary()
                 children = []
             }
@@ -486,7 +491,12 @@ module CilState =
         member x.Copy(state : state) =
             let historyCopy = Dictionary<_,_>()
             for kvp in x._history do historyCopy.Add(kvp.Key, kvp.Value)            
-            { x with state = state ;internalId = getNextStateId(); children = []; _history = historyCopy }
+            { x with state = state
+                     internalId = getNextStateId()
+                     children = []
+                     _history = historyCopy
+                     stepWhenMovedLastTime = x.stepWhenMovedLastTime
+            }
 
         // This function copies cilState, instead of mutation
         member x.ChangeState state' : cilState =
@@ -506,10 +516,14 @@ module CilState =
             override this.CodeLocation = this.approximateLoc
             override this.CallStack = Memory.StackTrace this.state.stack |> List.map (fun m -> m :?> Method)
             override this.Id = this.internalId
-            override this.PathConditionSize with get () = 1u //PersistentSet.cardinality this.state.pc |> uint32
+            override this.PathConditionSize with get () = PersistentSet.cardinality this.state.pc |> uint32
             override this.VisitedAgainVertices with get () = this.visitedAgainVertices
             override this.VisitedNotCoveredVerticesInZone with get () = this.visitedNotCoveredVerticesInZone
             override this.VisitedNotCoveredVerticesOutOfZone with get () = this.visitedNotCoveredVerticesOutOfZone
+            override this.StepWhenMovedLastTime with get () = this.stepWhenMovedLastTime
+            override this.InstructionsVisitedInCurrentBlock
+                with get() = this.instructionsVisitedInCurrentBlock
+                and set v =  this.instructionsVisitedInCurrentBlock <- v
             override this.History with get () = this._history
             override this.Children with get () = this.children |> Seq.cast<_> |> Array.ofSeq
 

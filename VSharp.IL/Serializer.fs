@@ -2,6 +2,7 @@ module VSharp.IL.Serializer
 
 open System
 open System.Collections.Generic
+open System.IO
 open System.Reflection
 open System.Text.Json
 open Microsoft.FSharp.Collections
@@ -158,7 +159,7 @@ let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackabl
              else 0.0
         else 0.0 
     
-    let historyLength = state.History |> Seq.fold (fun cnt kvp -> cnt + kvp.Value) 0u
+    let historyLength = state.History |> Seq.fold (fun cnt kvp -> cnt + kvp.Value.NumOfVisits) 0u
     
     let getMinBy cond =
         let s = distances |> Seq.filter cond
@@ -173,16 +174,13 @@ let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackabl
     StateMetrics(state.Id, nextInstructionIsUncoveredInZone, childNumber, visitedVerticesInZone, historyLength
                  , distanceToNearestUncovered, distanceToNearestNotVisited, distanceToNearestReturn)
     
-let getFolderToStoreSerializationResult suffix =    
-    let folderName = "SerializedEpisodes_for_" + suffix
-    if System.IO.Directory.Exists folderName
-    then System.IO.Directory.Delete(folderName,true)
-    let _ = System.IO.Directory.CreateDirectory folderName
+let getFolderToStoreSerializationResult (prefix:string) suffix =
+    let prefix = Path.Combine(Path.GetDirectoryName prefix, "SerializedEpisodes")
+    let folderName = Path.Combine(prefix, suffix)
+    if Directory.Exists folderName
+    then Directory.Delete(folderName, true)
+    let _ = Directory.CreateDirectory folderName
     folderName
-    
-let getFileForExpectedResults folderToStoreSerializationResult =
-    let path = System.IO.Path.Combine(folderToStoreSerializationResult, "expectedResults.txt")    
-    path
 
 let computeStatistics (gameState:GameState) =
     let mutable coveredVerticesInZone = 0u
@@ -216,36 +214,69 @@ let computeStatistics (gameState:GameState) =
         
     Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
         
-let collectGameState (basicBlocks:ResizeArray<BasicBlock>) (serialize: bool) =
+let collectStatesInfoToDump (basicBlocks:ResizeArray<BasicBlock>) =
+    let statesMetrics = ResizeArray<_>()
+    for currentBasicBlock in basicBlocks do
+        let interproceduralGraphDistanceFrom = Dictionary<Assembly, distanceCache<IInterproceduralCfgNode>>()
+        currentBasicBlock.AssociatedStates
+        |> Seq.iter (fun s -> statesMetrics.Add (calculateStateMetrics interproceduralGraphDistanceFrom s))
+    
+    let statesInfoToDump =        
+        let mutable maxVisitedVertices = UInt32.MinValue
+        let mutable maxChildNumber = UInt32.MinValue
+        let mutable minDistToUncovered = UInt32.MaxValue
+        let mutable minDistToNotVisited = UInt32.MaxValue
+        let mutable minDistToReturn = UInt32.MaxValue
+                                 
+        statesMetrics
+        |> ResizeArray.iter (fun s ->
+            if s.VisitedVerticesInZone > maxVisitedVertices
+            then maxVisitedVertices <- s.VisitedVerticesInZone
+            if s.ChildNumber > maxChildNumber
+            then maxChildNumber <- s.ChildNumber
+            if s.DistanceToNearestUncovered < minDistToUncovered
+            then minDistToUncovered <- s.DistanceToNearestUncovered
+            if s.DistanceToNearestNotVisited < minDistToNotVisited
+            then minDistToNotVisited <- s.DistanceToNearestNotVisited
+            if s.DistanceToNearestReturn < minDistToReturn
+            then minDistToReturn <- s.DistanceToNearestReturn
+            )
+        let normalize minV v (sm:StateMetrics) =            
+            if v = minV || (v = UInt32.MaxValue && sm.DistanceToNearestReturn = UInt32.MaxValue) 
+            then 1.0
+            elif v = UInt32.MaxValue
+            then 0.0
+            else float (1u + minV) / float (1u + v)
+            
+        statesMetrics
+        |> ResizeArray.map (fun m -> StateInfoToDump (m.StateId
+                                                      , m.NextInstructionIsUncoveredInZone
+                                                      , if maxChildNumber = 0u then 0.0 else  float m.ChildNumber / float maxChildNumber
+                                                      , if maxVisitedVertices = 0u then 0.0 else float m.VisitedVerticesInZone / float maxVisitedVertices
+                                                      , float m.VisitedVerticesInZone / float m.HistoryLength
+                                                      , normalize minDistToReturn m.DistanceToNearestReturn m 
+                                                      , normalize minDistToUncovered m.DistanceToNearestUncovered m
+                                                      , normalize minDistToUncovered m.DistanceToNearestNotVisited m))
+    statesInfoToDump
+    
+let collectGameState (basicBlocks:ResizeArray<BasicBlock>) =
     
     let vertices = ResizeArray<_>()
     let allStates = HashSet<_>()
-
-            
-    let statesMetrics = ResizeArray<_>()
-
-    let activeStates =
-        basicBlocks
-        |> Seq.collect (fun basicBlock -> basicBlock.AssociatedStates)
-        |> Seq.map (fun s -> s.Id)
-        |> fun x -> HashSet x
-        
+         
     for currentBasicBlock in basicBlocks do        
-        let interproceduralGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<IInterproceduralCfgNode>>()
-        
         let states =
             currentBasicBlock.AssociatedStates
             |> Seq.map (fun s ->
-                if serialize
-                then statesMetrics.Add (calculateStateMetrics interproceduralGraphDistanceFrom s)
                 State(s.Id,
                       uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<offsets>,
-                      0,
                       s.PathConditionSize,
                       s.VisitedAgainVertices,
                       s.VisitedNotCoveredVerticesInZone,
-                      s.VisitedNotCoveredVerticesOutOfZone,
-                      s.History |> Seq.map (fun kvp -> StateHistoryElem(kvp.Key.Id, kvp.Value)) |> Array.ofSeq,
+                      s.VisitedNotCoveredVerticesOutOfZone,                      
+                      s.StepWhenMovedLastTime,
+                      s.InstructionsVisitedInCurrentBlock,
+                      s.History |> Seq.map (fun kvp -> kvp.Value) |> Array.ofSeq,
                       s.Children |> Array.map (fun s -> s.Id)
                       )
                 |> allStates.Add
@@ -256,56 +287,17 @@ let collectGameState (basicBlocks:ResizeArray<BasicBlock>) (serialize: bool) =
                 
 
         GameMapVertex(
-            0u,
             currentBasicBlock.Id,
             currentBasicBlock.IsGoal,
             uint <| currentBasicBlock.FinalOffset - currentBasicBlock.StartOffset + 1<offsets>,
             currentBasicBlock.IsCovered,
             currentBasicBlock.IsVisited,
             currentBasicBlock.IsTouched,
+            currentBasicBlock.ContainsCall,
+            currentBasicBlock.ContainsThrow,
             states)
         |> vertices.Add
                     
-    let statesInfoToDump =
-        if serialize
-        then 
-            let mutable maxVisitedVertices = UInt32.MinValue
-            let mutable maxChildNumber = UInt32.MinValue
-            let mutable minDistToUncovered = UInt32.MaxValue
-            let mutable minDistToNotVisited = UInt32.MaxValue
-            let mutable minDistToReturn = UInt32.MaxValue
-                                     
-            statesMetrics
-            |> ResizeArray.iter (fun s ->
-                if s.VisitedVerticesInZone > maxVisitedVertices
-                then maxVisitedVertices <- s.VisitedVerticesInZone
-                if s.ChildNumber > maxChildNumber
-                then maxChildNumber <- s.ChildNumber
-                if s.DistanceToNearestUncovered < minDistToUncovered
-                then minDistToUncovered <- s.DistanceToNearestUncovered
-                if s.DistanceToNearestNotVisited < minDistToNotVisited
-                then minDistToNotVisited <- s.DistanceToNearestNotVisited
-                if s.DistanceToNearestReturn < minDistToReturn
-                then minDistToReturn <- s.DistanceToNearestReturn
-                )
-            let normalize minV v (sm:StateMetrics) =            
-                if v = minV || (v = UInt32.MaxValue && sm.DistanceToNearestReturn = UInt32.MaxValue) 
-                then 1.0
-                elif v = UInt32.MaxValue
-                then 0.0
-                else float (1u + minV) / float (1u + v)
-                
-            statesMetrics
-            |> ResizeArray.map (fun m -> StateInfoToDump (m.StateId
-                                                          , m.NextInstructionIsUncoveredInZone
-                                                          , if maxChildNumber = 0u then 0.0 else  float m.ChildNumber / float maxChildNumber
-                                                          , if maxVisitedVertices = 0u then 0.0 else float m.VisitedVerticesInZone / float maxVisitedVertices
-                                                          , float m.VisitedVerticesInZone / float m.HistoryLength
-                                                          , normalize minDistToReturn m.DistanceToNearestReturn m 
-                                                          , normalize minDistToUncovered m.DistanceToNearestUncovered m
-                                                          , normalize minDistToUncovered m.DistanceToNearestNotVisited m))
-            |> Some
-        else None
     let edges = ResizeArray<_>()
     
     for basicBlock in basicBlocks do
@@ -316,33 +308,30 @@ let collectGameState (basicBlocks:ResizeArray<BasicBlock>) (serialize: bool) =
                              GameEdgeLabel (int outgoingEdges.Key))
                 |> edges.Add
                 
-    GameState (vertices.ToArray(), allStates |> Array.ofSeq, edges.ToArray())    
-    , statesInfoToDump
-
-let collectFullGameState serialize =
-    let basicBlocks = ResizeArray<_>()
-    for method in Application.loadedMethods do
-        for basicBlock in method.Key.BasicBlocks do
-            basicBlock.IsGoal <- method.Key.InCoverageZone
-            basicBlocks.Add(basicBlock)
-    collectGameState basicBlocks serialize
+    GameState (vertices.ToArray(), allStates |> Array.ofSeq, edges.ToArray())
     
-let collectGameStateDelta serialize =
+let collectGameStateDelta () =
     let basicBlocks = HashSet<_>(Application.applicationGraphDelta.TouchedBasicBlocks)
     for method in Application.applicationGraphDelta.LoadedMethods do
         for basicBlock in method.BasicBlocks do
             basicBlock.IsGoal <- method.InCoverageZone
             let added = basicBlocks.Add(basicBlock)
             ()
-    collectGameState (ResizeArray basicBlocks) serialize
-    
+    collectGameState (ResizeArray basicBlocks)    
 
-let dumpGameState fileForResultWithoutExtension serialize =
-    let gameState, statesInfoToDump = collectFullGameState serialize
+let dumpGameState fileForResultWithoutExtension =
+    let basicBlocks = ResizeArray<_>()
+    for method in Application.loadedMethods do
+        for basicBlock in method.Key.BasicBlocks do
+            basicBlock.IsGoal <- method.Key.InCoverageZone
+            basicBlocks.Add(basicBlock)
+            
+    let gameState = collectGameState basicBlocks
+    let statesInfoToDump = collectStatesInfoToDump basicBlocks
     let gameStateJson = JsonSerializer.Serialize gameState        
-    let statesInfoJson = JsonSerializer.Serialize statesInfoToDump.Value
-    System.IO.File.WriteAllText(fileForResultWithoutExtension + "_gameState",gameStateJson)
-    System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
+    let statesInfoJson = JsonSerializer.Serialize statesInfoToDump
+    File.WriteAllText(fileForResultWithoutExtension + "_gameState", gameStateJson)
+    File.WriteAllText(fileForResultWithoutExtension + "_statesInfo", statesInfoJson)
     
 let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =
     let rewardForCoverage =
@@ -352,9 +341,4 @@ let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statist
     let maxPossibleReward = (statisticsBeforeStep.TotalVisibleVerticesInZone - statisticsBeforeStep.CoveredVerticesInZone) * 1u<maxPossibleReward>
     
     Reward (rewardForCoverage, rewardForVisitedInstructions, maxPossibleReward)
-
-let saveExpectedResult fileForExpectedResults (movedStateId:uint<stateId>) (statistics1:Statistics) (statistics2:Statistics) =
-    let reward = computeReward statistics1 statistics2
     
-    System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firstFreeEpisodeNumber} %d{movedStateId} %d{reward.ForMove.ForCoverage} %d{reward.ForMove.ForVisitedInstructions} %d{reward.MaxPossibleReward}"])
-    firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1

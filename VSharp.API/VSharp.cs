@@ -190,8 +190,8 @@ namespace VSharp
                     oracle: options.Oracle,
                     coverageToSwitchToAI:options.CoverageToSwitchToAI,
                     stepsToPlay:options.StepsToPlay,
-                    serialize:false,
-                    pathToSerialize:"");
+                    serialize:options.Serialize,
+                    mapName:options.MapName);
 
             var fuzzerOptions =
                 new FuzzerOptions(

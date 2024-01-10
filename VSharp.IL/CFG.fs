@@ -59,6 +59,8 @@ type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; ret
 
 type BasicBlock (method: MethodWithBody, startOffset: offset, id:uint<basicBlockGlobalId>) =
     let mutable finalOffset = startOffset
+    let mutable containsCall = false
+    let mutable containsThrow = false
     let mutable startOffset = startOffset
     let mutable isGoal = false
     let mutable isCovered = false
@@ -108,6 +110,14 @@ type BasicBlock (method: MethodWithBody, startOffset: offset, id:uint<basicBlock
         with get () = finalOffset 
         and set (v: offset) = finalOffset <- v
 
+    member this.ContainsCall
+        with get () = containsCall 
+        and set (v: bool) = containsCall <- v    
+    
+    member this.ContainsThrow
+        with get () = containsThrow 
+        and set (v: bool) = containsThrow <- v
+    
     member this.GetInstructions() =
         let parsedInstructions = method.ParsedInstructions
         let mutable instr = parsedInstructions[this.StartOffset]
@@ -276,6 +286,7 @@ and CfgInfo internal (method : MethodWithBody, getNextBasicBlockGlobalId: unit -
                 let processCall (callee: MethodWithBody) callFrom returnTo k =
                     calls.Add(currentBasicBlock, CallInfo(callee :?> Method, callFrom, returnTo))
                     currentBasicBlock.FinalOffset <- callFrom
+                    currentBasicBlock.ContainsThrow <- true
                     let newBasicBlock = makeNewBasicBlock returnTo
                     addEdge currentBasicBlock newBasicBlock
                     dfs' newBasicBlock returnTo k
@@ -513,8 +524,10 @@ and IGraphTrackableState =
     abstract member VisitedNotCoveredVerticesInZone: uint with get
     abstract member VisitedNotCoveredVerticesOutOfZone: uint with get
     abstract member VisitedAgainVertices: uint with get
-    abstract member History:  Dictionary<BasicBlock,uint>
-    abstract member Children: array<IGraphTrackableState>  
+    abstract member InstructionsVisitedInCurrentBlock : uint<instruction>  with get, set
+    abstract member History:  Dictionary<BasicBlock,StateHistoryElem>
+    abstract member Children: array<IGraphTrackableState>
+    abstract member StepWhenMovedLastTime: uint<step> with get
 
 module public CodeLocation =
 
@@ -594,9 +607,12 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
         if stateWithNewPosition.History.ContainsKey stateWithNewPosition.CodeLocation.BasicBlock
         then
              if initialPosition.BasicBlock <> stateWithNewPosition.CodeLocation.BasicBlock
-             then stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock]
-                    <- stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock] + 1u
-        else stateWithNewPosition.History.Add(stateWithNewPosition.CodeLocation.BasicBlock, 1u)
+             then
+                let history = stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock]     
+                stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock]
+                    <- StateHistoryElem(stateWithNewPosition.CodeLocation.BasicBlock.Id, history.NumOfVisits + 1u, stateWithNewPosition.StepWhenMovedLastTime)
+             else stateWithNewPosition.InstructionsVisitedInCurrentBlock <- stateWithNewPosition.InstructionsVisitedInCurrentBlock + 1u<instruction> 
+        else stateWithNewPosition.History.Add(stateWithNewPosition.CodeLocation.BasicBlock, StateHistoryElem(stateWithNewPosition.CodeLocation.BasicBlock.Id, 1u, stateWithNewPosition.StepWhenMovedLastTime))
         stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions <-
             max
                 stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions
@@ -613,9 +629,11 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
             //let added = applicationGraphDelta.TouchedStates.Add newState
             let added = applicationGraphDelta.TouchedBasicBlocks.Add newState.CodeLocation.BasicBlock
             let added = newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
-            if newState.History.ContainsKey newState.CodeLocation.BasicBlock
-            then newState.History[newState.CodeLocation.BasicBlock] <- newState.History[newState.CodeLocation.BasicBlock] + 1u
-            else newState.History.Add(newState.CodeLocation.BasicBlock, 1u)
+            if newState.History.ContainsKey newState.CodeLocation.BasicBlock             
+            then
+                let history = newState.History[newState.CodeLocation.BasicBlock]
+                newState.History[newState.CodeLocation.BasicBlock] <- StateHistoryElem(newState.CodeLocation.BasicBlock.Id, history.NumOfVisits + 1u, newState.StepWhenMovedLastTime)
+            else newState.History.Add(newState.CodeLocation.BasicBlock, StateHistoryElem(newState.CodeLocation.BasicBlock.Id, 1u, newState.StepWhenMovedLastTime))
             newState.CodeLocation.BasicBlock.VisitedInstructions <-
                 max
                     newState.CodeLocation.BasicBlock.VisitedInstructions

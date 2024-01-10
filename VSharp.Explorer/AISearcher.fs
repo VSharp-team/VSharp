@@ -5,13 +5,7 @@ open VSharp
 open VSharp.IL.Serializer
 open VSharp.ML.GameServer.Messages
 
-type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bool, stepsToPlay:uint, pathToSerialize:string) =
-    let folderToStoreSerializationResult = getFolderToStoreSerializationResult pathToSerialize
-    let fileForExpectedResults = getFileForExpectedResults folderToStoreSerializationResult
-    do
-        if serialize
-        then            
-            System.IO.File.AppendAllLines(fileForExpectedResults, ["GraphID ExpectedStateNumber ExpectedRewardForCoveredInStep ExpectedRewardForVisitedInstructionsInStep TotalReachableRewardFromCurrentState"])
+type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, stepsToPlay:uint) =
     let mutable lastCollectedStatistics = Statistics()
     let mutable (gameState:Option<GameState>) = None
     let mutable useDefaultSearcher = coverageToSwitchToAI > 0u
@@ -51,19 +45,16 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
                     
                     part1.ToArray()                    
                     |> Array.map (fun s -> State(s.Id
-                                                 , s.Position
-                                                 , s.PredictedUsefulness
+                                                 , s.Position                                                 
                                                  , s.PathConditionSize
                                                  , s.VisitedAgainVertices
                                                  , s.VisitedNotCoveredVerticesInZone
                                                  , s.VisitedNotCoveredVerticesOutOfZone
+                                                 , s.StepWhenMovedLastTime
+                                                 , s.InstructionsVisitedInCurrentBlock
                                                  , s.History
                                                  , s.Children |> Array.filter activeStates.Contains)
                     )
-                    
-                
-               
-
                 
                 gameState <- Some <| GameState (vertices.ToArray(), states, edges.ToArray())
                 
@@ -97,7 +88,7 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
         then
             if Seq.length availableStates > 0
             then
-                let gameStateDelta,_ = collectGameStateDelta serialize                
+                let gameStateDelta = collectGameStateDelta ()                
                 updateGameState gameStateDelta
                 let statistics = computeStatistics gameState.Value
                 Application.applicationGraphDelta.Clear()
@@ -107,7 +98,7 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
         elif Seq.length availableStates = 0
         then None
         else
-            let gameStateDelta,_ = collectGameStateDelta serialize
+            let gameStateDelta = collectGameStateDelta ()
             updateGameState gameStateDelta
             let statistics = computeStatistics gameState.Value
             if isInAIMode()
@@ -122,11 +113,7 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bo
                     let x,y = oracle.Predict gameState.Value
                     x * 1u<stateId>, y
                 afterFirstAIPeek <- true
-                let state = availableStates |> Seq.tryFind (fun s -> s.internalId = stateId)
-                if serialize
-                then
-                    dumpGameState (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)) serialize
-                    saveExpectedResult fileForExpectedResults stateId lastCollectedStatistics statistics
+                let state = availableStates |> Seq.tryFind (fun s -> s.internalId = stateId)                
                 lastCollectedStatistics <- statistics
                 stepsPlayed <- stepsPlayed + 1u
                 match state with

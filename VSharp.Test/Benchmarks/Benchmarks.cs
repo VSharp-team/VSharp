@@ -95,7 +95,7 @@ internal static class Benchmarks
             coverageToSwitchToAI:0,
             stepsToPlay:0,
             serialize:false,
-            pathToSerialize:null
+            mapName:null
         );
 
         var fuzzerOptions = new FuzzerOptions(
