@@ -508,7 +508,7 @@ and
 and IGraphTrackableState =
     abstract member CodeLocation: codeLocation
     abstract member CallStack: list<Method>
-    abstract member Id: uint<VSharp.ML.GameServer.Messages.stateId>
+    abstract member Id: uint<stateId>
     abstract member PathConditionSize: uint    
     abstract member VisitedNotCoveredVerticesInZone: uint with get
     abstract member VisitedNotCoveredVerticesOutOfZone: uint with get
