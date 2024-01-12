@@ -41,7 +41,12 @@ let mutable inTrainMode = true
 
 let loadGameMaps (datasetDescriptionFilePath:string) =
     let jsonString = File.ReadAllText datasetDescriptionFilePath
-    System.Text.Json.JsonSerializer.Deserialize<Dictionary<uint32, GameMap>> jsonString
+    let maps = Dictionary<uint,GameMap>()
+    for map in System.Text.Json.JsonSerializer.Deserialize<GameMap[]> jsonString do
+        if not <| maps.ContainsKey map.Id
+        then maps.Add (map.Id, map)
+        else failwithf $"Id-s of maps must be unique, but maps contains more then one map with id{map.Id}."
+    maps
 
 let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
   let mutable loop = true
@@ -248,5 +253,6 @@ let main args =
                             bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app outputDirectory)
     | Mode.Generator ->
         generateDataForPretraining outputDirectory datasetBasePath maps stepsToSerialize
+    | x -> failwithf $"Unexpected mode {x}."
         
     0
