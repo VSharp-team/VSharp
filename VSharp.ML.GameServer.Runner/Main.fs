@@ -241,9 +241,6 @@ let main args =
     let testsDirInfo = Directory.CreateDirectory outputDirectory
     printfn $"outputDir: {outputDirectory}"                
     
-    //let s = System.Text.Json.JsonSerializer.Serialize(trainMaps)
-    //printfn $"{s}"
-    
     let maps = loadGameMaps datasetDescription 
     
     match mode with
