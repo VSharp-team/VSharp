@@ -532,7 +532,8 @@ module API =
         let WriteStackLocation state location value = Memory.writeStackLocation state location value
 
         let Write state reference value =
-            let write state reference = Memory.write Memory.emptyReporter state reference value
+            let write state reference =
+                Memory.write Memory.emptyReporter state (transformBoxedRef reference) value
             Branching.guardedStatedMap write state reference
 
         let WriteUnsafe (reporter : IErrorReporter) state reference value =
