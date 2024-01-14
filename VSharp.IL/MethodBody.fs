@@ -13,14 +13,6 @@ type ipTransition =
     // TODO: use this thing? #do
     | ExceptionMechanism
 
-type ehcType =
-    | Filter of offset
-    | Catch of Type
-    | Finally
-    | Fault
-
-type public ExceptionHandlingClause = { tryOffset : offset; tryLength : offset; handlerOffset : offset; handlerLength : offset; ehcType : ehcType }
-
 type MethodWithBody internal (m : MethodBase) =
     let shouldRewriteIL = false
     let desc = Reflection.getMethodDescriptor m
@@ -60,6 +52,7 @@ type MethodWithBody internal (m : MethodBase) =
             let isIntrinsic =
                 let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
                 customAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
+                || declaringType.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
             isIntrinsic && (Array.contains fullGenericMethodName.Value Loader.trustedIntrinsics |> not)
         )
     let isImplementedInternalCall =
@@ -70,6 +63,10 @@ type MethodWithBody internal (m : MethodBase) =
             || DllManager.isQCall m
         )
 
+    let invocationForbidden = lazy Loader.isInvocationForbidden fullGenericMethodName.Value
+
+    let shouldAnalyseInvokable = lazy not invocationForbidden.Value
+
     let actualMethod =
         if not isCSharpInternalCall.Value then m
         else Loader.CSharpImplementations[fullGenericMethodName.Value]
@@ -78,86 +75,61 @@ type MethodWithBody internal (m : MethodBase) =
         else actualMethod.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables
 
-    let ilBytes = lazy methodBodyBytes.GetILAsByteArray()
-    let exceptionHandlingClauses = lazy Seq.toArray methodBodyBytes.ExceptionHandlingClauses
-    let mappedExceptionHandlingClauses =
-        lazy System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
-
-    let ilRewriter = lazy (
-        if methodBodyBytes = null then None
-        else
-            let ilBytes = ilBytes.Value
-            let methodModule = actualMethod.Module
-            let moduleName = methodModule.FullyQualifiedName
-            let assemblyName = methodModule.Assembly.FullName
-            let props : rawMethodProperties =
-                {
-                    token = uint actualMethod.MetadataToken
-                    ilCodeSize = uint ilBytes.Length
-                    assemblyNameLength = 0u
-                    moduleNameLength = 0u
-                    maxStackSize = uint methodBodyBytes.MaxStackSize
-                    signatureTokensLength = 0u
-                }
-            let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<signatureTokens>) :?> signatureTokens
-            let ehcs = mappedExceptionHandlingClauses.Value
-            let createEH (eh : System.Reflection.ExceptionHandlingClause) : rawExceptionHandler =
-                let matcher = if eh.Flags = ExceptionHandlingClauseOptions.Filter then eh.FilterOffset else eh.HandlerOffset // TODO: need catch type token?
-                ehcs.Add(matcher, eh)
-                {
-                    flags = int eh.Flags
-                    tryOffset = uint eh.TryOffset
-                    tryLength = uint eh.TryLength
-                    handlerOffset = uint eh.HandlerOffset
-                    handlerLength = uint eh.HandlerLength
-                    matcher = uint matcher
-                }
-            let ehs = Array.map createEH exceptionHandlingClauses.Value
-            let body : rawMethodBody =
-                {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = tokens; il = ilBytes; ehs = ehs}
-            let rewriter = ILRewriter(body, actualMethod)
-            rewriter.Import()
-            Some rewriter
-        )
+    let rawBody = lazy(
+        if methodBodyBytes = null then None else
+            Some {
+                il = methodBodyBytes.GetILAsByteArray()
+                ehs = exceptionHandlingClause.CreateArray methodBodyBytes
+            })
 
     let methodBody = lazy(
-        if methodBodyBytes = null then None, None
-        elif shouldRewriteIL then
-            let rewriter = Option.get ilRewriter.Value
-            let result = rewriter.Export()
-            let ehcs = mappedExceptionHandlingClauses.Value
-            let parseEH (eh : rawExceptionHandler) =
-                let oldEH = ehcs[int eh.matcher]
-                let ehcType =
-                    if oldEH.Flags = ExceptionHandlingClauseOptions.Filter then ehcType.Filter (eh.matcher |> int |> Offset.from)
-                    elif oldEH.Flags = ExceptionHandlingClauseOptions.Finally then Finally
-                    elif oldEH.Flags = ExceptionHandlingClauseOptions.Fault then Fault
-                    else Catch oldEH.CatchType
-                {
-                    tryOffset = eh.tryOffset |> int |> Offset.from
-                    tryLength = eh.tryLength |> int |> Offset.from
-                    handlerOffset = eh.handlerOffset |> int |> Offset.from
-                    handlerLength = eh.handlerLength |> int |> Offset.from
-                    ehcType = ehcType
-                }
-            Some result.il, Some (Array.map parseEH result.ehs)
-        else
-            let createEH (eh : Reflection.ExceptionHandlingClause) =
-                let ehcType =
-                    if eh.Flags = ExceptionHandlingClauseOptions.Filter then ehcType.Filter (Offset.from eh.FilterOffset)
-                    elif eh.Flags = ExceptionHandlingClauseOptions.Finally then Finally
-                    elif eh.Flags = ExceptionHandlingClauseOptions.Fault then Fault
-                    else Catch eh.CatchType
-                {
-                    tryOffset = Offset.from eh.TryOffset
-                    tryLength = Offset.from eh.TryLength
-                    handlerOffset = Offset.from eh.HandlerOffset
-                    handlerLength = Offset.from eh.HandlerLength
-                    ehcType = ehcType
-                }
-            let exceptionHandlingClauses = Array.map createEH exceptionHandlingClauses.Value
-            Some ilBytes.Value, Some exceptionHandlingClauses
-        )
+        match rawBody.Value with
+        | Some rawBody when shouldRewriteIL ->
+            ILRewriter.rewriteIL rawBody actualMethod |> Some
+        | Some rawBody -> Some rawBody
+        | None -> None)
+
+    let instructions = lazy(
+        match rawBody.Value with
+        | Some rawBody -> ILRewriter.instructionsOfMethod rawBody actualMethod
+        | None -> internalfailf $"Getting instructions of method {m} without body (extern or abstract)")
+
+    let invocationFlags = lazy (
+        let flagsProperty = m.GetType().GetProperty("InvocationFlags", BindingFlags.NonPublic ||| BindingFlags.Instance)
+        if flagsProperty <> null then
+            flagsProperty.GetMethod.Invoke(m, Array.empty)
+        else null)
+
+    let canBeInvoked = lazy (
+        let flags = invocationFlags.Value
+        flags = null ||
+        (flags :?> uint) &&& ((* NoInvoke *) 0x00000002u ||| (* ContainsStackPointers *) 0x00000100u) = 0u)
+
+    let isConcretelyInvokable = lazy (
+        // All method generic parameters should be provided
+        not m.ContainsGenericParameters &&
+        // Method should not return byref-like type
+        not returnType.IsByRefLike &&
+        // Method should not return pointer or native pointer
+        not (returnType.IsPointer || TypeUtils.isNative returnType) &&
+        // Method should not return byref type
+        not returnType.IsByRef &&
+        // Method's 'this' should not be byref-like type
+        not (declaringType.IsByRefLike && (hasThis || isConstructor)) &&
+        // Method should not be string constructor, because strings are immutable
+        not (declaringType = typeof<string> && isConstructor) &&
+        // Method's declaring type should not be 'Nullable', because we can not create boxed 'Nullable' struct
+        not (TypeUtils.isNullable declaringType) &&
+        // Method's arguments should not be byref-like or byref types // TODO: support 'byref' arguments
+        parameters |> Array.forall (fun p -> not (p.ParameterType.IsByRefLike || p.ParameterType.IsByRef)) &&
+        // All declaring type generic parameters should be provided, declaring type should not be ref-like
+        (m.DeclaringType = null || not m.DeclaringType.ContainsGenericParameters || not m.DeclaringType.IsByRefLike) &&
+        // Method should not contain varargs
+        (m.CallingConvention &&& CallingConventions.VarArgs) <> CallingConventions.VarArgs &&
+        // Method is not static constructor
+        not isStaticConstructor.Value &&
+        // Method should be invokable via Reflection
+        canBeInvoked.Value)
 
     member x.Name = name
     member x.FullName = fullName
@@ -219,50 +191,31 @@ type MethodWithBody internal (m : MethodBase) =
     member x.HasBody = methodBodyBytes <> null
 
     member x.ILBytes with get() =
-        let ilBytes, _ = methodBody.Force()
-        match ilBytes with
-        | Some bytes -> bytes
+        match methodBody.Value with
+        | Some body -> body.il
         | None -> internalfailf $"Getting IL bytes of method {x} without body (extern or abstract)"
 
     member x.ExceptionHandlers with get() =
-        let _, exceptionHandlers = methodBody.Force()
-        match exceptionHandlers with
-        | Some handlers -> handlers
+        match methodBody.Value with
+        | Some body -> body.ehs
         | None -> Array.empty
 
-    member x.ILRewriter with get() =
-        match ilRewriter.Value with
-        | Some rewriter ->
-            assert shouldRewriteIL
-            rewriter
-        | None -> internalfailf $"Getting IL rewriter of method {x} without body (extern or abstract)"
+    member internal x.AnalyseMethod (failPredicate : analysisEvent -> bool) =
+        let rawBody =
+            match rawBody.Value with
+            | Some rawBody when not isCSharpInternalCall.Value -> rawBody
+            | _ -> rawMethodBody.Create m
+        ILRewriter.analyseMethod rawBody m failPredicate
 
     member x.ParsedInstructions with get() =
-        match ilRewriter.Value with
-        | Some rewriter -> rewriter.Instructions
-        | None -> internalfailf $"Getting instructions of method {x} without body (extern or abstract)"
+        assert(methodBodyBytes <> null)
+        instructions.Value
 
     // Helps resolving cyclic dependencies between Application and MethodWithBody
     [<DefaultValue>] static val mutable private instantiator : MethodBase -> MethodWithBody
     static member internal InstantiateNew with get() = MethodWithBody.instantiator and set v = MethodWithBody.instantiator <- v
 
-    member x.IsConcretelyInvokable with get () =
-        // All method generic parameters should be provided
-        not m.ContainsGenericParameters &&
-
-        // Method is not disallowed by ref-like type
-        not returnType.IsByRefLike &&
-
-        // Method is not disallowed by ref type
-        (not returnType.IsByRef ||
-            let elementType = returnType.GetElementType() in
-            not elementType.IsByRefLike && elementType <> typeof<Void>) &&
-
-        // All declaring type generic parameters should be provided, declaring type should not be ref-like
-        (m.DeclaringType = null || not m.DeclaringType.ContainsGenericParameters || not m.DeclaringType.IsByRefLike) &&
-
-        // Method should not contain varargs
-        (m.CallingConvention &&& CallingConventions.VarArgs) <> CallingConventions.VarArgs
+    member x.IsConcretelyInvokable with get () = isConcretelyInvokable.Value
 
     member x.IsExternalMethod with get() = Reflection.isExternalMethod m
     member x.IsQCall with get() = DllManager.isQCall m
@@ -313,7 +266,15 @@ type MethodWithBody internal (m : MethodBase) =
 
     member x.IsShimmed with get() = isShimmed.Value
 
-    member x.CanCallConcrete with get() = x.IsConcretelyInvokable && isConcreteCall.Value
+    member x.CanCallConcrete (changedStaticFields : Collections.Generic.HashSet<fieldId>) =
+        let failPredicate (event : analysisEvent) =
+            match event with
+            | Calli
+            | CallVirt _ -> true
+            | Ldsfld f -> changedStaticFields.Contains f
+            | Stsfld _ -> true
+        x.IsConcretelyInvokable &&
+        (isConcreteCall.Value || shouldAnalyseInvokable.Value && x.AnalyseMethod failPredicate)
 
     member x.IsFSharpInternalCall with get() = isFSharpInternalCall.Value
     member x.IsCSharpInternalCall with get() = isCSharpInternalCall.Value
@@ -438,13 +399,13 @@ module MethodBody =
         opCode = OpCodes.Newobj
     let isDemandingCallOpCode (opCode : OpCode) =
         isCallOpCode opCode || isNewObjOpCode opCode
-    let isFinallyClause (ehc : ExceptionHandlingClause) =
+    let isFinallyClause (ehc : exceptionHandlingClause) =
         match ehc.ehcType with Finally -> true | _ -> false
-    let isFaultClause (ehc : ExceptionHandlingClause) =
+    let isFaultClause (ehc : exceptionHandlingClause) =
         match ehc.ehcType with Fault -> true | _ -> false
-    let isFilterClause (ehc : ExceptionHandlingClause) =
+    let isFilterClause (ehc : exceptionHandlingClause) =
         match ehc.ehcType with ehcType.Filter _ -> true | _ -> false
-    let isCatchClause (ehc : ExceptionHandlingClause) =
+    let isCatchClause (ehc : exceptionHandlingClause) =
         match ehc.ehcType with Catch _ -> true | _ -> false
 
     let internal (|Ret|_|) (opCode : OpCode) = if opCode = OpCodes.Ret then Some () else None
@@ -455,7 +416,7 @@ module MethodBody =
     let (|NewObj|_|) (opCode : OpCode) = if opCode = OpCodes.Newobj then Some () else None
 
     let parseInstruction (m : MethodWithBody) pos =
-        let ilBytes : byte [] = m.ILBytes
+        let ilBytes : byte[] = m.ILBytes
         OpCodeOperations.getOpCode ilBytes pos
 
     let getIpTransition (m : MethodWithBody) pos =

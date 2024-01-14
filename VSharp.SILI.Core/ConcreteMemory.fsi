@@ -10,6 +10,7 @@ type public ConcreteMemory =
     member public TryFullyConcrete : concreteHeapAddress -> obj option
     member public VirtToPhys : concreteHeapAddress -> obj
     member public TryVirtToPhys : concreteHeapAddress -> obj option
+    member public ChangedStaticFields : unit -> System.Collections.Generic.HashSet<fieldId>
     member internal PhysToVirt : obj -> concreteHeapAddress
     member internal TryPhysToVirt : obj -> concreteHeapAddress option
     member internal Allocate : concreteHeapAddress -> obj -> unit

@@ -769,7 +769,8 @@ type ILInterpreter() as this =
 
     member private x.TryConcreteInvoke (method : Method) (termArgs : term list) thisOption (cilState : cilState) =
         let state = cilState.state
-        if method.CanCallConcrete then
+        let changedStaticFields = state.concreteMemory.ChangedStaticFields()
+        if method.CanCallConcrete changedStaticFields then
             // TODO: support out parameters
             let objArgs = List.choose (TryTermToFullyConcreteObj state) termArgs
             let hasThis = Option.isSome thisOption
@@ -792,24 +793,18 @@ type ILInterpreter() as this =
                         let resultType = TypeUtils.getTypeOfConcrete result
                         let returnType = method.ReturnType
                         match resultType with
-                        | _ when resultType <> null && resultType.IsValueType && (returnType = typeof<obj> || returnType.IsInterface) ->
-                            // When return type is interface or 'object', but real type is struct,
-                            // it should be boxed, so allocating it in heap
-                            let resultTerm = Memory.AllocateConcreteObject state result resultType
-                            cilState.Push resultTerm
                         | _ when returnType <> typeof<Void> ->
                             // Case when method returns something
-                            let typ = TypeUtils.mostConcreteType resultType returnType
-                            let resultTerm = Memory.ObjectToTerm state result typ
+                            let resultTerm = Memory.ObjectToTerm state result returnType
                             cilState.Push resultTerm
-                        | _ when thisIsStruct && method.IsConstructor ->
+                        | _ -> ()
+                        if thisIsStruct && (hasThis || method.IsConstructor) then
                             match thisOption, thisObj with
                             | Some thisRef, Some thisObj ->
                                 let structTerm = Memory.ObjectToTerm state thisObj declaringType
                                 let states = Memory.Write state thisRef structTerm
                                 assert(List.length states = 1 && List.head states = state)
                             | _ -> __unreachable__()
-                        | _ -> ()
                     with :? TargetInvocationException as e ->
                         let isRuntime = method.IsRuntimeException
                         x.ConcreteInvokeCatch e.InnerException cilState isRuntime
@@ -1531,12 +1526,12 @@ type ILInterpreter() as this =
     // Look through blocks, if it is suitable catch, continue execution with 'SecondBypass'
     // If it is filter, push exception register and continue execution with 'InFilterHandler'
     // If suitable block was not found, try again with 'sortedBlocks = tail' sortedBlocks
-    member private x.FindCatch ehcs (observed : ExceptionHandlingClause list) (location : codeLocation) locations framesToPop (cilState : cilState) =
+    member private x.FindCatch ehcs (observed : exceptionHandlingClause list) (location : codeLocation) locations framesToPop (cilState : cilState) =
         let state = cilState.state
         let errorRef = state.exceptionsRegister.GetError()
         let exceptionType = lazy(MostConcreteTypeOfRef state errorRef)
         let mutable ehcs = ehcs
-        let observed = List<ExceptionHandlingClause>(observed)
+        let observed = List<exceptionHandlingClause>(observed)
         let mutable nextIp = None
         let offset = location.offset
         while not (Option.isSome nextIp || List.isEmpty ehcs) do
@@ -1562,7 +1557,7 @@ type ILInterpreter() as this =
             | _ -> () // Handler is non-suitable catch or finally
         nextIp
 
-    member private x.EHCBetween (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
+    member private x.EHCBetween (src : offset) (dst : offset) (ehc : exceptionHandlingClause) =
         x.InEHCBlock src ehc && not (x.InEHCBlock dst ehc)
 
     member private x.Leave (m : Method) offset (cilState : cilState) =
@@ -1987,13 +1982,13 @@ type ILInterpreter() as this =
         let key = {offset = 0<offsets>; method = method}
         cilState.DecrementLevel key
 
-    member private x.InTryBlock offset (clause : ExceptionHandlingClause) =
+    member private x.InTryBlock offset (clause : exceptionHandlingClause) =
         clause.tryOffset <= offset && offset < clause.tryOffset + clause.tryLength
 
-    member private x.InHandlerBlock offset (clause : ExceptionHandlingClause) =
+    member private x.InHandlerBlock offset (clause : exceptionHandlingClause) =
         clause.handlerOffset <= offset && offset < clause.handlerOffset + clause.handlerLength
 
-    member private x.InEHCBlock offset (clause : ExceptionHandlingClause) =
+    member private x.InEHCBlock offset (clause : exceptionHandlingClause) =
         x.InTryBlock offset clause || x.InHandlerBlock offset clause
 
     member private x.SortEHCBlocks (location : codeLocation) =

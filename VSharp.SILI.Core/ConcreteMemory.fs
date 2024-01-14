@@ -499,6 +499,8 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
     member internal x.StaticFieldChanged fieldId =
         changedStaticFields.Add fieldId |> ignore
 
+    member public x.ChangedStaticFields() = changedStaticFields
+
     // ------------------------------- Remove -------------------------------
 
     member internal x.Remove address =
