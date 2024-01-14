@@ -15,7 +15,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\VSharp.CoverageRunner\VSharp.CoverageRunner.csproj" />
+        <ProjectReference Include="..\VSharp.CoverageTool\VSharp.CoverageTool.fsproj" />
         <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" />
         <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
         <ProjectReference Include="..\VSharp.TestGenerator\VSharp.TestGenerator.fsproj" />
@@ -28,7 +28,6 @@
         <Compile Include="Startup.fs" />
         <Compile Include="TypeSolver.fs" />
         <Compile Include="Generator.fs" />
-        <Compile Include="CoverageTool.fs" />
         <Compile Include="TestGeneration.fs" />
         <Compile Include="Communication.fs" />
         <Compile Include="Fuzzer.fs" />

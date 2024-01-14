@@ -3,6 +3,7 @@ namespace VSharp.Fuzzer
 open System
 open System.Reflection
 open System.Threading
+open VSharp.CoverageTool
 open VSharp.Fuzzer.Communication.Contracts
 open VSharp.Fuzzer.Utils
 open VSharp
@@ -14,7 +15,7 @@ open VSharp.Fuzzer.Communication.Services
 
 type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
     let fuzzerCancellationToken = new CancellationTokenSource()
-    let coverageTool = CoverageTool()
+    let coverageTool = InteractionCoverageTool()
     let masterProcessService = connectMasterProcessService ()
     let fuzzer = Fuzzer.Fuzzer(fuzzerOptions, masterProcessService, coverageTool)
 
@@ -34,7 +35,10 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
                 try
                     failIfNull assembly "onFuzz called before assembly initialization"
 
-                    let methodBase = Reflection.resolveMethodBaseFromAssembly assembly moduleName methodToken
+                    let methodBase =
+                        Reflection.resolveMethodBaseFromAssembly assembly moduleName methodToken
+                        |> AssemblyManager.NormalizeMethod
+
                     traceFuzzing $"Resolved MethodBase {methodToken}"
 
                     let method = Application.getMethod methodBase
@@ -48,7 +52,8 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
 
                     (masterProcessService.NotifyFinished (UnitData())).Wait()
                     traceFuzzing $"Notified master process: finished {moduleName} {methodToken}"
-                with e -> errorFuzzing $"{e}"
+                with e ->
+                    logUnhandledException e
             ).Forget()
 
             System.Threading.Tasks.Task.FromResult() :> System.Threading.Tasks.Task
@@ -59,18 +64,15 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
                 fuzzerCancellationToken.Cancel()
             } |> withExceptionLogging
 
-        let onSetupDir dir =
-            task {
-                fuzzer.SetOutputDirectory dir
-            } |> withExceptionLogging
 
-        FuzzerService(onFinish, onFuzz, onSetupAssembly, onSetupDir)
+        FuzzerService(onFinish, onFuzz, onSetupAssembly)
 
     member this.Start () =
         try
+            traceFuzzing "Start Fuzzer"
             let fuzzerService = createFuzzerService ()
             let fuzzerTask = startFuzzerService fuzzerService fuzzerCancellationToken.Token
-
+            traceFuzzing "Start Fuzzer service, wait for handshake"
             waitMasterProcessForReady masterProcessService
 
             traceFuzzing "Ready to work"

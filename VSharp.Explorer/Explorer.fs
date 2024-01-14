@@ -436,7 +436,9 @@ type private FuzzerExplorer(explorationOptions: ExplorationOptions, statistics: 
                         onCancelled
                     )
                     do! interactor.StartFuzzing ()
-                with e -> Logger.error $"Fuzzer unhandled exception: {e.Message}"
+                with e ->
+                    Logger.error $"Fuzzer unhandled exception: {e}"
+                    raise e
             }
 
 
@@ -511,9 +513,9 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
                 let emptyState = Memory.EmptyState()
                 (Option.defaultValue method (x.TrySubstituteTypeParameters emptyState method), emptyState)
             let isolated =
-                List.ofSeq isolated
-                |> List.map trySubstituteTypeParameters
-                |> List.map (fun (m, s) -> Application.getMethod m, s)
+                isolated
+                |> Seq.map trySubstituteTypeParameters
+                |> Seq.map (fun (m, s) -> Application.getMethod m, s) |> Seq.toList
             let entryPoints =
                 entryPoints
                 |> Seq.map (fun (m, a) ->

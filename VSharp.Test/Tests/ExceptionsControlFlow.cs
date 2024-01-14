@@ -154,6 +154,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(66, strat: SearchStrategy.DFS)]
+        [IgnoreFuzzer("(Known bug) DecodeString: unexpected representation")]
         public static void FilterOrder(int x)
         {
             bool ThrowException()
@@ -189,6 +190,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(78, strat: SearchStrategy.DFS)]
+        [IgnoreFuzzer("(Known bug) DecodeString: unexpected representation")]
         public static void TwoFilters(int x)
         {
             bool ThrowException()
@@ -235,6 +237,7 @@ namespace IntegrationTests
         private static int Always84() => Always42() * 2;
 
         [TestSvm(94, strat: SearchStrategy.DFS)]
+        [IgnoreFuzzer("(Known bug) DecodeString: unexpected representation")]
         public static int FilterInsideFinally(bool f)
         {
             int globalMemory = 0;

@@ -270,6 +270,7 @@ namespace IntegrationTests.Typecast
         }
 
         [TestSvm(100)]
+        [IgnoreFuzzer("(Known bug) coverage tool assertion failed")]
         public static int DownCastPiece(Piece piece)
         {
             bool a = piece is Pawn;

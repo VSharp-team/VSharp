@@ -1,5 +1,8 @@
 module internal VSharp.Fuzzer.Logger
 
+let logUnhandledException (e: exn) =
+    VSharp.Logger.error $"Unhandled exception: {e}"
+    exit 1
 
 let private communicationTraceTag = "Communication"
 let traceCommunication msg = VSharp.Logger.traceWithTag communicationTraceTag msg
@@ -15,6 +18,7 @@ let infoFuzzing msg = VSharp.Logger.infoWithTag fuzzingTag msg
 
 let private generationTag = "Generation"
 let traceGeneration msg = VSharp.Logger.traceWithTag generationTag msg
+let infoGeneration msg = VSharp.Logger.infoWithTag generationTag msg
 
 let private typeSolverTag = "TypeSolver"
 let traceTypeSolving msg = VSharp.Logger.traceWithTag typeSolverTag msg
@@ -23,17 +27,10 @@ let traceFuzzingInteraction msg = VSharp.Logger.traceWithTag VSharp.Logger.fuzzi
 
 let setupLogger outputDir =
     #if DEBUG
-    let writer = new System.IO.StreamWriter (
-        System.IO.File.OpenWrite $"{outputDir}{System.IO.Path.DirectorySeparatorChar}fuzzer.log"
-    )
+    let writer = System.IO.File.AppendText $"{outputDir}{System.IO.Path.DirectorySeparatorChar}fuzzer.log"
 
     VSharp.Logger.configureWriter writer
-
-    VSharp.Logger.enableTag communicationTraceTag VSharp.Logger.Trace
-    VSharp.Logger.enableTag fuzzingTag VSharp.Logger.Trace
-    VSharp.Logger.enableTag testGenerationTraceTag VSharp.Logger.Trace
-    VSharp.Logger.enableTag generationTag VSharp.Logger.Trace
-    VSharp.Logger.enableTag typeSolverTag VSharp.Logger.Trace
+    // Enable tags here
 
     VSharp.Logger.changeVerbosity VSharp.Logger.defaultTag VSharp.Logger.Warning
     #endif

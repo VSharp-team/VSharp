@@ -1,5 +1,6 @@
 using System;
 using System.Numerics;
+using System.Threading;
 using NUnit.Framework;
 using VSharp.Test;
 
@@ -7,8 +8,10 @@ namespace IntegrationTests
 {
     [TestSvmFixture]
     [Ignore("Need exceptions for all tests")]
+    [IgnoreFuzzer("(Known bug) Reproducing tests failed")]
     public sealed class Arithmetics_CIL
     {
+
         [TestSvm]
         public static bool MultiplicationOfFloatsIsNotAssociative()
         {

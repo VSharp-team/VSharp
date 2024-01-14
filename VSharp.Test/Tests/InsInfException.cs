@@ -264,6 +264,7 @@ namespace IntegrationTests
 
 
         [TestSvm(57)]
+        [IgnoreFuzzer("Need array support (add constraints to mocking)")]
         public static int ArrayRank_IIE_1(Array array)
         {
             if (array == null) return 42;
@@ -282,6 +283,7 @@ namespace IntegrationTests
 
         // expecting 3
         [TestSvm]
+        [IgnoreFuzzer("Need array support (add constraints to mocking)")]
         public static int ArrayRank_CATCH_IIE_1(Array array)
         {
             int[,,] a = new int[2,3,5];
