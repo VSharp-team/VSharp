@@ -71,8 +71,6 @@ bool vsharp::InstrumentationIsNeeded(const WCHAR *moduleName, int moduleSize, md
     return IsMain(moduleName, moduleSize, method) || !profilerState->collectMainOnly;
 }
 
-
-
 HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength) {
     HRESULT hr;
     CComPtr<IMetaDataImport> metadataImport;

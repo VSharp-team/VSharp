@@ -36,6 +36,6 @@ extern "C" void SetCurrentThreadId(int mapId) {
 
 extern "C" void SetStackBottom() {
     LOG(tout << "Bottom marker was set");
-    // TODO:
+    // TODO: Implement tracking stack size
     int stackBottomMarker;
 }

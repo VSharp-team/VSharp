@@ -59,7 +59,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
                 | :? TargetInvocationException as e ->
                     traceGeneration t $"Constructor thrown an exception: {e}"
                     None
- 
+
     let findInstances (t: Type) =
         traceGeneration t "Try find installable type"
         match instancesCache.TryGetValue t with
@@ -103,7 +103,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
         traceGeneration t "Generate builtin numeric"
 
         let size = Marshal.SizeOf t
-        let (convert: byte array -> obj) = 
+        let (convert: byte array -> obj) =
             match t with
             | _ when t = typeof<int8> -> (fun x -> sbyte x[0]) >> box
             | _ when t = typeof<int16> -> BitConverter.ToInt16 >> box
@@ -216,7 +216,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
         elif t = typeof<Decimal> then Decimal
         elif t = typeof<bool> then Boolean
         elif t = typeof<char> then Char
-        elif t = typeof<System.Void> then Void 
+        elif t = typeof<System.Void> then Void
         else OtherStruct
 
     // Reference types
@@ -261,7 +261,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
     member private this.GenerateObject rnd (t: Type) =
         Logger.traceGeneration $"Target type: {t.Name}"
 
-        let result = 
+        let result =
             match t with
             | ByRefType -> generateByRef commonGenerate rnd t
             | PointerType -> generatePointer commonGenerate rnd t
