@@ -100,27 +100,27 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
         x.AddToParents(parent, child, childLoc)
 
     member private x.AddChild(parent : physicalAddress, child : physicalAddress, childLoc : ChildLocation, update : bool) =
-        assert(parent <> child)
-        assert(parent.object <> null)
-        let childObj = child.object
-        let childIsNull = childObj = null
-        if childIsNull && update then
-            let exists, childDict = children.TryGetValue parent
-            if exists then
-                for KeyValue(childLoc, _) in childDict do
-                    if childLoc.Includes childLoc then
-                        childDict.Remove childLoc |> ignore
-        elif not childIsNull then
-            let t = childLoc.Type
-            if t.IsValueType then
-                assert(childObj :? ValueType)
-                let fields = Reflection.fieldsOf false t
-                for fieldId, fieldInfo in fields do
-                    if Reflection.isReferenceOrContainsReferences fieldId.typ then
-                        let child = { object = fieldInfo.GetValue childObj }
-                        let childLoc = childLoc.AddStructField fieldId
-                        x.AddChild(parent, child, childLoc, update)
-            else x.AddRefChild(parent, child, childLoc, update)
+        if parent <> child then
+            assert(parent.object <> null)
+            let childObj = child.object
+            let childIsNull = childObj = null
+            if childIsNull && update then
+                let exists, childDict = children.TryGetValue parent
+                if exists then
+                    for KeyValue(childLoc, _) in childDict do
+                        if childLoc.Includes childLoc then
+                            childDict.Remove childLoc |> ignore
+            elif not childIsNull then
+                let t = childLoc.Type
+                if t.IsValueType then
+                    assert(childObj :? ValueType)
+                    let fields = Reflection.fieldsOf false t
+                    for fieldId, fieldInfo in fields do
+                        if Reflection.isReferenceOrContainsReferences fieldId.typ then
+                            let child = { object = fieldInfo.GetValue childObj }
+                            let childLoc = childLoc.AddStructField fieldId
+                            x.AddChild(parent, child, childLoc, update)
+                else x.AddRefChild(parent, child, childLoc, update)
 
     member private x.TrackChild(parent : physicalAddress, child : physicalAddress, childKind : ChildKind) =
         x.AddChild(parent, child, ChildLocation.Create childKind, false)
@@ -400,9 +400,9 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
         if Reflection.isReferenceOrContainsReferences elemType then
             let dstIndex = int dstIndex
             let rank = array.Rank
-            let lengths = Array.init rank (fun d -> array.GetLength(d - 1))
-            let lowerBounds = Array.init rank (fun d -> array.GetLowerBound(d - 1))
-            for i = 0 to int length do
+            let lengths = Array.init rank array.GetLength
+            let lowerBounds = Array.init rank array.GetLowerBound
+            for i = 0 to int length - 1 do
                 let index = Array.delinearizeArrayIndex (dstIndex + i) lengths lowerBounds
                 let child = array.GetValue index
                 let childKind = Index(index, elemType)
