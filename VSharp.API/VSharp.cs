@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using VSharp.CoverageTool;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Explorer;
@@ -307,8 +308,8 @@ namespace VSharp
             MethodBase methodBase)
         {
             var runnerWithArgs = $"{TestRunnerPath} {testDir.FullName}";
-            var coverage = CoverageRunner.CoverageRunner.RunAndGetCoverage(runnerWithArgs, testDir, methodBase);
-            return coverage;
+            var coverageTool = new PassiveCoverageTool(testDir, methodBase);
+            return coverageTool.RunWithCoverage(runnerWithArgs);
         }
 
         /// <summary>
