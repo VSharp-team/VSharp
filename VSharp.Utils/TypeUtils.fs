@@ -164,7 +164,7 @@ module TypeUtils =
             sizeOfs.Add(typ, sizeOf)
             sizeOf
 
-    let numericSizeOf (typ: Type) : uint32 =
+    let numericSizeOf (typ : Type) : uint32 =
         let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
         assert(isNumeric typ)
         match typ with
@@ -183,7 +183,7 @@ module TypeUtils =
         | _ when typ = typeof<UIntPtr> -> uint nativeSize
         | _ -> __unreachable__()
 
-    let internalSizeOf (typ: Type) : int32 =
+    let internalSizeOf (typ : Type) : int32 =
         if isNative typ || typ.IsByRef || not typ.IsValueType then nativeSize
         elif isNumeric typ then numericSizeOf typ |> int
         elif typ.ContainsGenericParameters then
@@ -192,7 +192,7 @@ module TypeUtils =
             let sizeOf = getSizeOf(typ)
             sizeOf.Invoke() |> int
 
-    let numericBitSizeOf (typ: Type) : uint32 =
+    let numericBitSizeOf (typ : Type) : uint32 =
         numericSizeOf typ * 8u
 
     let bitSizeOfType t (resultingType : Type) =
@@ -218,14 +218,14 @@ module TypeUtils =
     let isBoxedType t =
         t = typeof<obj> || t.IsInterface || isValueType t || t = typeof<Enum>
 
-    let getGenericArgs (t: Type) =
+    let getGenericArgs (t : Type) =
         if t.IsGenericType then t.GetGenericArguments() else [||]
 
-    let rec getSupertypes (t: Type) =
+    let rec getSupertypes (t : Type) =
         if t = null then []
         else t :: getSupertypes t.BaseType
 
-    let getTypeDef (t: Type) =
+    let getTypeDef (t : Type) =
         if t.IsGenericType then t.GetGenericTypeDefinition() else t
 
     let (|Numeric|_|) = function

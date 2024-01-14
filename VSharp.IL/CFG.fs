@@ -210,7 +210,7 @@ and CfgInfo internal (method : MethodWithBody) =
                     addEdge srcBasicBlock newBasicBlock
                     dfs' newBasicBlock dst k
 
-                let processCall (callee: MethodWithBody) callFrom returnTo k =
+                let processCall (callee : MethodWithBody) callFrom returnTo k =
                     calls.Add(currentBasicBlock, CallInfo(callee :?> Method, callFrom, returnTo))
                     currentBasicBlock.FinalOffset <- callFrom
                     let newBasicBlock = makeNewBasicBlock returnTo
@@ -497,31 +497,31 @@ type ApplicationGraph() =
     let getShortestDistancesToGoals (states : array<codeLocation>) =
         __notImplemented__()
 
-    member this.RegisterMethod (method: Method) =
+    member this.RegisterMethod (method : Method) =
         assert method.HasBody
 
     member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
         addCallEdge sourceLocation targetLocation
 
-    member this.SpawnState (state:IGraphTrackableState) =
-        [|state|] |> addStates None
+    member this.SpawnState (state : IGraphTrackableState) =
+        [| state |] |> addStates None
 
-    member this.SpawnStates (states:seq<IGraphTrackableState>) =
+    member this.SpawnStates (states : seq<IGraphTrackableState>) =
         Array.ofSeq states |> addStates None
 
-    member this.AddForkedStates (parentState:IGraphTrackableState) (forkedStates:seq<IGraphTrackableState>) =
+    member this.AddForkedStates (parentState : IGraphTrackableState) (forkedStates : seq<IGraphTrackableState>) =
         addStates (Some parentState) (Array.ofSeq forkedStates)
 
     member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
         moveState fromLocation toLocation
 
-    member x.AddGoal (location:codeLocation) =
+    member x.AddGoal (location : codeLocation) =
         ()
 
-    member x.AddGoals (locations:array<codeLocation>) =
+    member x.AddGoals (locations : array<codeLocation>) =
         ()
 
-    member x.RemoveGoal (location:codeLocation) =
+    member x.RemoveGoal (location : codeLocation) =
         ()
 
 type IVisualizer =

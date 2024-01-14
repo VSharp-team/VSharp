@@ -6,7 +6,7 @@ open System.Runtime.InteropServices
 let inline isNull value = obj.ReferenceEquals(value, null)
 let inline failIfNull value message = if isNull value then VSharp.Prelude.internalfail message
 
-type IdGenerator(initValue: int) =
+type IdGenerator(initValue : int) =
     let mutable currentValue = initValue
     member this.NextId() =
         currentValue <- currentValue + 1

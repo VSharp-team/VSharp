@@ -115,7 +115,7 @@ module ExtMocking =
 
             patchedName // return identifier
 
-    type Type(name: string) =
+    type Type(name : string) =
         let mutable patchType = null
         let mutable mockedMethod = null
         let mutable mockImplementations = null

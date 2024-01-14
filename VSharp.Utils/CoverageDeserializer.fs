@@ -150,9 +150,9 @@ module CoverageDeserializer =
             Logger.error $"{e.Message}\n\n{e.StackTrace}"
             failwith "CoverageDeserialization failed!"
 
-    let reportsFromRawReports (rawReports: RawCoverageReports) =
+    let reportsFromRawReports (rawReports : RawCoverageReports) =
 
-        let toLocation (x: RawCoverageLocation) =
+        let toLocation (x : RawCoverageLocation) =
             let method = rawReports.methods[x.methodId]
             {
                 assemblyName = method.assemblyName
@@ -161,7 +161,7 @@ module CoverageDeserializer =
                 offset = x.offset |> int
             }
 
-        let toReport (x: RawCoverageReport) =
+        let toReport (x : RawCoverageReport) =
             {
                 threadId = x.threadId
                 coverageLocations = x.rawCoverageLocations |> Array.map toLocation

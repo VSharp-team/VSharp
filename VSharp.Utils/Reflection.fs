@@ -77,7 +77,7 @@ module public Reflection =
         let m = resolveModule assemblyName moduleName
         m.ResolveMethod(token)
 
-    let resolveMethodBaseFromAssembly (assembly: Assembly) (moduleName: string) (token: int32) =
+    let resolveMethodBaseFromAssembly (assembly : Assembly) (moduleName : string) (token : int32) =
         let m =
             assembly.Modules
             |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
@@ -333,7 +333,7 @@ module public Reflection =
     // If it's free to override in derived classes of 'targetType', result will be 'targetType'
     // If some type 't' in the hierarchy defines same method or adds new slot for it, result will be base type of 't'
     // If in some type 't' in the hierarchy this method marked 'final', result will be 't'
-    let lastCanOverrideType (targetType: Type) (virtualMethod : MethodInfo) =
+    let lastCanOverrideType (targetType : Type) (virtualMethod : MethodInfo) =
         match virtualMethod.DeclaringType with
         | t when not virtualMethod.IsVirtual -> t
         | i when i.IsInterface && TypeUtils.typeImplementsInterface targetType i -> targetType
@@ -672,7 +672,7 @@ module public Reflection =
             cachedTypes.Add(t, result)
             result
 
-    let isBuiltInType (t: Type) =
+    let isBuiltInType (t : Type) =
         let builtInAssembly = mscorlibAssembly
         t.Assembly = builtInAssembly
 
