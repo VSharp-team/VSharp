@@ -165,6 +165,8 @@ module public Reflection =
 
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
+    let getAllConstructors (t : Type) = t.GetConstructors(allBindingFlags)
+
     // MethodInfo's GetGenericMethodDefinition erases ReflectedType, this function overcomes that
     let getGenericMethodDefinition (method : MethodInfo) =
         let reflectedType = method.ReflectedType

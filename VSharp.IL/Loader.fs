@@ -97,31 +97,22 @@ module Loader =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
         let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
         let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|]
-        let string = [|"System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"|]
-        let span = [|
-            "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
-            "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
-            "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
-            "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
-        |]
-        let vector = [|
-            "System.Void System.Numerics.Vector`1[T]..ctor(this, T)"
-            "System.Void System.Numerics.Vector`1[T]..ctor(this, T[])"
-            "System.Void System.Numerics.Vector`1[T]..ctor(this, T[], System.Int32)"
-            "System.Int32 System.Numerics.Vector`1[T].get_Count()"
-            "System.Boolean System.Numerics.Vector`1[T].op_Inequality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Boolean System.Numerics.Vector`1[T].op_Equality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseOr(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseAnd(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.Equals(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_BitwiseAnd(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_BitwiseOr(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_ExclusiveOr(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.ConditionalSelect(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].get_AllBitsSet()"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.LessThanOrEqual(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Boolean System.Numerics.Vector.LessThanOrEqualAll(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-        |]
+        let string =
+            [|
+                "System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"
+                "System.Boolean System.String.Equals(System.String, System.String)"
+            |]
+        let span =
+            [|
+                "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+                "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
+                "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
+                "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+            |]
+        let vectorType = typedefof<System.Numerics.Vector<_>>
+        let vectorMethods = Reflection.getAllMethods vectorType |> Array.map Reflection.getFullMethodName
+        let vectorConstructors = Reflection.getAllConstructors vectorType |> Array.map Reflection.getFullMethodName
+        let vectorExtensions = Reflection.getAllMethods typeof<System.Numerics.Vector> |> Array.map Reflection.getFullMethodName
         let runtimeHelpers = [|
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.String)"
@@ -161,7 +152,57 @@ module Loader =
         let interlocked = [|
             "System.Int32 System.Threading.Interlocked.Or(System.Int32&, System.Int32)"
         |]
-        Array.concat [intPtr; volatile; defaultComparer; string; span; vector; runtimeHelpers; interlocked; arithmetics]
+        Array.concat [
+            intPtr
+            volatile
+            defaultComparer
+            string
+            span
+            vectorMethods
+            vectorConstructors
+            vectorExtensions
+            runtimeHelpers
+            interlocked
+            arithmetics
+        ]
+
+    let private invocationForbidden =
+        set [
+            "System.Boolean System.Diagnostics.Debugger.get_IsAttached()"
+            "System.Int32 System.Threading.PlatformHelper.get_ProcessorCount()"
+            "System.Int32 System.Environment.get_ProcessorCount()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Lzcnt.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Lzcnt+X64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Arm.ArmBase.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Arm.AdvSimd+Arm64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Arm.ArmBase+Arm64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Arm.AdvSimd.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Avx2.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Sse2+X64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.X86Base.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.X86Base+X64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Vector128.get_IsHardwareAccelerated()"
+            "System.Boolean System.Net.Quic.QuicListener.get_IsSupported()"
+            "System.Boolean System.Console.get_IsOutputRedirected()"
+            "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack()"
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack()"
+            "System.Void System.Threading.Thread.SpinWaitInternal(System.Int32)"
+            "System.Void System.Threading.SpinWait.SpinOnce(this)"
+            "System.Boolean System.Threading.Thread.Yield()"
+            "System.Void System.Threading.Thread.SleepInternal(System.Int32)"
+            "System.Void System.Threading.Monitor.PulseAll(System.Object)"
+            "System.Boolean System.Threading.WaitHandle.WaitOne(this)"
+            "System.Boolean System.Threading.WaitHandle.WaitOneNoCheck(this, System.Int32)"
+            "System.Void System.Threading.Interlocked.MemoryBarrier()"
+            "System.Boolean System.Runtime.InteropServices.Marshal.IsBuiltInComSupportedInternal()"
+            "System.Void System.Threading.Monitor.Exit(System.Object)"
+            "System.Void System.Runtime.InteropServices.Marshal.SetLastPInvokeError(System.Int32)"
+            "System.Int32 System.Runtime.InteropServices.Marshal.GetLastPInvokeError()"
+        ]
+
+    let isInvocationForbidden fullMethodName =
+        Set.contains fullMethodName invocationForbidden
 
     let private concreteInvocations =
         set [
@@ -477,9 +518,6 @@ module Loader =
 
             // Hashtable
             "System.Void System.Collections.Hashtable..ctor(this)"
-            "System.Void System.Collections.Hashtable.set_Item(this, System.Object, System.Object)"
-            "System.Void System.Collections.Hashtable.Insert(this, System.Object, System.Object, System.Boolean)"
-            "System.Void System.Collections.Hashtable.Insert(this, System.Object, System.Object, System.Boolean)"
             "System.Void System.Collections.Hashtable.rehash(this, System.Int32)"
             "System.Void System.Collections.Hashtable.expand(this)"
             "System.Object System.Collections.Hashtable.get_Item(this, System.Object)"
@@ -512,6 +550,14 @@ module Loader =
             "System.String[] System.String.Split(this, System.Char[], System.StringSplitOptions)"
             "System.Int32 System.Globalization.CompareInfo.Compare(this, System.String, System.String, System.Globalization.CompareOptions)"
             "System.Boolean System.String.Contains(this, System.Char)"
+            "System.Int32 System.String.GetHashCode(this)"
+            "System.Int32 System.CultureAwareComparer.GetHashCode(this, System.String)"
+            "System.Boolean System.String.EqualsHelper(System.String, System.String)"
+            "System.Boolean System.String.Equals(System.String, System.String)"
+            "System.Boolean System.String.Equals(this, System.String)"
+            "System.Boolean System.String.Equals(System.String, System.String, System.StringComparison)"
+            "System.Boolean System.String.Equals(this, System.String, System.StringComparison)"
+            "System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"
 
             // Array
             "System.UIntPtr System.Array.get_NativeLength(this)"

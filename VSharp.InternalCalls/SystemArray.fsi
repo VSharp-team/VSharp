@@ -19,6 +19,9 @@ module internal SystemArray =
     [<Implements("System.Int32 System.Array.get_Length(this)")>]
     val get_Length : state -> term list -> term
 
+    [<Implements("System.UIntPtr System.Array.get_NativeLength(this)")>]
+    val get_NativeLength : state -> term list -> term
+
     [<Implements("System.Boolean System.SZArrayHelper.Contains(this, T)")>]
     val ContainsChar : state -> term list -> term
 
