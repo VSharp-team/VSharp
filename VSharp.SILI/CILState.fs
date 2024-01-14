@@ -393,6 +393,10 @@ module CilState =
 
         // -------------------- Memory interaction --------------------
 
+        member x.StackSize with get() =
+            assert(EvaluationStack.FramesCount x.state.evaluationStack = Memory.CallStackSize x.state)
+            List.length x.ipStack
+
         member x.PopFrame() =
             Memory.PopFrame x.state
             let ip = List.tail x.ipStack

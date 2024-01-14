@@ -158,12 +158,12 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
         |> Seq.tryHead
         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
 
-    member x.TrackStepForward (s : cilState) (ip : instructionPointer) =
+    member x.TrackStepForward (s : cilState) (ip : instructionPointer) (stackSize : int) =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.internalId}"
 
         let setCoveredIfNeeded (loc : codeLocation) =
-            if loc.offset = loc.BasicBlock.FinalOffset then
+            if s.StackSize <= stackSize && loc.offset = loc.BasicBlock.FinalOffset then
                 s.AddLocationToHistory loc
 
         match s.ipStack with
@@ -206,9 +206,8 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
                 Call instructions are considered covered only after return
                 (because call can throw exception)
             *)
-            if not <| isCallIp ip then setCoveredIfNeeded currentLoc
-        | Some currentLoc ->
-            if not <| isCallIp ip then setCoveredIfNeeded currentLoc
+            setCoveredIfNeeded currentLoc
+        | Some currentLoc -> setCoveredIfNeeded currentLoc
         | None -> ()
 
     member x.IsCovered (loc : codeLocation) =

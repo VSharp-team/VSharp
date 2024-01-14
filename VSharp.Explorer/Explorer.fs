@@ -273,11 +273,12 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
     member private x.Forward (s : cilState) =
         let loc = s.approximateLoc
         let ip = s.CurrentIp
+        let stackSize = s.StackSize
         // TODO: update pobs when visiting new methods; use coverageZone
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         for s in goodStates @ iieStates @ errors do
             if not s.HasRuntimeExceptionOrError then
-                statistics.TrackStepForward s ip
+                statistics.TrackStepForward s ip stackSize
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> s.IsExecutable || s.IsIsolated)
         toReportFinished |> List.iter reportFinished
         let errors, _ = errors |> List.partition (fun s -> not s.HasReportedError)
