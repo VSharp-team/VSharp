@@ -228,3 +228,12 @@ module internal SystemArray =
         let typ, length = args[0], args[1]
         let elemType = Helpers.unwrapType typ
         Memory.AllocateVectorArray state length elemType
+
+    let GetArrayDataReference (interpreter : IInterpreter) (cilState : cilState) args =
+        assert(List.length args = 1)
+        let array = args[0]
+        let nonNullCase (cilState : cilState) k =
+            let ref = Memory.ReferenceArrayIndex cilState.state array [MakeNumber 0] (Some typeof<byte>)
+            cilState.Push ref
+            List.singleton cilState |> k
+        interpreter.NpeOrInvoke cilState array nonNullCase id
