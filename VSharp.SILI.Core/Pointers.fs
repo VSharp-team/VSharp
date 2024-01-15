@@ -224,6 +224,7 @@ module internal Pointers =
 
     let private simplifyPointerSubtraction x y k =
         if Terms.isNumeric y then simplifyPointerAddition x (neg y) k
+        elif Terms.isNumeric x then simplifyPointerAddition (neg x) y k
         else commonPointerSubtraction x y k
 
     let private pointerIdOfBaseAndOffset pointerBase offset =
@@ -283,7 +284,7 @@ module internal Pointers =
 
     let isPointerOperation op left right =
         match op with
-        | OperationType.Subtract -> isRefOrPtr left && (isRefOrPtr right || Terms.isNumeric right)
+        | OperationType.Subtract
         | OperationType.Equal
         | OperationType.NotEqual
         | OperationType.Add
