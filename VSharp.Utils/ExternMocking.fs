@@ -12,19 +12,27 @@ exception UnexpectedExternCallException of string
 
 module DllManager =
 
+    type dllImportInfo =
+        {
+            dllName : string
+            entryPoint : string
+        }
+
     let private dllImportAttribute = lazy AssemblyManager.NormalizeType(typeof<DllImportAttribute>)
 
     let private getDllImportNameAndEntry (attr : Attribute) =
         let dllNameField = dllImportAttribute.Value.GetField("dllName")
         let entryPointField = dllImportAttribute.Value.GetField("EntryPoint")
-        dllNameField.GetValue(attr) :?> string, entryPointField.GetValue(attr) :?> string
+        let dllName = dllNameField.GetValue(attr) :?> string
+        let entryPoint = entryPointField.GetValue(attr) :?> string
+        { dllName = dllName; entryPoint = entryPoint }
 
     let parseDllImport (m : MethodBase) =
         // Case for assembly, loaded via default load context (F# internal calls)
         let findViaDefault (attr : Attribute) =
             match attr with
             | :? DllImportAttribute as attr ->
-                Some (attr.Value, attr.EntryPoint)
+                Some { dllName = attr.Value; entryPoint = attr.EntryPoint }
             | _ -> None
 
         // Case for assembly, loaded via VSharp load context (C# internal calls)
@@ -36,7 +44,7 @@ module DllManager =
 
     let isQCall (m : MethodBase) =
         match parseDllImport m with
-        | Some(libName, _) -> libName.Equals("QCall")
+        | Some { dllName = libName } -> libName.Equals("QCall")
         | None -> false
 
 module ExtMocking =
@@ -168,11 +176,11 @@ module ExtMocking =
         let methodToPatch = mockType.MockedMethod
         let ptrFrom =
             if Reflection.isExternalMethod methodToPatch then
-                let libName, methodName =
+                let dllImportInfo =
                     match DllManager.parseDllImport methodToPatch with
                     | Some p -> p
                     | None -> internalfail "External method without DllImport attribute"
-                ExternMocker.GetExternPtr(libName, methodName)
+                ExternMocker.GetExternPtr(dllImportInfo.dllName, dllImportInfo.entryPoint)
             else
                 methodToPatch.MethodHandle.GetFunctionPointer()
 

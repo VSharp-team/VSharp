@@ -204,6 +204,15 @@ module Loader =
     let isInvocationForbidden fullMethodName =
         Set.contains fullMethodName invocationForbidden
 
+    let private externInvocationForbidden : Set<DllManager.dllImportInfo> =
+        set [
+            { dllName = "libc"; entryPoint = "rand" }
+            { dllName = "msvcrt"; entryPoint = "rand" }
+        ]
+
+    let isExternInvocationForbidden dllImportInfo =
+        Set.contains dllImportInfo externInvocationForbidden
+
     let private concreteInvocations =
         set [
             // Types

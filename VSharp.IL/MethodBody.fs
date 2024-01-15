@@ -62,8 +62,19 @@ type MethodWithBody internal (m : MethodBase) =
             int (m.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0
             || DllManager.isQCall m
         )
+    let isExternalCall = lazy Reflection.isExternalMethod m
 
-    let invocationForbidden = lazy Loader.isInvocationForbidden fullGenericMethodName.Value
+    let externInvocationForbidden = lazy(
+            match DllManager.parseDllImport m with
+            | Some info -> Loader.isExternInvocationForbidden info
+            | None -> false
+        )
+
+    let invocationForbidden =
+        lazy (
+            Loader.isInvocationForbidden fullGenericMethodName.Value
+            || isExternalCall.Value && externInvocationForbidden.Value
+        )
 
     let shouldAnalyseInvokable = lazy not invocationForbidden.Value
 
@@ -217,7 +228,7 @@ type MethodWithBody internal (m : MethodBase) =
 
     member x.IsConcretelyInvokable with get () = isConcretelyInvokable.Value
 
-    member x.IsExternalMethod with get() = Reflection.isExternalMethod m
+    member x.IsExternalMethod with get() = isExternalCall.Value
     member x.IsQCall with get() = DllManager.isQCall m
 
     member x.HasNonVoidResult = hasNonVoidResult.Value
