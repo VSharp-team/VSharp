@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open System.Reflection
 open VSharp
 open VSharp.CSharpUtils
 open VSharp.TypeUtils
@@ -994,7 +995,9 @@ module internal Terms =
         // 'ReportError' case
         | _ when List.isEmpty terms ->
             makeDefaultValue t
-        | _ when allSlicesAreConcrete terms -> Concrete (reinterpretConcretes terms t) t
+        | _ when allSlicesAreConcrete terms ->
+            let obj = reinterpretConcretes terms t
+            valueTypeToTerm obj t
         | [{term = Slice(p, cuts)}] ->
             match cuts with
             | [({term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)})] ->
@@ -1132,3 +1135,12 @@ module internal Terms =
         | Pointer typ -> makeNullPtr typ
         | AddressType -> zeroAddress()
         | _ -> __notImplemented__()
+
+    and private valueTypeToTerm obj t =
+        assert t.IsValueType
+        if isPrimitive t then Concrete obj t
+        else
+            let makeField (fieldInfo : FieldInfo) _ _ =
+                let value = fieldInfo.GetValue(obj)
+                valueTypeToTerm value fieldInfo.FieldType
+            makeStruct false makeField t
