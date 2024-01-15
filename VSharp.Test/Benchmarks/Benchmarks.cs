@@ -32,8 +32,9 @@ internal static class Benchmarks
         process.StartInfo = info;
         process.Start();
         process.WaitForExit();
-        return process.ExitCode == 0;
+        return process.IsSuccess();
     }
+
     private class Reporter: IReporter
     {
         private readonly UnitTests _unitTests;

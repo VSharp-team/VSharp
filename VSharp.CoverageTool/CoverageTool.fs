@@ -203,12 +203,12 @@ type PassiveCoverageTool(workingDirectory: DirectoryInfo, method: MethodBase) =
             )
             proc.WaitForExit()
 
-            if proc.ExitCode <> 0 then
-                Logger.error $"Run with coverage failed with exit code: {proc.ExitCode}"
-                -1
-            else
+            if proc.IsSuccess() then
                 match getHistory () with
                 | Some history -> computeCoverage method.CFG history
                 | None ->
                     Logger.error "Failed to retrieve coverage locations"
                     -1
+            else
+                Logger.error $"Run with coverage failed with exit code: {proc.ExitCode}"
+                -1

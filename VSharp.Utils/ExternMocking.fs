@@ -131,12 +131,12 @@ module ExtMocking =
 
         member x.MockedMethod
             with get() = mockedMethod
-            and private set(method) =
+            and private set method =
                 mockedMethod <- method
 
         member x.MockImplementations
             with get() = mockImplementations
-            and private set(methodImplementations) =
+            and private set methodImplementations =
                 mockImplementations <- methodImplementations
 
         member x.PatchMethod
@@ -144,7 +144,7 @@ module ExtMocking =
                 match patchMethod with
                 | Some pm -> pm
                 | None -> internalfail "ExternMocking patch method called before initialization"
-            and private set(m) =
+            and private set m =
                 patchMethod <- Some m
 
         member x.Build(moduleBuilder : ModuleBuilder, testId) =
