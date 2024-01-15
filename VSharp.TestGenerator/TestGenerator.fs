@@ -3,7 +3,6 @@ namespace VSharp.Interpreter.IL
 open System
 open System.Collections.Generic
 open System.Reflection
-open FSharpx.Collections
 open VSharp
 open VSharp.Core
 open System.Linq

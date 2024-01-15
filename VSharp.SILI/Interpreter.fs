@@ -1473,10 +1473,11 @@ type ILInterpreter() as this =
 
     member private x.CommonThrow cilState error isRuntime =
         let codeLocations = cilState.CodeLocations
-        let stackTrace = List.map toString codeLocations |> join ","
+        let stackTrace = List.map toString codeLocations
+        Logger.trace $"Exception thrown {error}, StackTrace:\n{String.Join('\n', stackTrace)}"
         let ip = SearchingForHandler(None, List.empty, codeLocations, List.empty)
         cilState.SetCurrentIpSafe ip
-        cilState.SetException (Unhandled(error, isRuntime, stackTrace))
+        cilState.SetException (Unhandled(error, isRuntime, join "," stackTrace))
 
     member private x.Throw (cilState : cilState) =
         let error = cilState.Peek()

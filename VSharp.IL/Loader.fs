@@ -197,8 +197,12 @@ module Loader =
             "System.Void System.Threading.Interlocked.MemoryBarrier()"
             "System.Boolean System.Runtime.InteropServices.Marshal.IsBuiltInComSupportedInternal()"
             "System.Void System.Threading.Monitor.Exit(System.Object)"
+            "System.Boolean System.Threading.Monitor.Wait(System.Object, System.Int32)"
+            "System.Boolean System.Threading.Monitor.Wait(System.Object)"
             "System.Void System.Runtime.InteropServices.Marshal.SetLastPInvokeError(System.Int32)"
             "System.Int32 System.Runtime.InteropServices.Marshal.GetLastPInvokeError()"
+            "System.Void Microsoft.AspNetCore.Hosting.HostingApplication..ctor(this, Microsoft.AspNetCore.Http.RequestDelegate, Microsoft.Extensions.Logging.ILogger, System.Diagnostics.DiagnosticListener, System.Diagnostics.ActivitySource, System.Diagnostics.DistributedContextPropagator, Microsoft.AspNetCore.Http.IHttpContextFactory)"
+            "System.Threading.Tasks.Task Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.StartAsync(this, Microsoft.AspNetCore.Hosting.Server.IHttpApplication`1[TContext], System.Threading.CancellationToken)"
         ]
 
     let isInvocationForbidden fullMethodName =
@@ -266,6 +270,8 @@ module Loader =
             "System.Reflection.Assembly System.RuntimeType.get_Assembly(this)"
             "System.Void System.Type+<>c..ctor(this)"
             "System.RuntimeTypeHandle System.RuntimeType.get_TypeHandle(this)"
+            "System.Reflection.ConstructorInfo[] System.RuntimeType.GetConstructors(this, System.Reflection.BindingFlags)"
+            "System.Reflection.ConstructorInfo[] System.Type.GetConstructors(this)"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
@@ -617,6 +623,7 @@ module Loader =
             "Microsoft.AspNetCore.Builder.WebApplication Microsoft.AspNetCore.Builder.WebApplicationBuilder.Build(this)"
             "Microsoft.AspNetCore.Http.RequestDelegate Microsoft.AspNetCore.Builder.ApplicationBuilder.Build(this)"
             "Microsoft.AspNetCore.Builder.IApplicationBuilder Microsoft.AspNetCore.Builder.UseMiddlewareExtensions.UseMiddleware(Microsoft.AspNetCore.Builder.IApplicationBuilder, System.Object[])"
+            "Microsoft.AspNetCore.Builder.ControllerActionEndpointConventionBuilder Microsoft.AspNetCore.Builder.ControllerEndpointRouteBuilderExtensions.MapControllers(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder)"
 
             // ConfigurationManager
             "System.Void Microsoft.Extensions.Configuration.ConfigurationManager.ReloadSources(this)"
@@ -638,6 +645,16 @@ module Loader =
             "System.Void Microsoft.Extensions.DependencyInjection.ServiceLookup.DynamicServiceProviderEngine..ctor(this, Microsoft.Extensions.DependencyInjection.ServiceProvider)"
             "System.Object Microsoft.Extensions.DependencyInjection.ServiceProvider.GetService(this, System.Type)"
             "Microsoft.Extensions.DependencyInjection.IServiceScope Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.CreateScope(System.IServiceProvider)"
+            "Microsoft.Extensions.DependencyInjection.IMvcBuilder Microsoft.Extensions.DependencyInjection.MvcServiceCollectionExtensions.AddControllers(Microsoft.Extensions.DependencyInjection.IServiceCollection)"
+            "System.Object Microsoft.Extensions.DependencyInjection.ServiceProvider.GetService(this, System.Type, Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceProviderEngineScope)"
+            "System.Object Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceProviderEngineScope.GetService(this, System.Type)"
+            "System.Object Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService(System.IServiceProvider, System.Type)"
+            "T Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService(System.IServiceProvider)"
+
+            // Mvc
+            "System.Collections.Generic.IEnumerable`1[System.Reflection.TypeInfo] Microsoft.AspNetCore.Mvc.ApplicationParts.AssemblyPart.get_Types(this)"
+            "System.Collections.Generic.IEnumerable`1[System.Reflection.TypeInfo] Microsoft.AspNetCore.Mvc.ApplicationModels.ControllerActionDescriptorProvider.GetControllerTypes(this)"
+            "System.Void Microsoft.AspNetCore.Mvc.Routing.ActionEndpointDataSourceBase.Subscribe(this)"
 
             // TODO: Classify
             "System.Void Microsoft.Extensions.Hosting.Internal.ConsoleLifetime.RegisterShutdownHandlers(this)"
