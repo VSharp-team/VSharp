@@ -211,12 +211,12 @@ type MethodWithBody internal (m : MethodBase) =
         | Some body -> body.ehs
         | None -> Array.empty
 
-    member internal x.AnalyseMethod (failPredicate : analysisEvent -> bool) =
+    member internal x.AnalyseMethod (failPredicate : analysisEvent -> bool) (skipPredicate : MethodBase -> bool) =
         let rawBody =
             match rawBody.Value with
             | Some rawBody when not isCSharpInternalCall.Value -> rawBody
             | _ -> rawMethodBody.Create m
-        ILRewriter.analyseMethod rawBody m failPredicate
+        ILRewriter.analyseMethod rawBody m failPredicate skipPredicate
 
     member x.ParsedInstructions with get() =
         assert(methodBodyBytes <> null)
@@ -284,8 +284,11 @@ type MethodWithBody internal (m : MethodBase) =
             | CallVirt _ -> true
             | Ldsfld f -> changedStaticFields.Contains f
             | Stsfld _ -> true
+        let skipPredicate (method : MethodBase) =
+            let methodName = Reflection.fullGenericMethodName method
+            Loader.isInvokeInternalCall methodName
         x.IsConcretelyInvokable &&
-        (isConcreteCall.Value || shouldAnalyseInvokable.Value && x.AnalyseMethod failPredicate)
+        (isConcreteCall.Value || shouldAnalyseInvokable.Value && x.AnalyseMethod failPredicate skipPredicate)
 
     member x.IsFSharpInternalCall with get() = isFSharpInternalCall.Value
     member x.IsCSharpInternalCall with get() = isCSharpInternalCall.Value
