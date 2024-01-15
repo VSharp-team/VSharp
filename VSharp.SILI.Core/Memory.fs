@@ -1917,10 +1917,7 @@ module internal Memory =
                 let source = source :?> Delegate
                 let result = Delegate.Remove(source, toRemove :?> Delegate)
                 if Object.ReferenceEquals(result, source) then sourceRef
-                else
-                    let concreteAddress = self.AllocateConcreteType typ
-                    concreteMemory.Allocate concreteAddress result
-                    HeapRef (ConcreteHeapAddress concreteAddress) typ
+                else self.ObjToTerm typeof<Delegate> result
             | _, HeapRef({term = ConcreteHeapAddress a}, _), _ ->
                 let sourceDelegates = self.GetDelegates a
                 let removeDelegates = self.SimplifyDelegate toRemoveRef
