@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.IO;
 using System.Text;
 using NUnit.Framework;
 using VSharp.Test;
@@ -217,6 +218,34 @@ namespace IntegrationTests
         {
             var nre = new NullReferenceException(s);
             Console.WriteLine(nre);
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int StreamReaderWriter(string s)
+        {
+            var stream = new MemoryStream();
+            var writer = new StreamWriter(stream);
+            writer.Write(s);
+            writer.Flush();
+            stream.Position = 0;
+            var reader = new StreamReader(stream);
+            if (reader.ReadToEnd() != s)
+                return -1;
+            return 1;
+        }
+
+        [Ignore("takes too much time")]
+        public static int StreamReaderWriter1(string s)
+        {
+            var stream = new MemoryStream();
+            var writer = new StreamWriter(stream);
+            writer.Write(s);
+            writer.Flush();
+            stream.Position = 0;
+            var reader = new StreamReader(stream);
+            if (reader.ReadToEnd() != s && s != null)
+                return -1;
             return 1;
         }
 
