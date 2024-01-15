@@ -35,6 +35,9 @@ module AssemblyManager =
     let NormalizeType (t : Type) =
         alc.NormalizeType(t)
 
+    let NormalizeField (field : FieldInfo) =
+        alc.NormalizeField(field)
+
     let NormalizeMethod (m : MethodBase) =
         alc.NormalizeMethod(m)
 

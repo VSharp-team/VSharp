@@ -263,11 +263,43 @@ type MethodWithBody internal (m : MethodBase) =
 
     member private x.Descriptor = desc
 
-    member x.ResolveMethod token = Reflection.resolveMethod actualMethod token
-    member x.ResolveFieldFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveField actualMethod
-    member x.ResolveTypeFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveType actualMethod
-    member x.ResolveMethodFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveMethod actualMethod
-    member x.ResolveTokenFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveToken actualMethod
+    member x.ResolveMethod token =
+        let method = Reflection.resolveMethod actualMethod token
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        method
+
+    member x.ResolveFieldFromMetadata offset =
+        let field =
+            NumberCreator.extractInt32 x.ILBytes offset
+            |> Reflection.resolveField actualMethod
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        field
+
+    member x.ResolveTypeFromMetadata offset =
+        let t =
+            NumberCreator.extractInt32 x.ILBytes offset
+            |> Reflection.resolveType actualMethod
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        t
+
+    member x.ResolveMethodFromMetadata offset =
+        let method =
+            NumberCreator.extractInt32 x.ILBytes offset
+            |> Reflection.resolveMethod actualMethod
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        method
+
+    member x.ResolveTokenFromMetadata offset =
+        let memberInfo =
+            NumberCreator.extractInt32 x.ILBytes offset
+            |> Reflection.resolveToken actualMethod
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        memberInfo
 
     member x.IsEntryPoint with get() =
         m = (m.Module.Assembly.EntryPoint :> MethodBase)

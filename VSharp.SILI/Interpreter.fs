@@ -108,18 +108,12 @@ module internal InstructionsSet =
 
     let ldarg numberCreator (m : Method) shiftedOffset (cilState : cilState) =
         let argumentIndex = numberCreator m.ILBytes shiftedOffset
+        let hasThis = m.HasThis
+        let state = cilState.state
         let arg =
-            let state = cilState.state
-            let this = if m.HasThis then Some <| Memory.ReadThis state m else None
-            match this, m.HasThis with
-            | None, _
-            | Some _, false ->
-                let term = getArgTerm argumentIndex m
-                Memory.Read state term
-            | Some this, _ when argumentIndex = 0 -> this
-            | Some _, true ->
-                let term = getArgTerm (argumentIndex - 1) m
-                Memory.Read state term
+            if hasThis && argumentIndex = 0 then Memory.ReadThis state m
+            elif hasThis then getArgTerm (argumentIndex - 1) m |> Memory.Read state
+            else getArgTerm argumentIndex m |> Memory.Read state
         cilState.Push arg
 
     let ldarga numberCreator (m : Method) shiftedOffset (cilState : cilState) =

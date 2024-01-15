@@ -26,6 +26,9 @@ namespace VSharp.CSharpUtils
 
         public IEnumerable<string> DependenciesDirs { get; set; } = new List<string>();
 
+        private const BindingFlags Flags =
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+
         private Assembly? OnAssemblyResolve(object sender, ResolveEventArgs args)
         {
             var existingInstance = Assemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
@@ -155,25 +158,32 @@ namespace VSharp.CSharpUtils
             return t;
         }
 
+        public FieldInfo NormalizeField(FieldInfo fieldInfo)
+        {
+            var reflectedType = fieldInfo.ReflectedType;
+            Debug.Assert(reflectedType != null);
+            var type = NormalizeType(reflectedType);
+            return type.GetFields(Flags)
+                .FirstOrDefault(f => f.MetadataToken == fieldInfo.MetadataToken, fieldInfo);
+        }
+
         public MethodBase NormalizeMethod(MethodBase originMethod)
         {
-            const BindingFlags bindingFlags =
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
             var reflectedType = originMethod.ReflectedType;
             if (reflectedType is null)
             {
                 // Case for dynamic methods
                 var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
                 return asm.Modules
-                    .SelectMany(m => m.GetMethods(bindingFlags))
+                    .SelectMany(m => m.GetMethods(Flags))
                     .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken, originMethod);
             }
 
             LoadFromAssemblyPath(reflectedType.Assembly.Location);
             var type = NormalizeType(reflectedType);
-            var method = type.GetMethods(bindingFlags)
+            var method = type.GetMethods(Flags)
                 .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken,
-                    type.GetConstructors(bindingFlags)
+                    type.GetConstructors(Flags)
                         .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken, originMethod));
             return method;
         }
