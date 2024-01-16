@@ -233,9 +233,7 @@ type OpCodeValues =
     | Refanytype        = 0xFE1Ds
     | Readonly_         = 0xFE1Es
 
-[<Measure>]
-type offsets
-type offset = int<offsets>
+type offset = int<byte_offset>
 module Offset =
     let from (x : int) : offset = LanguagePrimitives.Int32WithMeasure x
 

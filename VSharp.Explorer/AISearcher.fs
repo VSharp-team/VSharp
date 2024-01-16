@@ -5,14 +5,32 @@ open VSharp
 open VSharp.IL.Serializer
 open VSharp.ML.GameServer.Messages
 
-type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, stepsToPlay:uint) =
+type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTrainingOptions>) =
+    let stepsToSwitchToAI =
+        match aiAgentTrainingOptions with
+        | None -> 0u<step>
+        | Some options -> options.stepsToSwitchToAI
+        
+    let stepsToPlay =
+        match aiAgentTrainingOptions with
+        | None -> 0u<step>
+        | Some options -> options.stepsToPlay
+        
     let mutable lastCollectedStatistics = Statistics()
+    let mutable defaultSearcherSteps = 0u<step>
     let mutable (gameState:Option<GameState>) = None
-    let mutable useDefaultSearcher = coverageToSwitchToAI > 0u
+    let mutable useDefaultSearcher = stepsToSwitchToAI > 0u<step>
     let mutable afterFirstAIPeek = false
     let mutable incorrectPredictedStateId = false
-    let defaultSearcher = BFSSearcher() :> IForwardSearcher  
-    let mutable stepsPlayed = 0u
+    let defaultSearcher =
+        match aiAgentTrainingOptions with
+        | None -> BFSSearcher() :> IForwardSearcher
+        | Some options ->
+            match options.defaultSearchStrategy with
+            | BFSMode -> BFSSearcher() :> IForwardSearcher
+            | DFSMode -> DFSSearcher() :> IForwardSearcher
+            | x -> failwithf $"Unexpected default searcher {x}. DFS and BFS supported for now."  
+    let mutable stepsPlayed = 0u<step>
     let isInAIMode () = (not useDefaultSearcher) && afterFirstAIPeek
     let q = ResizeArray<_>()
     let availableStates = HashSet<_>()
@@ -65,11 +83,12 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, stepsToPlay:
         states |> Seq.iter (availableStates.Add >> ignore)
     let reset () =
         defaultSearcher.Reset()
+        defaultSearcherSteps <- 0u<step>
         lastCollectedStatistics <- Statistics()
         gameState <- None
         afterFirstAIPeek <- false
         incorrectPredictedStateId <- false
-        useDefaultSearcher <- coverageToSwitchToAI > 0u
+        useDefaultSearcher <- stepsToSwitchToAI > 0u<step>
         q.Clear()
         availableStates.Clear()
     let update (parent, newSates) =
@@ -86,6 +105,7 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, stepsToPlay:
     let pick selector =
         if useDefaultSearcher
         then
+            defaultSearcherSteps <- defaultSearcherSteps + 1u<step>
             if Seq.length availableStates > 0
             then
                 let gameStateDelta = collectGameStateDelta ()                
@@ -93,10 +113,12 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, stepsToPlay:
                 let statistics = computeStatistics gameState.Value
                 Application.applicationGraphDelta.Clear()
                 lastCollectedStatistics <- statistics
-                useDefaultSearcher <- (statistics.CoveredVerticesInZone * 100u) / statistics.TotalVisibleVerticesInZone  < coverageToSwitchToAI
+                useDefaultSearcher <- defaultSearcherSteps < stepsToSwitchToAI
             defaultSearcher.Pick()
         elif Seq.length availableStates = 0
         then None
+        elif Seq.length availableStates = 1
+        then Some (Seq.head availableStates)
         else
             let gameStateDelta = collectGameStateDelta ()
             updateGameState gameStateDelta
@@ -109,13 +131,11 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, stepsToPlay:
             if stepsToPlay = stepsPlayed
             then None
             else
-                let stateId, _ =
-                    let x,y = oracle.Predict gameState.Value
-                    x * 1u<stateId>, y
+                let stateId = oracle.Predict gameState.Value
                 afterFirstAIPeek <- true
                 let state = availableStates |> Seq.tryFind (fun s -> s.internalId = stateId)                
                 lastCollectedStatistics <- statistics
-                stepsPlayed <- stepsPlayed + 1u
+                stepsPlayed <- stepsPlayed + 1u<step>
                 match state with
                 | Some state ->                
                     Some state

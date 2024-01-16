@@ -116,7 +116,7 @@ module CilState =
         }
 
         static member CreateInitial (m : Method) (state : state) =
-            let ip = Instruction(0<offsets>, m)
+            let ip = Instruction(0<byte_offset>, m)
             let approximateLoc = ip.ToCodeLocation() |> Option.get
             {
                 ipStack = List.singleton ip
@@ -155,7 +155,7 @@ module CilState =
 
         member x.StartsFromMethodBeginning with get() =
             match x.startingIP with
-            | Instruction (0<offsets>, _) -> true
+            | Instruction (0<byte_offset>, _) -> true
             | _ -> false
 
         member x.SetCurrentTime time = x.state.currentTime <- time

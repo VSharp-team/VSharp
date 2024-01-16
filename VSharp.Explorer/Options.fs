@@ -34,9 +34,26 @@ type FuzzerOptions = {
 
 [<Struct>]
 type Oracle =
-    val Predict: GameState -> uint*float
+    val Predict: GameState -> uint<stateId>
     val Feedback: Feedback -> unit
     new (predict, feedback) = {Predict=predict; Feedback = feedback}
+
+/// <summary>
+/// Options used in AI agent training.
+/// </summary>
+/// <param name="stepsToSwitchToAI">Number of steps of default searcher prior to switch to AI mode.</param>
+/// <param name="stepsToPlay">Number of steps to play in AI mode.</param>
+/// <param name="defaultSearchStrategy">Default searcher that will be used to play few initial steps.</param>
+/// <param name="serializeSteps">Determine whether steps should be serialized.</param>
+/// <param name="mapName">Name of map to play.</param>
+type AIAgentTrainingOptions =
+    {
+        stepsToSwitchToAI: uint<step>
+        stepsToPlay: uint<step>
+        defaultSearchStrategy: searchMode
+        serializeSteps: bool
+        mapName: string    
+    }
     
 type SVMOptions = {
     explorationMode : explorationMode
@@ -51,10 +68,7 @@ type SVMOptions = {
     randomSeed : int
     stepsLimit : uint
     oracle: Option<Oracle>
-    coverageToSwitchToAI: uint
-    stepsToPlay: uint
-    serialize: bool
-    mapName: string
+    aiAgentTrainingOptions: Option<AIAgentTrainingOptions>
 }
 
 type explorationModeOptions =

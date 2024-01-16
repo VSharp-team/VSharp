@@ -190,9 +190,7 @@ namespace VSharp.Test
                 _explorationMode,
                 _randomSeed,
                 _stepsLimit,
-                _hasExternMocking,
-                _serialize,
-                _pathToSerialize
+                _hasExternMocking
             );
         }
 
@@ -216,8 +214,6 @@ namespace VSharp.Test
             private readonly ExplorationMode _explorationMode;
             private readonly int _randomSeed;
             private readonly uint _stepsLimit;
-            private readonly string _pathToSerialize;
-            private readonly bool _serialize;
 
             private class Reporter: IReporter
             {
@@ -251,9 +247,7 @@ namespace VSharp.Test
                 ExplorationMode explorationMode,
                 int randomSeed,
                 uint stepsLimit,
-                bool hasExternMocking,
-                bool serialize,
-                string pathToSerialize) : base(innerCommand)
+                bool hasExternMocking) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
                 _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
@@ -305,8 +299,6 @@ namespace VSharp.Test
                 _explorationMode = explorationMode;
                 _randomSeed = randomSeed;
                 _stepsLimit = stepsLimit;
-                _serialize = serialize;
-                _pathToSerialize = pathToSerialize;
             }
 
             private TestResult IgnoreTest(TestExecutionContext context)
@@ -464,10 +456,7 @@ namespace VSharp.Test
                         randomSeed: _randomSeed,
                         stepsLimit: _stepsLimit,
                         oracle:null,
-                        coverageToSwitchToAI:0,
-                        stepsToPlay:0,
-                        serialize:_serialize,
-                        mapName:_pathToSerialize
+                        aiAgentTrainingOptions:null
                     );
 
                     var fuzzerOptions = new FuzzerOptions(

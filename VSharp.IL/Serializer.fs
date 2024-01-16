@@ -269,7 +269,7 @@ let collectGameState (basicBlocks:ResizeArray<BasicBlock>) =
             currentBasicBlock.AssociatedStates
             |> Seq.map (fun s ->
                 State(s.Id,
-                      uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<offsets>,
+                      (uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<byte_offset>) * 1u<byte_offset>,
                       s.PathConditionSize,
                       s.VisitedAgainVertices,
                       s.VisitedNotCoveredVerticesInZone,
@@ -289,7 +289,7 @@ let collectGameState (basicBlocks:ResizeArray<BasicBlock>) =
         GameMapVertex(
             currentBasicBlock.Id,
             currentBasicBlock.IsGoal,
-            uint <| currentBasicBlock.FinalOffset - currentBasicBlock.StartOffset + 1<offsets>,
+            uint <| currentBasicBlock.FinalOffset - currentBasicBlock.StartOffset + 1<byte_offset>,
             currentBasicBlock.IsCovered,
             currentBasicBlock.IsVisited,
             currentBasicBlock.IsTouched,

@@ -92,10 +92,7 @@ internal static class Benchmarks
             randomSeed: randomSeed,
             stepsLimit: stepsLimit,
             oracle:null,
-            coverageToSwitchToAI:0,
-            stepsToPlay:0,
-            serialize:false,
-            mapName:null
+            aiAgentTrainingOptions: null
         );
 
         var fuzzerOptions = new FuzzerOptions(

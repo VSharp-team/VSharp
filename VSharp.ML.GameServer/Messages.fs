@@ -3,7 +3,12 @@ module VSharp.ML.GameServer.Messages
 open System.Text
 open System.Text.Json
 open System.Text.Json.Serialization
-
+open VSharp
+  
+type searcher =
+    | BFS = 0
+    | DFS = 1
+    
 [<Struct>]
 type RawInputMessage =
     val MessageType: string
@@ -27,37 +32,22 @@ type GameOverMessageBody =
      val TestsCount: uint32<test>
      val ErrorsCount: uint32<error>
      new (actualCoverage, testsCount, errorsCount) = {ActualCoverage = actualCoverage; TestsCount = testsCount; ErrorsCount = errorsCount}
-     
-     
-    
+       
 [<Struct>]
 type RawOutgoingMessage =
     val MessageType: string
-    val MessageBody: obj //IRawOutgoingMessageBody
+    val MessageBody: obj
     new (messageType, messageBody) = {MessageBody = messageBody; MessageType = messageType}
        
-[<Struct>]
-type GameStartParams =
-    val MapId: uint
-    val StepsToPlay: uint
-    
-    [<JsonConstructor>]
-    new (mapId, stepsToPlay) = {MapId = mapId; StepsToPlay = stepsToPlay}
+type [<Measure>] stateId
 
 [<Struct>]
 type GameStep =
-    val StateId: uint
-    val PredictedStateUsefulness: float
+    val StateId: uint<stateId>    
     
     [<JsonConstructor>]
-    new (stateId, predictedStateUsefulness) = {StateId = stateId; PredictedStateUsefulness = predictedStateUsefulness}
+    new (stateId) = {StateId = stateId}
         
-type InputMessage =
-    | ServerStop
-    | GetTrainMaps
-    | GetValidationMaps 
-    | Start of GameStartParams
-    | Step of GameStep    
 
 [<Struct>]
 type StateHistoryElem =
@@ -71,12 +61,10 @@ type StateHistoryElem =
             StepWhenVisitedLastTime = stepWhenVisitedLastTime
         }
 
-type [<Measure>] stateId
-
 [<Struct>]
 type State =
     val Id: uint<stateId>
-    val Position: uint
+    val Position: uint<byte_offset>
     val PathConditionSize: uint
     val VisitedAgainVertices: uint
     val VisitedNotCoveredVerticesInZone: uint
@@ -186,32 +174,41 @@ type Feedback =
 [<Struct>]
 type GameMap =
     val Id: uint
-    val MaxSteps: uint<step>
-    val CoverageToStart: uint<percent>
+    val StepsToPlay: uint<step>
+    val StepsToStart: uint<step>
+    [<JsonConverter(typeof<JsonStringEnumConverter>)>]
+    val DefaultSearcher: searcher 
     val AssemblyFullName: string
     val NameOfObjectToCover: string
     val MapName: string
-    new (id, maxSteps, coverageToStart, assembly, objectToCover) =
+    new (id, stepsToPlay, stepsToStart, assembly, defaultSearcher, objectToCover) =
         {
             Id = id
-            MaxSteps = maxSteps
-            CoverageToStart = coverageToStart
+            StepsToPlay = stepsToPlay
+            StepsToStart = stepsToStart
             AssemblyFullName = assembly
             NameOfObjectToCover = objectToCover
-            MapName = $"{objectToCover}_{coverageToStart}"
+            DefaultSearcher = defaultSearcher
+            MapName = $"{objectToCover}_{defaultSearcher}_{stepsToStart}"
         }
         
     [<JsonConstructor>]
-    new (id, maxSteps, coverageToStart, assemblyFullName, nameOfObjectToCover, mapName) =
+    new (id, stepsToPlay, stepsToStart, assemblyFullName, defaultSearcher, nameOfObjectToCover, mapName) =
         {
             Id = id
-            MaxSteps = maxSteps
-            CoverageToStart = coverageToStart
+            StepsToPlay = stepsToPlay
+            StepsToStart = stepsToStart
             AssemblyFullName = assemblyFullName
+            DefaultSearcher = defaultSearcher
             NameOfObjectToCover = nameOfObjectToCover
             MapName = mapName
         }
 
+type InputMessage =
+    | ServerStop
+    | Start of GameMap
+    | Step of GameStep
+    
 [<Struct>]
  type ServerErrorMessageBody =
      interface IRawOutgoingMessageBody
@@ -219,36 +216,24 @@ type GameMap =
      new (errorMessage) = {ErrorMessage = errorMessage}
 
 [<Struct>]
- type MapsMessageBody =
-     interface IRawOutgoingMessageBody
-     val Maps: array<GameMap>
-     new (maps) = {Maps = maps}
-     
-     
-[<Struct>]
  type IncorrectPredictedStateIdMessageBody =
      interface IRawOutgoingMessageBody
      val StateId: uint<stateId>
      new (stateId) = {StateId = stateId}     
  
 type OutgoingMessage =
-    | GameOver of System.Nullable<uint>*uint32<test>*uint32<error>
-    | Maps of seq<GameMap>
+    | GameOver of System.Nullable<uint>*uint32<test>*uint32<error>    
     | MoveReward of Reward
     | IncorrectPredictedStateId of uint<stateId>
     | ReadyForNextStep of GameState
     | ServerError of string
     
-let (|MsgTypeStart|MsgTypeStep|MsgGetTrainMaps|MsgGetValidationMaps|MsgStop|) (str:string) =
+let (|MsgTypeStart|MsgTypeStep|MsgStop|) (str:string) =
     let normalized = str.ToLowerInvariant().Trim()
     if normalized = "start"
     then MsgTypeStart
     elif normalized = "step"
     then MsgTypeStep
-    elif normalized = "gettrainmaps"
-    then MsgGetTrainMaps
-    elif normalized = "getvalidationmaps"
-    then MsgGetValidationMaps
     elif normalized = "stop"
     then MsgStop
     else failwithf $"Unexpected message type %s{str}"
@@ -259,15 +244,12 @@ let deserializeInputMessage (messageData:byte[]) =
         str |> JsonSerializer.Deserialize<RawInputMessage>
     match rawInputMessage.MessageType with
     | MsgStop -> ServerStop
-    | MsgTypeStart -> Start (JsonSerializer.Deserialize<GameStartParams> rawInputMessage.MessageBody)
+    | MsgTypeStart -> Start (JsonSerializer.Deserialize<GameMap> rawInputMessage.MessageBody)
     | MsgTypeStep -> Step (JsonSerializer.Deserialize<GameStep>(rawInputMessage.MessageBody))
-    | MsgGetTrainMaps -> GetTrainMaps
-    | MsgGetValidationMaps -> GetValidationMaps
 
 let serializeOutgoingMessage (message:OutgoingMessage) =
     match message with
-    | GameOver (actualCoverage,testsCount, errorsCount) -> RawOutgoingMessage("GameOver", box (GameOverMessageBody (actualCoverage, testsCount, errorsCount)))
-    | Maps maps -> RawOutgoingMessage("Maps", MapsMessageBody (Array.ofSeq maps))
+    | GameOver (actualCoverage,testsCount, errorsCount) -> RawOutgoingMessage("GameOver", box (GameOverMessageBody (actualCoverage, testsCount, errorsCount)))   
     | MoveReward reward -> RawOutgoingMessage("MoveReward", reward)
     | IncorrectPredictedStateId stateId -> RawOutgoingMessage("IncorrectPredictedStateId", IncorrectPredictedStateIdMessageBody stateId)
     | ReadyForNextStep state -> RawOutgoingMessage("ReadyForNextStep", state)

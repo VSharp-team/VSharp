@@ -368,7 +368,7 @@ and CfgInfo internal (method : MethodWithBody, getNextBasicBlockGlobalId: unit -
     do
         let startVertices =
             [|
-             yield 0<offsets>
+             yield 0<byte_offset>
              for handler in exceptionHandlers do
                  yield handler.handlerOffset
                  match handler.ehcType with

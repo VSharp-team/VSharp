@@ -188,10 +188,8 @@ namespace VSharp
                     randomSeed: options.RandomSeed,
                     stepsLimit: options.StepsLimit,
                     oracle: options.Oracle,
-                    coverageToSwitchToAI:options.CoverageToSwitchToAI,
-                    stepsToPlay:options.StepsToPlay,
-                    serialize:options.Serialize,
-                    mapName:options.MapName);
+                    aiAgentTrainingOptions: options.AIAgentTrainingOptions
+                    );
 
             var fuzzerOptions =
                 new FuzzerOptions(

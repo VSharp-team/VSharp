@@ -14,7 +14,6 @@ open VSharp
 open VSharp.Core
 open VSharp.Explorer
 open VSharp.ML.GameServer.Messages
-open VSharp.ML.GameServer.Maps
 open VSharp.Runner
    
 type Mode =
@@ -124,13 +123,13 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
                             | (Text, data, true) ->
                                 let msg = deserializeInputMessage data
                                 match msg with
-                                | Step stepParams -> (stepParams.StateId, stepParams.PredictedStateUsefulness)
+                                | Step stepParams -> (stepParams.StateId)
                                 | _ -> failwithf $"Unexpected message: %A{msg}"
                             | _ -> failwithf $"Unexpected message: %A{msg}"
                         return res
                     }
                 match Async.RunSynchronously res with
-                | Choice1Of2 (i, f) -> (i, f)
+                | Choice1Of2 (i) -> (i)
                 | Choice2Of2 error -> failwithf $"Error: %A{error}"
         
         Oracle(predict,feedback)
@@ -142,22 +141,23 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
                 let message = deserializeInputMessage data
                 match message with
                 | ServerStop -> loop <- false
-                | GetTrainMaps ->
-                    inTrainMode <- true
-                    do! sendResponse (Maps trainMaps.Values)
-                | GetValidationMaps ->
-                    inTrainMode <- false
-                    do! sendResponse (Maps validationMaps.Values)
-                | Start gameStartParams ->
-                    let settings =
-                        if inTrainMode
-                        then trainMaps.[gameStartParams.MapId]
-                        else validationMaps.[gameStartParams.MapId]
-                    let assembly = RunnerProgram.TryLoadAssembly <| FileInfo settings.AssemblyFullName
-                    
+                | Start gameMap ->
+                    let assembly = RunnerProgram.TryLoadAssembly <| FileInfo gameMap.AssemblyFullName
                     let actualCoverage,testsCount,errorsCount =                         
-                        let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                        let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
+                        let method = RunnerProgram.ResolveMethod(assembly, gameMap.NameOfObjectToCover)
+                        let aiTrainingOptions =
+                            {
+                                stepsToSwitchToAI = gameMap.StepsToStart
+                                stepsToPlay = gameMap.StepsToPlay
+                                defaultSearchStrategy =
+                                    match gameMap.DefaultSearcher with
+                                    | searcher.BFS -> BFSMode
+                                    | searcher.DFS -> DFSMode
+                                    | x -> failwithf $"Unexpected searcher {x}. Use DFS or BFS for now."  
+                                serializeSteps = false
+                                mapName = gameMap.MapName
+                            } 
+                        let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, oracle = oracle, searchStrategy = SearchStrategy.AI, aiAgentTrainingOptions = aiTrainingOptions, solverTimeout=2)
                         let statistics = TestGenerator.Cover(method, options)
                         let actualCoverage = 
                             try 
@@ -165,7 +165,7 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
                                 let _expectedCoverage = 100
                                 let exploredMethodInfo = AssemblyManager.NormalizeMethod method
                                 let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
-                                printfn $"Actual coverage for {settings.MapName}: {actualCoverage}"
+                                printfn $"Actual coverage for {gameMap.MapName}: {actualCoverage}"
                                 System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
                             with
                             e ->
@@ -194,12 +194,20 @@ let app port : WebPart =
 
 let generateDataForPretraining outputDirectory datasetBasePath (maps:Dictionary<uint32,GameMap>) stepsToSerialize =
     for kvp in maps do
-        if kvp.Value.CoverageToStart = 0u<percent>
+        if kvp.Value.StepsToStart = 0u<step>
         then
             printfn $"Generation for {kvp.Value.MapName} started."
             let assembly = RunnerProgram.TryLoadAssembly <| FileInfo(Path.Combine (datasetBasePath, kvp.Value.AssemblyFullName)) 
             let method = RunnerProgram.ResolveMethod(assembly, kvp.Value.NameOfObjectToCover)
-            let options = VSharpOptions(timeout = 5 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.ExecutionTreeContributedCoverage, stepsLimit = stepsToSerialize, solverTimeout=2, mapName = kvp.Value.MapName, serialize = true)
+            let aiTrainingOptions =
+                {
+                    stepsToSwitchToAI = 0u<step>
+                    stepsToPlay = 0u<step>
+                    defaultSearchStrategy = searchMode.BFSMode
+                    serializeSteps = true
+                    mapName = kvp.Value.MapName
+                } 
+            let options = VSharpOptions(timeout = 5 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.ExecutionTreeContributedCoverage, stepsLimit = stepsToSerialize, solverTimeout=2, aiAgentTrainingOptions = aiTrainingOptions)
             let statistics = TestGenerator.Cover(method, options)
             printfn $"Generation for {kvp.Value.MapName} finished."
             Application.reset()

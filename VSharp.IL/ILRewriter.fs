@@ -1078,7 +1078,7 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
 
         // TODO: unify code with Instruction.fs (parseInstruction)
         let mutable branch = false
-        let mutable offset = 0<offsets>
+        let mutable offset = 0<byte_offset>
         let codeSize : offset = Offset.from codeSize
         while offset < codeSize do
             let startOffset = offset
@@ -1088,11 +1088,11 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
             let size =
                 match op.OperandType with
                 | OperandType.InlineNone
-                | OperandType.InlineSwitch -> 0<offsets>
+                | OperandType.InlineSwitch -> 0<byte_offset>
                 | OperandType.ShortInlineVar
                 | OperandType.ShortInlineI
-                | OperandType.ShortInlineBrTarget -> 1<offsets>
-                | OperandType.InlineVar -> 2<offsets>
+                | OperandType.ShortInlineBrTarget -> 1<byte_offset>
+                | OperandType.InlineVar -> 2<byte_offset>
                 | OperandType.InlineI
                 | OperandType.InlineMethod
                 | OperandType.InlineType
@@ -1101,9 +1101,9 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
                 | OperandType.InlineTok
                 | OperandType.ShortInlineR
                 | OperandType.InlineField
-                | OperandType.InlineBrTarget -> 4<offsets>
+                | OperandType.InlineBrTarget -> 4<byte_offset>
                 | OperandType.InlineI8
-                | OperandType.InlineR -> 8<offsets>
+                | OperandType.InlineR -> 8<byte_offset>
                 | _ -> __unreachable__()
 
             if offset + size > codeSize then invalidProgram "IL stream unexpectedly ended!"
@@ -1133,10 +1133,10 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
             | OperandType.InlineR ->
                 instr.arg <- Arg64 <| BitConverter.ToInt64(code, int offset)
             | OperandType.ShortInlineBrTarget ->
-                instr.arg <- offset + 1<offsets> + (code.[int offset] |> sbyte |> int |> Offset.from) |> int |> Arg32
+                instr.arg <- offset + 1<byte_offset> + (code.[int offset] |> sbyte |> int |> Offset.from) |> int |> Arg32
                 branch <- true;
             | OperandType.InlineBrTarget ->
-                instr.arg <- offset + 4<offsets> + NumberCreator.extractOffset code offset |> int |> Arg32
+                instr.arg <- offset + 4<byte_offset> + NumberCreator.extractOffset code offset |> int |> Arg32
                 branch <- true;
             | OperandType.InlineSwitch ->
                 let sizeOfInt = Offset.from sizeof<int>

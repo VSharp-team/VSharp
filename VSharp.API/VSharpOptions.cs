@@ -112,10 +112,7 @@ public readonly record struct VSharpOptions
     public readonly int RandomSeed = DefaultRandomSeed;
     public readonly uint StepsLimit = DefaultStepsLimit;
     public readonly Oracle? Oracle = null;
-    public readonly uint CoverageToSwitchToAI = 0;
-    public readonly uint StepsToPlay = 0;
-    public readonly string MapName = "";
-    public readonly bool Serialize = false;
+    public readonly AIAgentTrainingOptions? AIAgentTrainingOptions = null;
 
     /// <summary>
     /// Symbolic virtual machine options.
@@ -146,10 +143,7 @@ public readonly record struct VSharpOptions
         int randomSeed = DefaultRandomSeed,
         uint stepsLimit = DefaultStepsLimit,
         Oracle? oracle = null,
-        uint coverageToSwitchToAI = 0,
-        uint stepsToPlay = 0,
-        string mapName = "",
-        bool serialize = false)
+        AIAgentTrainingOptions? aiAgentTrainingOptions = null)
     {
         Timeout = timeout;
         SolverTimeout = solverTimeout;
@@ -164,10 +158,7 @@ public readonly record struct VSharpOptions
         RandomSeed = randomSeed;
         StepsLimit = stepsLimit;
         Oracle = oracle;
-        CoverageToSwitchToAI = coverageToSwitchToAI;
-        StepsToPlay = stepsToPlay;
-        MapName = mapName;
-        Serialize = serialize;
+        AIAgentTrainingOptions = aiAgentTrainingOptions;
     }
 
     /// <summary>

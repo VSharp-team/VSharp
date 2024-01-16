@@ -29,7 +29,9 @@ type private IExplorer =
 type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVMStatistics, reporter: IReporter) =
     let options = explorationOptions.svmOptions 
     let folderToStoreSerializationResult =
-        getFolderToStoreSerializationResult explorationOptions.outputDirectory.FullName options.mapName    
+        match options.aiAgentTrainingOptions with
+        | None -> ""
+        | Some options -> getFolderToStoreSerializationResult explorationOptions.outputDirectory.FullName options.mapName    
     let hasTimeout = explorationOptions.timeout.TotalMilliseconds > 0
 
     let solverTimeout =
@@ -78,7 +80,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
     let rec mkForwardSearcher mode =
         let getRandomSeedOption() = if options.randomSeed < 0 then None else Some options.randomSeed
         match mode with
-        | AIMode -> AISearcher(options.coverageToSwitchToAI, options.oracle.Value, options.stepsToPlay) :> IForwardSearcher
+        | AIMode -> AISearcher(options.oracle.Value, options.aiAgentTrainingOptions) :> IForwardSearcher
         | BFSMode -> BFSSearcher() :> IForwardSearcher
         | DFSMode -> DFSSearcher() :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
@@ -339,7 +341,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while not isStopped && not <| isStepsLimitReached() && not <| isTimeoutReached() && pick() do
-            if options.serialize
+            if options.aiAgentTrainingOptions.IsSome && options.aiAgentTrainingOptions.Value.serializeSteps
             then
                 dumpGameState (System.IO.Path.Combine(folderToStoreSerializationResult, string firstFreeEpisodeNumber))
                 firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1

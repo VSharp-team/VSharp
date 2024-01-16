@@ -638,7 +638,7 @@ type ILInterpreter() as this =
 
     static member InitFunctionFrameCIL (cilState : cilState) (method : Method) this paramValues =
         Memory.InitFunctionFrame cilState.state method this (paramValues |> Option.bind (List.map Some >> Some))
-        Instruction(0<offsets>, method) |> cilState.PushToIp
+        Instruction(0<byte_offset>, method) |> cilState.PushToIp
 
     static member CheckDisallowNullAttribute (method : Method) (argumentsOpt : term list option) (cilState : cilState) shouldReportError k =
         if not <| method.CheckAttributes then
@@ -1971,11 +1971,11 @@ type ILInterpreter() as this =
         executeAllInstructions ([],[],[]) cilState id
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
-        if offset = 0<offsets> || m.CFG.IsLoopEntry offset then
+        if offset = 0<byte_offset> || m.CFG.IsLoopEntry offset then
             cilState.IncrementLevel {offset = offset; method = m}
 
     member private x.DecrementMethodLevel (cilState : cilState) method =
-        let key = {offset = 0<offsets>; method = method}
+        let key = {offset = 0<byte_offset>; method = method}
         cilState.DecrementLevel key
 
     member private x.InTryBlock offset (clause : ExceptionHandlingClause) =
@@ -2028,7 +2028,7 @@ type ILInterpreter() as this =
             // Normal execution
             // Also on entering try block we push new exception register
             | Instruction(offset, m) ->
-                if offset = 0<offsets> then Logger.info $"Starting to explore method {m}"
+                if offset = 0<byte_offset> then Logger.info $"Starting to explore method {m}"
                 x.PushExceptionRegisterIfNeeded cilState m offset
                 x.ExecuteInstruction m offset cilState |> k
             // Exiting method

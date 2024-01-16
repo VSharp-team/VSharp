@@ -8,4 +8,8 @@
         <Compile Include="Messages.fs" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
+    </ItemGroup>
+
 </Project>
