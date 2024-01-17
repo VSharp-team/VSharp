@@ -111,8 +111,8 @@ public readonly record struct VSharpOptions
     public readonly bool ReleaseBranches = DefaultReleaseBranches;
     public readonly int RandomSeed = DefaultRandomSeed;
     public readonly uint StepsLimit = DefaultStepsLimit;
-    public readonly Oracle? Oracle = null;
     public readonly AIAgentTrainingOptions AIAgentTrainingOptions = null;
+    public readonly string PathToModel = null;
 
     /// <summary>
     /// Symbolic virtual machine options.
@@ -129,6 +129,8 @@ public readonly record struct VSharpOptions
     /// <param name="releaseBranches">If true and timeout is specified, a part of allotted time in the end is given to execute remaining states without branching.</param>
     /// <param name="randomSeed">Fixed seed for random operations. Used if greater than or equal to zero.</param>
     /// <param name="stepsLimit">Number of symbolic machine steps to stop execution after. Zero value means no limit.</param>
+    /// <param name="aiAgentTrainingOptions">Settings for AI searcher training.</param>
+    /// <param name="pathToModel">Path to ONNX file with model to use in AI searcher.</param>
     public VSharpOptions(
         int timeout = DefaultTimeout,
         int solverTimeout = DefaultSolverTimeout,
@@ -142,8 +144,8 @@ public readonly record struct VSharpOptions
         bool releaseBranches = DefaultReleaseBranches,
         int randomSeed = DefaultRandomSeed,
         uint stepsLimit = DefaultStepsLimit,
-        Oracle? oracle = null,
-        AIAgentTrainingOptions aiAgentTrainingOptions = null)
+        AIAgentTrainingOptions aiAgentTrainingOptions = null,
+        string pathToModel = null)
     {
         Timeout = timeout;
         SolverTimeout = solverTimeout;
@@ -157,8 +159,8 @@ public readonly record struct VSharpOptions
         ReleaseBranches = releaseBranches;
         RandomSeed = randomSeed;
         StepsLimit = stepsLimit;
-        Oracle = oracle;
         AIAgentTrainingOptions = aiAgentTrainingOptions;
+        PathToModel = pathToModel;
     }
 
     /// <summary>

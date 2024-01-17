@@ -3,11 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.WebSockets;
 using System.Reflection;
 using System.Text;
 using VSharp.CSharpUtils;
-using VSharp.IL;
 using VSharp.Interpreter.IL;
 using VSharp.Explorer;
 
@@ -187,8 +185,8 @@ namespace VSharp
                     stopOnCoverageAchieved: 100,
                     randomSeed: options.RandomSeed,
                     stepsLimit: options.StepsLimit,
-                    oracle: options.Oracle,
-                    aiAgentTrainingOptions: options.AIAgentTrainingOptions
+                    aiAgentTrainingOptions: options.AIAgentTrainingOptions,
+                    pathToModel: options.PathToModel
                     );
 
             var fuzzerOptions =

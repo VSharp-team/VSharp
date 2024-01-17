@@ -156,8 +156,9 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
                                     | x -> failwithf $"Unexpected searcher {x}. Use DFS or BFS for now."  
                                 serializeSteps = false
                                 mapName = gameMap.MapName
+                                oracle = Some oracle
                             } 
-                        let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, oracle = oracle, searchStrategy = SearchStrategy.AI, aiAgentTrainingOptions = aiTrainingOptions, solverTimeout=2)
+                        let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.AI, aiAgentTrainingOptions = aiTrainingOptions, solverTimeout=2)
                         let statistics = TestGenerator.Cover(method, options)
                         let actualCoverage = 
                             try 
@@ -206,6 +207,7 @@ let generateDataForPretraining outputDirectory datasetBasePath (maps:Dictionary<
                     defaultSearchStrategy = searchMode.BFSMode
                     serializeSteps = true
                     mapName = kvp.Value.MapName
+                    oracle = None
                 } 
             let options = VSharpOptions(timeout = 5 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.ExecutionTreeContributedCoverage, stepsLimit = stepsToSerialize, solverTimeout=2, aiAgentTrainingOptions = aiTrainingOptions)
             let statistics = TestGenerator.Cover(method, options)

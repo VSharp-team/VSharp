@@ -115,13 +115,12 @@ namespace VSharp.Test
         private readonly bool _releaseBranches;
         private readonly bool _checkAttributes;
         private readonly bool _hasExternMocking;
-        private readonly string _pathToSerialize;
-        private readonly bool _serialize;
         private readonly OsType _supportedOs;
         private readonly FuzzerIsolation _fuzzerIsolation;
         private readonly ExplorationMode _explorationMode;
         private readonly int _randomSeed;
         private readonly uint _stepsLimit;
+        private readonly string _pathToModel;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -139,7 +138,7 @@ namespace VSharp.Test
             ExplorationMode explorationMode = ExplorationMode.Sili,
             int randomSeed = 0,
             uint stepsLimit = 0,
-            string serialize = null)
+            string pathToModel = null)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -160,16 +159,8 @@ namespace VSharp.Test
             _fuzzerIsolation = fuzzerIsolation;
             _explorationMode = explorationMode;
             _randomSeed = randomSeed;
+            _pathToModel = pathToModel;
             _stepsLimit = stepsLimit;
-            if (serialize == null)
-            {
-                _serialize = false;
-            }
-            else
-            {
-                _pathToSerialize = serialize;
-                _serialize = true;
-            }
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -190,6 +181,7 @@ namespace VSharp.Test
                 _explorationMode,
                 _randomSeed,
                 _stepsLimit,
+                _pathToModel,
                 _hasExternMocking
             );
         }
@@ -214,6 +206,7 @@ namespace VSharp.Test
             private readonly ExplorationMode _explorationMode;
             private readonly int _randomSeed;
             private readonly uint _stepsLimit;
+            private readonly string _pathToModel;
 
             private class Reporter: IReporter
             {
@@ -247,6 +240,7 @@ namespace VSharp.Test
                 ExplorationMode explorationMode,
                 int randomSeed,
                 uint stepsLimit,
+                string pathToModel,
                 bool hasExternMocking) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
@@ -299,6 +293,7 @@ namespace VSharp.Test
                 _explorationMode = explorationMode;
                 _randomSeed = randomSeed;
                 _stepsLimit = stepsLimit;
+                _pathToModel = pathToModel;
             }
 
             private TestResult IgnoreTest(TestExecutionContext context)
@@ -455,8 +450,8 @@ namespace VSharp.Test
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
                         randomSeed: _randomSeed,
                         stepsLimit: _stepsLimit,
-                        oracle:null,
-                        aiAgentTrainingOptions:null
+                        aiAgentTrainingOptions:null,
+                        pathToModel: _pathToModel
                     );
 
                     var fuzzerOptions = new FuzzerOptions(

@@ -46,13 +46,15 @@ type Oracle =
 /// <param name="defaultSearchStrategy">Default searcher that will be used to play few initial steps.</param>
 /// <param name="serializeSteps">Determine whether steps should be serialized.</param>
 /// <param name="mapName">Name of map to play.</param>
+/// <param name="mapName">Name of map to play.</param>
 type AIAgentTrainingOptions =
     {
         stepsToSwitchToAI: uint<step>
         stepsToPlay: uint<step>
         defaultSearchStrategy: searchMode
         serializeSteps: bool
-        mapName: string    
+        mapName: string
+        oracle: Option<Oracle>
     }
     
 type SVMOptions = {
@@ -67,8 +69,8 @@ type SVMOptions = {
     stopOnCoverageAchieved : int
     randomSeed : int
     stepsLimit : uint
-    oracle: Option<Oracle>
     aiAgentTrainingOptions: Option<AIAgentTrainingOptions>
+    pathToModel: Option<string>
 }
 
 type explorationModeOptions =

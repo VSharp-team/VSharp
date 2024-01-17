@@ -91,8 +91,8 @@ internal static class Benchmarks
             stopOnCoverageAchieved: -1,
             randomSeed: randomSeed,
             stepsLimit: stepsLimit,
-            oracle:null,
-            aiAgentTrainingOptions: null
+            aiAgentTrainingOptions: null,
+            pathToModel: null
         );
 
         var fuzzerOptions = new FuzzerOptions(

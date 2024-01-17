@@ -134,6 +134,10 @@ namespace VSharp.Runner
                 aliases: new[] { "--timeout", "-t" },
                 () => -1,
                 "Time for test generation in seconds. Negative value means no timeout.");
+            var pathToModelOption = new Option<string>(
+                aliases: new[] { "--model", "-m" },
+                () => null,
+                "Path to ONNX file with model for AI searcher.");
             var solverTimeoutOption = new Option<int>(
                 aliases: new[] { "--solver-timeout", "-st" },
                 () => -1,
@@ -178,6 +182,7 @@ namespace VSharp.Runner
             entryPointCommand.AddArgument(assemblyPathArgument);
             entryPointCommand.AddArgument(concreteArguments);
             entryPointCommand.AddGlobalOption(timeoutOption);
+            entryPointCommand.AddGlobalOption(pathToModelOption);
             entryPointCommand.AddGlobalOption(solverTimeoutOption);
             entryPointCommand.AddGlobalOption(outputOption);
             entryPointCommand.AddOption(unknownArgsOption);
@@ -192,6 +197,7 @@ namespace VSharp.Runner
             rootCommand.AddCommand(allPublicMethodsCommand);
             allPublicMethodsCommand.AddArgument(assemblyPathArgument);
             allPublicMethodsCommand.AddGlobalOption(timeoutOption);
+            allPublicMethodsCommand.AddGlobalOption(pathToModelOption);
             allPublicMethodsCommand.AddGlobalOption(solverTimeoutOption);
             allPublicMethodsCommand.AddGlobalOption(outputOption);
             allPublicMethodsCommand.AddGlobalOption(renderTestsOption);
@@ -208,6 +214,7 @@ namespace VSharp.Runner
             publicMethodsOfClassCommand.AddArgument(classArgument);
             publicMethodsOfClassCommand.AddArgument(assemblyPathArgument);
             publicMethodsOfClassCommand.AddGlobalOption(timeoutOption);
+            publicMethodsOfClassCommand.AddGlobalOption(pathToModelOption);
             publicMethodsOfClassCommand.AddGlobalOption(solverTimeoutOption);
             publicMethodsOfClassCommand.AddGlobalOption(outputOption);
             publicMethodsOfClassCommand.AddGlobalOption(renderTestsOption);
@@ -223,6 +230,7 @@ namespace VSharp.Runner
             specificMethodCommand.AddArgument(methodArgument);
             specificMethodCommand.AddArgument(assemblyPathArgument);
             specificMethodCommand.AddGlobalOption(timeoutOption);
+            specificMethodCommand.AddGlobalOption(pathToModelOption);
             specificMethodCommand.AddGlobalOption(solverTimeoutOption);
             specificMethodCommand.AddGlobalOption(outputOption);
             specificMethodCommand.AddGlobalOption(renderTestsOption);
@@ -238,6 +246,7 @@ namespace VSharp.Runner
             namespaceCommand.AddArgument(namespaceArgument);
             namespaceCommand.AddArgument(assemblyPathArgument);
             namespaceCommand.AddGlobalOption(timeoutOption);
+            namespaceCommand.AddGlobalOption(pathToModelOption);
             namespaceCommand.AddGlobalOption(solverTimeoutOption);
             namespaceCommand.AddGlobalOption(outputOption);
             namespaceCommand.AddGlobalOption(renderTestsOption);
@@ -249,8 +258,8 @@ namespace VSharp.Runner
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, int, DirectoryInfo, bool, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
-                (assemblyPath, args, timeout, solverTimeout, output, unknownArgs, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, string, int, DirectoryInfo, bool, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (assemblyPath, args, timeout, pathToModel, solverTimeout, output, unknownArgs, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     var inputArgs = unknownArgs ? null : args;
@@ -263,7 +272,8 @@ namespace VSharp.Runner
                             searchStrategy: strat,
                             verbosity: verbosity,
                             recursionThreshold: recursionThreshold,
-                            explorationMode: explorationMode);
+                            explorationMode: explorationMode,
+                            pathToModel: pathToModel);
 
                     if (assembly == null) return;
 
@@ -275,8 +285,8 @@ namespace VSharp.Runner
                     else PostProcess(TestGenerator.Cover(assembly, inputArgs, options));
                 });
 
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, int, DirectoryInfo, bool, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
-                (assemblyPath, timeout, solverTimeout, output, renderTests, runTests, singleFile, strat, verbosity, recursionThreshold, explorationMode) =>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, string, int, DirectoryInfo, bool, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (assemblyPath, timeout, pathToModel, solverTimeout, output, renderTests, runTests, singleFile, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     var options =
@@ -288,7 +298,8 @@ namespace VSharp.Runner
                             searchStrategy: strat,
                             verbosity: verbosity,
                             recursionThreshold: recursionThreshold,
-                            explorationMode: explorationMode);
+                            explorationMode: explorationMode,
+                            pathToModel: pathToModel);
 
                     if (assembly == null) return;
 
@@ -300,8 +311,8 @@ namespace VSharp.Runner
                     else PostProcess(TestGenerator.Cover(assembly, options));
                 });
 
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
-                (className, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, string, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (className, assemblyPath, timeout, pathToModel, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     if (assembly == null) return;
@@ -322,7 +333,8 @@ namespace VSharp.Runner
                             searchStrategy: strat,
                             verbosity: verbosity,
                             recursionThreshold: recursionThreshold,
-                            explorationMode: explorationMode);
+                            explorationMode: explorationMode,
+                            pathToModel: pathToModel);
 
                     if (runTests)
                     {
@@ -332,8 +344,8 @@ namespace VSharp.Runner
                     else PostProcess(TestGenerator.Cover(type, options));
                 });
 
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
-                (methodName, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, string, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (methodName, assemblyPath, timeout, pathToModel, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     if (assembly == null) return;
@@ -370,7 +382,8 @@ namespace VSharp.Runner
                             searchStrategy: strat,
                             verbosity: verbosity,
                             recursionThreshold: recursionThreshold,
-                            explorationMode: explorationMode);
+                            explorationMode: explorationMode,
+                            pathToModel: pathToModel);
 
                     if (runTests)
                     {
@@ -380,8 +393,8 @@ namespace VSharp.Runner
                     else PostProcess(TestGenerator.Cover(method, options));
                 });
 
-            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
-                (namespaceName, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
+            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, string, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (namespaceName, assemblyPath, timeout, pathToModel, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     if (assembly == null) return;
@@ -402,7 +415,8 @@ namespace VSharp.Runner
                             searchStrategy: strat,
                             verbosity: verbosity,
                             recursionThreshold: recursionThreshold,
-                            explorationMode: explorationMode);
+                            explorationMode: explorationMode,
+                            pathToModel: pathToModel);
                     if (runTests)
                     {
                         TestGenerator.CoverAndRun(namespaceTypes, out var statistics, options);

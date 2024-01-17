@@ -80,7 +80,16 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
     let rec mkForwardSearcher mode =
         let getRandomSeedOption() = if options.randomSeed < 0 then None else Some options.randomSeed
         match mode with
-        | AIMode -> AISearcher(options.oracle.Value, options.aiAgentTrainingOptions) :> IForwardSearcher
+        | AIMode ->
+            match options.aiAgentTrainingOptions with
+            | Some aiOptions ->
+                match aiOptions.oracle with 
+                | Some oracle -> AISearcher(oracle, options.aiAgentTrainingOptions) :> IForwardSearcher
+                | None -> failwith "Empty oracle for AI searcher."           
+            | None ->
+                match options.pathToModel with
+                | Some s -> AISearcher s
+                | None -> failwith "Empty model for AI searcher."
         | BFSMode -> BFSSearcher() :> IForwardSearcher
         | DFSMode -> DFSSearcher() :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
