@@ -83,7 +83,7 @@ namespace VSharp.Test
         }
     }
 
-    public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
+    public sealed class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
     {
         private const string CsvPathParameterName = "csvPath";
         private const string RunIdParameterName = "runId";
@@ -169,7 +169,7 @@ namespace VSharp.Test
             _stepsLimit = stepsLimit;
         }
 
-        public virtual TestCommand Wrap(TestCommand command)
+        public TestCommand Wrap(TestCommand command)
         {
             return new TestSvmCommand(
                 command,
@@ -504,7 +504,11 @@ namespace VSharp.Test
                     }
                     else
                     {
-                        context.CurrentResult.SetResult(ResultState.Success);
+                        context.CurrentResult.SetResult(
+                            _expectedCoverage > 0
+                                ? ResultState.Failure
+                                : ResultState.Success
+                        );
                         reporter?.Report(stats);
                     }
                 }

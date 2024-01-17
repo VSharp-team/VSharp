@@ -9,11 +9,14 @@ open VSharp.Interpreter.IL.CilState
 module internal ReadOnlySpan =
 
     val GetContentsRef : cilState -> term -> term
-    val GetLength : cilState -> term -> term
+    val CommonGetLength : cilState -> term -> term
 
     [<Implements("T& System.ReadOnlySpan`1[T].get_Item(this, System.Int32)")>]
     [<Implements("T& System.Span`1[T].get_Item(this, System.Int32)")>]
     val GetItem : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Int32 System.ReadOnlySpan`1[T].get_Length(this)")>]
+    val GetLength : IInterpreter -> cilState -> term list -> cilState list
 
     [<Implements("System.Void System.ReadOnlySpan`1[T]..ctor(this, System.Void*, System.Int32)")>]
     [<Implements("System.Void System.Span`1[T]..ctor(this, System.Void*, System.Int32)")>]
@@ -28,3 +31,9 @@ module internal ReadOnlySpan =
     [<Implements("System.ReadOnlySpan`1[System.Char] System.MemoryExtensions.AsSpan(System.String)")>]
     [<Implements("System.ReadOnlySpan`1[System.Char] System.String.op_Implicit(System.String)")>]
     val CreateFromString : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.ReadOnlySpan`1[T] System.Runtime.CompilerServices.RuntimeHelpers.CreateSpan(System.RuntimeFieldHandle)")>]
+    val CreateSpanFromFieldHandle : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Void* System.Runtime.CompilerServices.RuntimeHelpers.GetSpanDataFrom(System.RuntimeFieldHandle, System.RuntimeTypeHandle, System.Int32&)")>]
+    val GetSpanDataFrom : IInterpreter -> cilState -> term list -> cilState list

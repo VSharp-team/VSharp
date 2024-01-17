@@ -14,7 +14,7 @@ module VectorTime =
         if time = zero then RuntimeHelpers.GetHashCode null
         else time.GetHashCode()
 
-    let extractFromSingleton (time: vectorTime) =
+    let extractFromSingleton (time : vectorTime) =
         assert(List.length time = 1)
         List.head time
 

@@ -1249,8 +1249,8 @@ module internal Z3 =
                 let recurred = x.WriteByPath contents[field] value parts
                 Memory.WriteStructField term field recurred
             | StructFieldPart _ :: _, _ -> internalfail $"WriteByPath: expected structure, but got {term}"
-            | PointerOffset _ :: parts, _
-            | PointerAddress _ :: parts, _ when List.isEmpty parts |> not ->
+            | PointerOffset :: parts, _
+            | PointerAddress :: parts, _ when List.isEmpty parts |> not ->
                 internalfail $"WriteByPath: unexpected path {path}"
             | _ -> internalfail $"WriteByPath: unexpected term {term} and path {path}"
 

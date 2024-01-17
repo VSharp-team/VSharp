@@ -9,7 +9,6 @@ open System.Threading.Tasks
 open VSharp
 open VSharp.CSharpUtils
 open VSharp.Fuzzer.Communication
-open Logger
 open VSharp.Fuzzer.Communication.Contracts
 open VSharp.Fuzzer.Communication.Services
 open VSharp.Fuzzer.Startup
@@ -33,7 +32,7 @@ type private SiliStatisticConverter() =
                 methods.Add (l.methodToken, method)
                 method
 
-        let toCodeLocation l =
+        let toCodeLocation (l : RawCoverageLocation) =
             {
                 offset = LanguagePrimitives.Int32WithMeasure (int l.offset)
                 method = methodInfo[l.methodId] |> getMethod
@@ -76,7 +75,7 @@ type private TestRestorer (fuzzerOptions, assemblyPath, outputDirectory) =
             | Some test ->
                 let testPath = $"{outputDirectory}{Path.DirectorySeparatorChar}fuzzer_error_{errorTestIdGenerator.NextId()}.vst"
                 test.Serialize(testPath)
-            | None _ -> error "Failed to create test while restoring"
+            | None -> Logger.error "Failed to create test while restoring"
 
         | None -> internalfail "Unexpected generic solving fail"
 
@@ -98,9 +97,8 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
     let mutable state = NotStarted
     let mutable lastRequestTime = Unchecked.defaultof<DateTime>
 
-
     let unhandledExceptionPath = $"{outputPath}{Path.DirectorySeparatorChar}exception.info"
-    let logFuzzingProcess msg = traceCommunication $"[FuzzingProcess] {msg}"
+    let logFuzzingProcess msg = Logger.traceCommunication $"[FuzzingProcess] {msg}"
 
     let fuzzerStarted () = fuzzerProcess <> null
     let fuzzerAlive () = fuzzerStarted () && (not fuzzerProcess.HasExited)
@@ -242,12 +240,12 @@ type private FuzzingProcess(outputPath, targetAssemblyPath, fuzzerOptions, fuzze
         with e -> markException e
 
 type Interactor (
-    targetAssemblyPath: string,
-    isolated: MethodBase seq,
-    cancellationToken: CancellationToken,
-    outputPath: string,
-    saveStatistic,
-    onCancelled: unit -> unit
+    targetAssemblyPath : string,
+    isolated : MethodBase seq,
+    cancellationToken : CancellationToken,
+    outputPath : string,
+    saveStatistic : codeLocation seq -> bool,
+    onCancelled : unit -> unit
     ) =
 
     // TODO: make options configurable (CLI & Tests)

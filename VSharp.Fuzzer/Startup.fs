@@ -45,7 +45,6 @@ let internal waitDebuggerAttached () =
     if value = "1" then
         while not Diagnostics.Debugger.IsAttached do ()
 
-
 let internal startFuzzer options developerOptions =
     let info = Diagnostics.ProcessStartInfo()
     info.WorkingDirectory <- IO.Directory.GetCurrentDirectory()
@@ -65,7 +64,7 @@ let internal startFuzzer options developerOptions =
     if developerOptions.redirectStdout then
         info.RedirectStandardOutput <- true
 
-    let info = InteractionCoverageTool.WithCoverageTool info
+    InteractionCoverageTool.WithCoverageTool info
     let proc = System.Diagnostics.Process.Start info
 
     let stderrTag = "Fuzzer STDERR"
@@ -80,10 +79,11 @@ let internal startFuzzer options developerOptions =
         proc.OutputDataReceived.Add (fun x -> Logger.infoWithTag stdoutTag $"{x.Data}")
         proc.BeginOutputReadLine ()
 
-    if
+    let waitDebugger =
         developerOptions.waitDebuggerAttachedFuzzer
         || developerOptions.waitDebuggerAttachedCoverageTool
-        || developerOptions.waitDebuggerAttachedOnAssertCoverageTool then
+        || developerOptions.waitDebuggerAttachedOnAssertCoverageTool
+    if waitDebugger then
         Logger.warning $"One of \"Wait debugger\" options is enabled, you may attach to process by pid {proc.Id}"
 
     if proc.HasExited then

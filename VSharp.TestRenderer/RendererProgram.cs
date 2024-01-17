@@ -1,5 +1,5 @@
 ﻿using System.CommandLine;
-using System.CommandLine.Invocation;
+using System.Diagnostics;
 
 namespace VSharp.TestRenderer;
 
@@ -36,25 +36,28 @@ internal static class RendererProgram
         var testPathArgument =
             new Argument<string>("test-path", description: "Path to the tests (.vst)");
         var wrapErrorsOption =
-            new System.CommandLine.Option("--wrap-errors", description: "Enables exception handling in error suites");
-        var outputOption =
-            new System.CommandLine.Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
-                () => new DirectoryInfo(Directory.GetCurrentDirectory()),
-                "Path where NUnit tests will be generated");
+            new Option<bool>("--wrap-errors", description: "Enables exception handling in error suites");
+        var outputOption = new Option<DirectoryInfo>(
+            aliases: new[] { "--output", "-o" },
+            () => new DirectoryInfo(Directory.GetCurrentDirectory()),
+            "Path where NUnit tests will be generated");
 
-        var rootCommand = new RootCommand();
-
+        var rootCommand = new RootCommand("V# test rendering tool. Accepts unit test in *.vst format, generates NUnit tests.");
         rootCommand.AddArgument(testPathArgument);
         rootCommand.AddGlobalOption(outputOption);
         rootCommand.AddGlobalOption(wrapErrorsOption);
 
-        rootCommand.Description = "V# test rendering tool. Accepts unit test in *.vst format, generates NUnit tests.";
-
-        rootCommand.Handler = CommandHandler.Create<string, DirectoryInfo, bool>((testPath, output, wrapErrors) =>
+        rootCommand.SetHandler(context =>
         {
-            RenderTests(testPath, output, wrapErrors);
+            var parseResult = context.ParseResult;
+            var output = parseResult.GetValueForOption(outputOption);
+            Debug.Assert(output is not null);
+            context.ExitCode = RenderTests(
+                parseResult.GetValueForArgument(testPathArgument),
+                output,
+                parseResult.GetValueForOption(wrapErrorsOption));
         });
 
-        return rootCommand.InvokeAsync(args).Result;
+        return rootCommand.Invoke(args);
     }
 }

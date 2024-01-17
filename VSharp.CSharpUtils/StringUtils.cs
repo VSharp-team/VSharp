@@ -13,7 +13,7 @@ namespace VSharp.CSharpUtils
         [Implements("System.Int32 System.CultureAwareComparer.GetHashCode(this, System.String)")]
         public static int CultureAwareComparerGetHashCode(object _, string str)
         {
-            return str.GetDeterministicHashCode();
+            return str.GetHashCode();
         }
 
         [Implements("System.Boolean System.String.EqualsHelper(System.String, System.String)")]
@@ -44,7 +44,7 @@ namespace VSharp.CSharpUtils
 
         [Implements("System.Boolean System.String.Equals(System.String, System.String, System.StringComparison)")]
         [Implements("System.Boolean System.String.Equals(this, System.String, System.StringComparison)")]
-        public static bool EqualsWithComparison(string str1, string str2, System.StringComparison comparison)
+        public static bool EqualsWithComparison(string str1, string str2, StringComparison comparison)
         {
             return Equals(str1, str2);
         }

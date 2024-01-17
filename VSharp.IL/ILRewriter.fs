@@ -2,348 +2,60 @@ namespace VSharp
 
 open System.Collections.Generic
 open System.Reflection
+open System.Runtime.InteropServices
 open global.System
 open System.Reflection.Emit
 open VSharp
-open System.Runtime.InteropServices
 
-[<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
-type probes = {
-    mutable ldarg_0 : uint64
-    mutable ldarg_1 : uint64
-    mutable ldarg_2 : uint64
-    mutable ldarg_3 : uint64
-    mutable ldarg_S : uint64
-    mutable ldarg : uint64
-    mutable ldarga : uint64
+type ehcType =
+    | Filter of offset
+    | Catch of Type
+    | Finally
+    | Fault
 
-    mutable ldloc_0 : uint64
-    mutable ldloc_1 : uint64
-    mutable ldloc_2 : uint64
-    mutable ldloc_3 : uint64
-    mutable ldloc_S : uint64
-    mutable ldloc : uint64
-    mutable ldloca : uint64
-
-    mutable starg_S : uint64
-    mutable starg : uint64
-    mutable stloc_0 : uint64
-    mutable stloc_1 : uint64
-    mutable stloc_2 : uint64
-    mutable stloc_3 : uint64
-    mutable stloc_S : uint64
-    mutable stloc : uint64
-
-    mutable ldc : uint64
-    mutable dup : uint64
-    mutable pop : uint64
-
-    mutable brtrue : uint64
-    mutable brfalse : uint64
-    mutable switch : uint64
-
-    mutable unOp : uint64
-    mutable binOp : uint64
-    mutable execBinOp_4 : uint64
-    mutable execBinOp_8 : uint64
-    mutable execBinOp_f4 : uint64
-    mutable execBinOp_f8 : uint64
-    mutable execBinOp_p : uint64
-    mutable execBinOp_8_4 : uint64
-    mutable execBinOp_4_p : uint64
-    mutable execBinOp_p_4 : uint64
-    mutable execBinOp_4_ovf : uint64
-    mutable execBinOp_8_ovf : uint64
-    mutable execBinOp_f4_ovf : uint64
-    mutable execBinOp_f8_ovf : uint64
-    mutable execBinOp_p_ovf : uint64
-    mutable execBinOp_8_4_ovf : uint64
-    mutable execBinOp_4_p_ovf : uint64
-    mutable execBinOp_p_4_ovf : uint64
-
-    mutable ldind : uint64
-    mutable stind : uint64
-    mutable execStind_I1 : uint64
-    mutable execStind_I2 : uint64
-    mutable execStind_I4 : uint64
-    mutable execStind_I8 : uint64
-    mutable execStind_R4 : uint64
-    mutable execStind_R8 : uint64
-    mutable execStind_ref : uint64
-
-    mutable conv : uint64
-    mutable conv_Ovf : uint64
-
-    mutable newarr : uint64
-    mutable localloc : uint64
-    mutable ldobj : uint64
-    mutable ldstr : uint64
-    mutable ldtoken : uint64
-    mutable stobj : uint64
-    mutable initobj : uint64
-    mutable ldlen : uint64
-
-    mutable cpobj : uint64
-    mutable execCpobj : uint64
-    mutable cpblk : uint64
-    mutable execCpblk : uint64
-    mutable initblk : uint64
-    mutable execInitblk : uint64
-
-    mutable castclass : uint64
-    mutable isinst : uint64
-
-    mutable box : uint64
-    mutable unbox : uint64
-    mutable unboxAny : uint64
-
-    mutable ldfld : uint64
-    mutable ldflda : uint64
-    mutable stfld_4 : uint64
-    mutable stfld_8 : uint64
-    mutable stfld_f4 : uint64
-    mutable stfld_f8 : uint64
-    mutable stfld_p : uint64
-    mutable stfld_struct : uint64
-
-    mutable ldsfld : uint64
-    mutable ldsflda : uint64
-    mutable stsfld : uint64
-
-    mutable ldelema : uint64
-    mutable ldelem : uint64
-    mutable execLdelema : uint64
-    mutable execLdelem : uint64
-
-    mutable stelem : uint64
-    mutable execStelem_I : uint64
-    mutable execStelem_I1 : uint64
-    mutable execStelem_I2 : uint64
-    mutable execStelem_I4 : uint64
-    mutable execStelem_I8 : uint64
-    mutable execStelem_R4 : uint64
-    mutable execStelem_R8 : uint64
-    mutable execStelem_Ref : uint64
-    mutable execStelem_Struct : uint64
-
-    mutable ckfinite : uint64
-    mutable sizeof : uint64
-    mutable ldftn : uint64
-    mutable ldvirtftn : uint64
-    mutable arglist : uint64
-    mutable mkrefany : uint64
-
-    mutable enter : uint64
-    mutable enterMain : uint64
-    mutable leave : uint64
-    mutable leaveMain_0 : uint64
-    mutable leaveMain_4 : uint64
-    mutable leaveMain_8 : uint64
-    mutable leaveMain_f4 : uint64
-    mutable leaveMain_f8 : uint64
-    mutable leaveMain_p : uint64
-    mutable finalizeCall : uint64
-    mutable execCall : uint64
-    mutable call : uint64
-    mutable pushFrame : uint64
-    mutable callVirt : uint64
-    mutable newobj : uint64
-    mutable calli : uint64
-    mutable throw : uint64
-    mutable rethrow : uint64
-
-    mutable mem_p : uint64
-    mutable mem_1_idx : uint64
-    mutable mem_2_idx : uint64
-    mutable mem_4_idx : uint64
-    mutable mem_8_idx : uint64
-    mutable mem_f4_idx : uint64
-    mutable mem_f8_idx : uint64
-    mutable mem_p_idx : uint64
-    mutable mem2_4 : uint64
-    mutable mem2_8 : uint64
-    mutable mem2_f4 : uint64
-    mutable mem2_f8 : uint64
-//    mutable mem2_p : uint64
-    mutable mem2_8_4 : uint64
-//    mutable mem2_4_p : uint64
-//    mutable mem2_p_1 : uint64
-//    mutable mem2_p_2 : uint64
-//    mutable mem2_p_4 : uint64
-//    mutable mem2_p_8 : uint64
-//    mutable mem2_p_f4 : uint64
-//    mutable mem2_p_f8 : uint64
-//    mutable mem3_p_p_p : uint64
-//    mutable mem3_p_p_i1 : uint64
-//    mutable mem3_p_p_i2 : uint64
-//    mutable mem3_p_p_i4 : uint64
-//    mutable mem3_p_p_i8 : uint64
-//    mutable mem3_p_p_f4 : uint64
-//    mutable mem3_p_p_f8 : uint64
-//    mutable mem3_p_i1_p : uint64
-    mutable unmem_1 : uint64
-    mutable unmem_2 : uint64
-    mutable unmem_4 : uint64
-    mutable unmem_8 : uint64
-    mutable unmem_f4 : uint64
-    mutable unmem_f8 : uint64
-    mutable unmem_p : uint64
-
-    mutable dumpInstruction : uint64
+type public exceptionHandlingClause = {
+    tryOffset : offset
+    tryLength : offset
+    handlerOffset : offset
+    handlerLength : offset
+    ehcType : ehcType
 }
-with
-    member private x.Probe2str =
-        let map = Dictionary<uint64, string>()
-        typeof<probes>.GetFields() |> Seq.iter (fun fld -> map.Add(fld.GetValue x |> unbox, fld.Name))
-        map
-    member x.AddressToString (address : int64) =
-        let result = ref ""
-        if x.Probe2str.TryGetValue(uint64 address, result) then "probe_" + result.Value
-        else toString address
+    with
+    static member Create (eh : ExceptionHandlingClause) =
+        let flags = eh.Flags
+        let ehcType =
+            if flags = ExceptionHandlingClauseOptions.Filter then Filter (Offset.from eh.FilterOffset)
+            elif flags = ExceptionHandlingClauseOptions.Finally then Finally
+            elif flags = ExceptionHandlingClauseOptions.Fault then Fault
+            else Catch eh.CatchType
+        {
+            tryOffset = Offset.from eh.TryOffset
+            tryLength = Offset.from eh.TryLength
+            handlerOffset = Offset.from eh.HandlerOffset
+            handlerLength = Offset.from eh.HandlerLength
+            ehcType = ehcType
+        }
 
-[<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
-type signatureTokens = {
-    mutable void_sig : uint32
-    mutable bool_sig : uint32
-    mutable void_u1_sig : uint32
-    mutable void_u4_sig : uint32
-    mutable void_i_sig : uint32
-    mutable bool_i_sig : uint32
-    mutable bool_u2_sig : uint32
-    mutable i1_i1_sig : uint32
-    mutable i2_i1_sig : uint32
-    mutable i4_i1_sig : uint32
-    mutable i8_i1_sig : uint32
-    mutable r4_i1_sig : uint32
-    mutable r8_i1_sig : uint32
-    mutable i_i1_sig : uint32
-    mutable void_i_i1_sig : uint32
-    mutable void_i_i2_sig : uint32
-    mutable void_i_u2_sig : uint32
-    mutable void_i_i4_sig : uint32
-    mutable void_i_i8_sig : uint32
-    mutable void_i_r4_sig : uint32
-    mutable void_i_r8_sig : uint32
-    mutable void_i_i_sig : uint32
-    mutable void_i4_i4_sig : uint32
-    mutable void_i4_i_sig : uint32
-    mutable void_i8_i4_sig : uint32
-    mutable void_i8_i8_sig : uint32
-    mutable void_r4_r4_sig : uint32
-    mutable void_r8_r8_sig : uint32
-    mutable bool_i_i4_sig : uint32
-    mutable bool_i_i_sig : uint32
-    mutable void_i_i_i_sig : uint32
-    mutable void_i_i_i1_sig : uint32
-    mutable void_i_i_i2_sig : uint32
-    mutable void_i_i_i4_sig : uint32
-    mutable void_i_i_i8_sig : uint32
-    mutable void_i_i_r4_sig : uint32
-    mutable void_i_i_r8_sig : uint32
-    mutable void_i_i1_i_sig : uint32
-    mutable void_i1_i1_i1_sig : uint32
-    mutable void_i2_i1_i1_sig : uint32
-    mutable void_i4_i1_i1_sig : uint32
-    mutable void_i8_i1_i1_sig : uint32
-    mutable void_r4_i1_i1_sig : uint32
-    mutable void_r8_i1_i1_sig : uint32
-    mutable void_i_i1_i1_sig : uint32
-    mutable void_token_u2_bool_u4_u4_sig : uint32
-    mutable void_offset_sig : uint32
-    mutable void_u1_offset_sig : uint32
-    mutable void_u2_offset_sig : uint32
-    mutable void_i4_offset_sig : uint32
-    mutable void_i8_offset_sig : uint32
-    mutable void_r4_offset_sig : uint32
-    mutable void_r8_offset_sig : uint32
-    mutable void_i_offset_sig : uint32
-    mutable void_token_offset_sig : uint32
-    mutable void_i_i1_offset_sig : uint32
-    mutable void_i_i2_offset_sig : uint32
-    mutable void_i_i4_offset_sig : uint32
-    mutable void_i_i8_offset_sig : uint32
-    mutable void_i_r4_offset_sig : uint32
-    mutable void_i_r8_offset_sig : uint32
-    mutable void_i_i_offset_sig : uint32
-    mutable void_i_token_offset_sig : uint32
-    mutable void_i_i4_i4_offset_sig : uint32
-    mutable void_u2_i4_i4_offset_sig : uint32
-    mutable void_u2_i4_i_offset_sig : uint32
-    mutable void_u2_i8_i4_offset_sig : uint32
-    mutable void_u2_i8_i8_offset_sig : uint32
-    mutable void_u2_r4_r4_offset_sig : uint32
-    mutable void_u2_r8_r8_offset_sig : uint32
-    mutable void_u2_i_i_offset_sig : uint32
-    mutable void_u2_i_i4_offset_sig : uint32
-    mutable void_i_i_i_offset_sig : uint32
-    mutable void_i_i_i1_offset_sig : uint32
-    mutable void_i_i_i2_offset_sig : uint32
-    mutable void_i_i_i4_offset_sig : uint32
-    mutable void_i_i_i8_offset_sig : uint32
-    mutable void_i_i_r4_offset_sig : uint32
-    mutable void_i_i_r8_offset_sig : uint32
-    mutable void_i_i1_i_offset_sig : uint32
-    mutable void_token_u4_u4_u4_sig : uint32
-    mutable void_token_i_i_offset_sig : uint32
-    mutable void_token_i_i4_offset_sig : uint32
-    mutable void_token_i_i8_offset_sig : uint32
-    mutable void_token_i_r4_offset_sig : uint32
-    mutable void_token_i_r8_offset_sig : uint32
-    mutable void_token_token_bool_u2_offset_sig : uint32
-}
-with
-    member private x.SigToken2str =
-        let map = Dictionary<uint32, string>()
-        typeof<signatureTokens>.GetFields() |> Seq.iter (fun fld ->
-            let token : uint32 = fld.GetValue x |> unbox
-            if not <| map.ContainsKey token then map.Add(token, fld.Name))
-        map
-    member x.TokenToString (token : int32) =
-        let result = ref ""
-        if x.SigToken2str.TryGetValue(uint32 token, result) then result.Value
-        else "<UNKNOWN TOKEN!>"
-
-[<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
-type rawMethodProperties = {
-    mutable token : uint32
-    mutable ilCodeSize : uint32
-    mutable assemblyNameLength : uint32
-    mutable moduleNameLength : uint32
-    mutable maxStackSize : uint32
-    mutable signatureTokensLength : uint32
-}
-
-[<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
-type instrumentedMethodProperties = {
-    mutable ilCodeSize : uint32
-    mutable maxStackSize : uint32
-}
-
-[<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
-type rawExceptionHandler = {
-    mutable flags : int
-    mutable tryOffset : uint32
-    mutable tryLength : uint32
-    mutable handlerOffset : uint32
-    mutable handlerLength : uint32
-    mutable matcher : uint32
-}
+    static member CreateArray (methodBody : MethodBody) =
+        let ehs = methodBody.ExceptionHandlingClauses
+        let length = ehs.Count
+        let result = Array.zeroCreate length
+        for i = 0 to length - 1 do
+            result[i] <- exceptionHandlingClause.Create ehs[i]
+        result
 
 type rawMethodBody = {
-    properties : rawMethodProperties
-    assembly : string
-    moduleName : string
-    tokens : signatureTokens
     il : byte array
-    ehs : rawExceptionHandler array
+    ehs : exceptionHandlingClause array
 }
+    with
+    static member Empty with get() =
+        { il = Array.empty; ehs = Array.empty }
 
-type instrumentedMethodBody = {
-    properties : instrumentedMethodProperties
-    il : byte array
-    ehs : rawExceptionHandler array
-}
-
+    static member Create (m : MethodBase) =
+        let methodBody = m.GetMethodBody()
+        if methodBody = null then rawMethodBody.Empty
+        else { il = methodBody.GetILAsByteArray(); ehs = exceptionHandlingClause.CreateArray methodBody }
 
 type evaluationStackCellType =
     | I1 = 1
@@ -415,6 +127,20 @@ type ilInstrOperand =
     | Arg32 of int32
     | Arg64 of int64
 
+    with
+    member x.Size (operandType : OperandType) =
+        match x with
+        | NoArg -> 0
+        | Target _ ->
+            match operandType with
+            | OperandType.ShortInlineBrTarget -> sizeof<int8>
+            | OperandType.InlineBrTarget -> sizeof<int32>
+            | _ -> __unreachable__()
+        | Arg8 _ -> sizeof<int8>
+        | Arg16 _ -> sizeof<int16>
+        | Arg32 _ -> sizeof<int32>
+        | Arg64 _ -> sizeof<int64>
+
 and ilInstr = {
     mutable prev : ilInstr
     mutable next : ilInstr
@@ -427,38 +153,72 @@ with
     member x.Arg8 with get() =
         match x.arg with
         | Arg8 v -> v
-        | _ -> internalfailf "Requesting 8-bit arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfail $"Requesting 8-bit arg of instruction {x.opcode} with arg {x.arg}"
     member x.Arg16 with get() =
         match x.arg with
         | Arg16 v -> v
-        | _ -> internalfailf "Requesting 16-bit arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfail $"Requesting 16-bit arg of instruction {x.opcode} with arg {x.arg}"
     member x.Arg32 with get() =
         match x.arg with
         | Arg32 v -> v
-        | _ -> internalfailf "Requesting 32-bit arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfail $"Requesting 32-bit arg of instruction {x.opcode} with arg {x.arg}"
     member x.Arg64 with get() =
         match x.arg with
         | Arg64 v -> v
-        | _ -> internalfailf "Requesting 64-bit arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfail $"Requesting 64-bit arg of instruction {x.opcode} with arg {x.arg}"
     member x.Target with get() =
         match x.arg with
         | Target v -> v
-        | _ -> internalfailf "Requesting target arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfail $"Requesting target arg of instruction {x.opcode} with arg {x.arg}"
+    member x.SizeWithArg with get() =
+        match x.opcode with
+        | OpCode op -> op.Size + x.arg.Size op.OperandType
+        | SwitchArg -> sizeof<int32>
+    member x.EndOffset with get() =
+        x.offset + uint x.SizeWithArg
+    member x.IsJump with get() =
+        match x.opcode with
+        | OpCode opcode ->
+            match opcode.OperandType with
+            | OperandType.ShortInlineBrTarget
+            | OperandType.InlineBrTarget -> true
+            | _ -> false
+        | SwitchArg -> true
+
     override x.ToString() =
         x.opcode.ToString()
 
-type ehClauseMatcher =
-    | ClassToken of uint32
+type private rewriterEhcType =
     | FilterEH of ilInstr
+    | CatchEH of Type
+    | FinallyEH
+    | FaultEH
+    with
+    member x.Export() =
+        match x with
+        | FilterEH instr -> int instr.offset |> Offset.from |> Filter
+        | CatchEH t -> Catch t
+        | FinallyEH -> Finally
+        | FaultEH -> Fault
 
-type ehClause = {
-    flags : int
+type private ehClause = {
     tryBegin : ilInstr
     mutable tryEnd : ilInstr
     handlerBegin : ilInstr
     mutable handlerEnd : ilInstr
-    matcher : ehClauseMatcher
+    ehcType : rewriterEhcType
 }
+    with
+    member x.Export() =
+        let tryOffset = int x.tryBegin.offset
+        let handlerOffset = int x.handlerBegin.offset
+        {
+            tryOffset = Offset.from tryOffset
+            tryLength = Offset.from (int x.tryEnd.EndOffset - tryOffset)
+            handlerOffset = Offset.from handlerOffset
+            handlerLength = Offset.from (int x.handlerEnd.EndOffset - handlerOffset)
+            ehcType = x.ehcType.Export()
+        }
 
 module NumberCreator =
     let public extractInt32 (ilBytes : byte []) (pos : offset) =
@@ -480,7 +240,7 @@ module NumberCreator =
     let public extractFloat32 (ilBytes : byte []) (pos : offset) =
         BitConverter.ToSingle(ilBytes, int pos)
 
-module EvaluationStackTyper =
+module internal EvaluationStackTyper =
 
     let fail() = internalfail "Stack typer validation failed!"
 
@@ -544,7 +304,7 @@ module EvaluationStackTyper =
             m.GetParameters().[idx].ParameterType |> push s
 
     let typeLdloc (m : MethodBase) (s : stackState) idx =
-        m.GetMethodBody().LocalVariables.[idx].LocalType |> push s
+        m.GetMethodBody().LocalVariables[idx].LocalType |> push s
 
     let typeBinop (s : stackState) =
         // See ECMA-335, sec. III.1.5
@@ -587,31 +347,6 @@ module EvaluationStackTyper =
         let _, s = Stack.pop s
         let t2, s = Stack.pop s
         Stack.push s t2
-
-//    let REMOVE_ME (m : Reflection.MethodBase) (instr : ilInstr) =
-//        let instr, arg =
-//            match instr.opcode with
-//            | OpCode op ->
-//                let arg =
-//                    if op = OpCodes.Call || op = OpCodes.Callvirt || op = OpCodes.Newobj then
-//                        match instr.arg with
-//                        | Arg32 token ->
-//                            let callee = Reflection.resolveMethod m token
-//                            Reflection.methodToString callee
-//                        | _ -> __unreachable__()
-//                    else
-//                        match instr.arg with
-//                        | NoArg -> ""
-//                        | Arg8 a -> a.ToString()
-//                        | Arg16 a -> a.ToString()
-//                        | Arg32 a -> a.ToString()
-//                        | Target t ->
-//                            match t.opcode with
-//                            | OpCode op -> op.Name
-//                            | SwitchArg _ -> "<SwitchArg>"
-//                op.Name, arg
-//            | SwitchArg -> "<SwitchArg>", ""
-//        instr + " " + arg
 
     let typeInstruction (m : MethodBase) (instr : ilInstr) =
         let s =
@@ -925,174 +660,205 @@ module EvaluationStackTyper =
         | _ -> startInstr.stackState <- Some Stack.empty
         createStackState m startInstr
 
-[<AllowNullLiteral>]
-type ILRewriter(body : rawMethodBody, m : MethodBase) =
-    let code = body.il
-    let codeSize = Array.length code
-    let mutable instrCount = 0u
-    let mutable maxStackSize = body.properties.maxStackSize
-    let offsetToInstr : ilInstr array = Array.zeroCreate (codeSize + 1)
-    let mutable ehs : ehClause array = Array.empty
-    let il : ilInstr = Reflection.createObject typeof<ilInstr> :?> ilInstr
+type internal analysisEvent =
+    | Calli
+    | CallVirt of MethodBase
+    | Ldsfld of fieldId
+    | Stsfld of fieldId
 
-    let invalidProgram reason =
-        Logger.error "Invalid program: %s" reason
-        raise <| IncorrectCIL reason
+module internal ILRewriter =
 
-    let adjustState (instr : ilInstr) =
-        maxStackSize <- maxStackSize + instr.opcode.StackBehaviourPush
+    type private analyseResult =
+        {
+            method : MethodBase
+            events : HashSet<analysisEvent>
+            dependencies : MethodBase list
+        }
+        with
+        static member Empty(m : MethodBase) = { method = m; events = HashSet<analysisEvent>(); dependencies = List.empty }
+        member x.IsComplete with get() = List.isEmpty x.dependencies
+        member x.Union (other : analyseResult) =
+            x.events.UnionWith other.events
+            let newDependencies =
+                x.dependencies @ other.dependencies
+                |> List.filter (fun d -> d <> x.method && d <> other.method)
+                |> List.distinct
+            { x with dependencies = newDependencies }
 
-    new (body : rawMethodBody) =
-        // If this line throws exception, we should improve resolving assemblies by names.
-        // Probably we should track assemblies from the directory of executed assembly
-        let m = Reflection.resolveMethodBase body.assembly body.moduleName (int body.properties.token)
-        ILRewriter(body, m)
-
-    static member PrintILInstr (tokens : signatureTokens option) (probes : probes option) (m : MethodBase) (instr : ilInstr) =
+    let printILInstr (m : MethodBase) (instr : ilInstr) =
         let opcode, arg =
             match instr.opcode with
             | OpCode op ->
                 let arg =
                     if op = OpCodes.Call || op = OpCodes.Callvirt || op = OpCodes.Newobj then
-                        match instr.arg with
-                        | Arg32 token ->
-                            let callee = Reflection.resolveMethod m token
-                            Reflection.methodToString callee
-                        | _ -> __unreachable__()
-                    elif op = OpCodes.Calli then
-                        match tokens with
-                        | Some tokens -> tokens.TokenToString instr.Arg32
-                        | None -> instr.Arg32.ToString()
+                        Reflection.resolveMethod m instr.Arg32 |> Reflection.methodToString
+                    elif op = OpCodes.Calli then instr.Arg32.ToString()
                     else
                         match instr.arg with
                         | NoArg -> ""
                         | Arg8 a -> a.ToString()
                         | Arg16 a -> a.ToString()
                         | Arg32 a -> a.ToString()
-                        | Arg64 a ->
-                            match probes with
-                            | Some probes -> probes.AddressToString a
-                            | None -> a.ToString()
+                        | Arg64 a -> a.ToString()
                         | Target t ->
                             match t.opcode with
-                            | OpCode op -> sprintf "(%x) %s" t.offset op.Name
-                            | SwitchArg _ -> "<SwitchArg>"
+                            | OpCode op -> $"(%x{t.offset}) {op.Name}"
+                            | SwitchArg -> "<SwitchArg>"
                 op.Name, arg
             | SwitchArg -> "<SwitchArg>", ""
-        sprintf "[%x] %s %s" instr.offset opcode arg
+        $"[%x{instr.offset}] {opcode} {arg}"
 
-    member x.ILInstrToString (probes : probes) (instr : ilInstr) =
-        ILRewriter.PrintILInstr (Some body.tokens) (Some probes) m instr
+    type private ILRewriter internal (body : rawMethodBody, m : MethodBase) =
+        let code = body.il
+        let codeSize = Array.length code
+        let mutable instrCount = 0u
+        let offsetToInstr : ilInstr array = Array.zeroCreate (codeSize + 1)
+        let mutable ehs : ehClause array = Array.empty
+        let il : ilInstr = Reflection.createObject typeof<ilInstr> :?> ilInstr
+        let mutable codeRewritten = false
 
-    member x.InstrEq instr1 instr2 =
-        Microsoft.FSharp.Core.LanguagePrimitives.PhysicalEquality instr1 instr2
+        let invalidProgram reason =
+            Logger.error $"Invalid program: {reason}"
+            raise <| IncorrectCIL reason
 
-    member x.IsEnd instr =
-        x.InstrEq instr il
+        new (method : MethodBase) =
+            let body = rawMethodBody.Create method
+            ILRewriter(body, method)
 
-    member private x.TraverseProgram action =
-        let mutable instr = il.next
-        while not <| x.IsEnd instr do
-            action instr
-            instr <- instr.next
+        member x.InstrEq instr1 instr2 =
+            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalEquality instr1 instr2
 
-    member x.PrintInstructions heading probes =
-        Logger.trace "============== %s: =============" (heading + " (" + ehs.Length.ToString() + " handlers)")
-        x.TraverseProgram (x.ILInstrToString probes >> Logger.trace "%s")
+        member x.IsEnd instr =
+            x.InstrEq instr il
 
-    member x.NewInstr opcode =
-        instrCount <- instrCount + 1u
-        {prev = il; next = il; opcode = opcode; offset = 0u; stackState = None; arg = Arg8 0uy}
+        member private x.InstructionsSeq =
+            seq {
+                let mutable instr = il.next
+                while not <| x.IsEnd instr do
+                    yield instr
+                    instr <- instr.next
+            }
 
-    member x.NewInstr opcode =
-        instrCount <- instrCount + 1u
-        {prev = il; next = il; opcode = OpCode opcode; offset = 0u; stackState = None; arg = Arg8 0uy}
+        member x.PrintInstructions heading =
+            Logger.trace "============== %s: =============" (heading + " (" + ehs.Length.ToString() + " handlers)")
+            for instr in x.InstructionsSeq do
+                printILInstr m instr |> Logger.trace "%s"
 
-    member x.CopyInstruction instr =
-        instrCount <- instrCount + 1u
-        {prev = instr.prev; next = instr.next; opcode = instr.opcode; offset = instr.offset; stackState = instr.stackState; arg = instr.arg}
+        member x.NewInstr opcode =
+            instrCount <- instrCount + 1u
+            {prev = il; next = il; opcode = opcode; offset = 0u; stackState = None; arg = Arg8 0uy}
 
-    member x.Instructions with get() =
-        let result = Dictionary<offset, ilInstr>()
-        x.TraverseProgram (fun instr ->
-            result.Add(Offset.from (int instr.offset), instr))
-        result
+        member x.NewInstr opcode =
+            instrCount <- instrCount + 1u
+            {prev = il; next = il; opcode = OpCode opcode; offset = 0u; stackState = None; arg = Arg8 0uy}
 
-    member x.InstrFromOffset offset =
-        if offset > codeSize then
-            invalidProgram (sprintf "Too large offset %d requested!" offset)
-        offsetToInstr[offset]
+        member x.CopyInstruction instr =
+            instrCount <- instrCount + 1u
+            {prev = instr.prev; next = instr.next; opcode = instr.opcode; offset = instr.offset; stackState = instr.stackState; arg = instr.arg}
 
-    member x.InsertBefore(where : ilInstr, what : ilInstr) =
-        what.next <- where
-        what.prev <- where.prev
-        what.next.prev <- what
-        what.prev.next <- what
-        adjustState what
+        member x.Instructions with get() =
+            let result = Dictionary<offset, ilInstr>()
+            for instr in x.InstructionsSeq do
+                result.Add(Offset.from (int instr.offset), instr)
+            result
 
-    member x.InsertAfter(where : ilInstr, what : ilInstr) =
-        what.next <- where.next
-        what.prev <- where
-        what.next.prev <- what
-        what.prev.next <- what
-        for eh in ehs do
-            if x.InstrEq eh.tryEnd where then
-                eh.tryEnd <- what
-            if x.InstrEq eh.handlerEnd where then
-                eh.handlerEnd <- what
-        adjustState what
+        member x.InstrFromOffset offset =
+            if offset > codeSize then
+                invalidProgram $"Too large offset %x{offset} requested!"
+            offsetToInstr[offset]
 
-    member x.Method = m
-    member x.InstructionsCount with get() = instrCount
-    member x.InitialMaxStackSize with get() = body.properties.maxStackSize
-    member x.MaxStackSize with get() = maxStackSize
+        member x.InsertBefore(where : ilInstr, what : ilInstr) =
+            what.next <- where
+            what.prev <- where.prev
+            what.next.prev <- what
+            what.prev.next <- what
 
-    member x.IsLastEHInstr (instr : ilInstr) =
-        Array.exists (fun eh -> x.InstrEq eh.handlerEnd instr) ehs
-    member x.ILList = il
+        member x.InsertAfter(where : ilInstr, what : ilInstr) =
+            what.next <- where.next
+            what.prev <- where
+            what.next.prev <- what
+            what.prev.next <- what
+            for eh in ehs do
+                if x.InstrEq eh.tryEnd where then
+                    eh.tryEnd <- what
+                if x.InstrEq eh.handlerEnd where then
+                    eh.handlerEnd <- what
 
-    member private x.ReplaceBranchAlias (instr : ilInstr) (op : OpCode) (brop : OpCode) =
-        let newInstr = x.CopyInstruction instr
-        x.InsertAfter(instr, newInstr)
-        instr.opcode <- OpCode op
-        instr.arg <- NoArg
-        match instr.stackState with
-        | Some (_ :: _ :: tl)  -> newInstr.stackState <- Some(evaluationStackCellType.I4 :: tl)
-        | _ -> __unreachable__()
-        newInstr.opcode <- OpCode brop
+        member x.Method = m
+        member x.InstructionsCount with get() = instrCount
 
-    member private x.IsFloatBinOp (instr : ilInstr) =
-        match instr.stackState with
-        | Some (x :: y :: _) ->
-            match x with
-            | evaluationStackCellType.R4 -> assert(y = evaluationStackCellType.R4); true
-            | evaluationStackCellType.R8 -> assert(y = evaluationStackCellType.R8); true
-            | _ -> false
-        | _ -> __unreachable__()
+        member x.IsLastEHInstr (instr : ilInstr) =
+            Array.exists (fun eh -> x.InstrEq eh.handlerEnd instr) ehs
+        member x.ILList = il
 
-    member private x.ImportIL() =
-        // Set the sentinel instruction
-        il.next <- il
-        il.prev <- il
-        offsetToInstr.[codeSize] <- il
+        member private x.ReplaceBranchAlias (instr : ilInstr) (op : OpCode) (brop : OpCode) =
+            let newInstr = x.CopyInstruction instr
+            x.InsertAfter(instr, newInstr)
+            instr.opcode <- OpCode op
+            instr.arg <- NoArg
+            match instr.stackState with
+            | Some (_ :: _ :: tl)  -> newInstr.stackState <- Some(evaluationStackCellType.I4 :: tl)
+            | _ -> __unreachable__()
+            newInstr.opcode <- OpCode brop
 
-        // TODO: unify code with Instruction.fs (parseInstruction)
-        let mutable branch = false
-        let mutable offset = 0<offsets>
-        let codeSize : offset = Offset.from codeSize
-        while offset < codeSize do
-            let startOffset = offset
-            let op = OpCodeOperations.getOpCode code offset
-            offset <- offset + Offset.from op.Size
+        member private x.IsFloatBinOp (instr : ilInstr) =
+            match instr.stackState with
+            | Some (x :: y :: _) ->
+                match x with
+                | evaluationStackCellType.R4 -> assert(y = evaluationStackCellType.R4); true
+                | evaluationStackCellType.R8 -> assert(y = evaluationStackCellType.R8); true
+                | _ -> false
+            | _ -> __unreachable__()
 
-            let size =
+        member private x.ImportIL() =
+            // Set the sentinel instruction
+            il.next <- il
+            il.prev <- il
+            offsetToInstr[codeSize] <- il
+
+            let mutable branch = false
+            let mutable offset = 0<offsets>
+            let codeSize : offset = Offset.from codeSize
+            while offset < codeSize do
+                let startOffset = offset
+                let op = OpCodeOperations.getOpCode code offset
+                offset <- offset + Offset.from op.Size
+
+                let size =
+                    match op.OperandType with
+                    | OperandType.InlineNone
+                    | OperandType.InlineSwitch -> 0<offsets>
+                    | OperandType.ShortInlineVar
+                    | OperandType.ShortInlineI
+                    | OperandType.ShortInlineBrTarget -> 1<offsets>
+                    | OperandType.InlineVar -> 2<offsets>
+                    | OperandType.InlineI
+                    | OperandType.InlineMethod
+                    | OperandType.InlineType
+                    | OperandType.InlineString
+                    | OperandType.InlineSig
+                    | OperandType.InlineTok
+                    | OperandType.ShortInlineR
+                    | OperandType.InlineField
+                    | OperandType.InlineBrTarget -> 4<offsets>
+                    | OperandType.InlineI8
+                    | OperandType.InlineR -> 8<offsets>
+                    | _ -> __unreachable__()
+
+                if offset + size > codeSize then invalidProgram "IL stream unexpectedly ended!"
+
+                let instr = x.NewInstr (OpCode op)
+                instr.offset <- uint32 startOffset
+                offsetToInstr[int startOffset] <- instr
+                x.InsertBefore(il, instr)
+                offsetToInstr[int startOffset] <- instr
                 match op.OperandType with
-                | OperandType.InlineNone
-                | OperandType.InlineSwitch -> 0<offsets>
+                | OperandType.InlineNone -> instr.arg <- NoArg
                 | OperandType.ShortInlineVar
-                | OperandType.ShortInlineI
-                | OperandType.ShortInlineBrTarget -> 1<offsets>
-                | OperandType.InlineVar -> 2<offsets>
+                | OperandType.ShortInlineI ->
+                    instr.arg <- Arg8 code[int offset]
+                | OperandType.InlineVar ->
+                    instr.arg <- Arg16 <| BitConverter.ToInt16(code, int offset)
                 | OperandType.InlineI
                 | OperandType.InlineMethod
                 | OperandType.InlineType
@@ -1100,247 +866,297 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
                 | OperandType.InlineSig
                 | OperandType.InlineTok
                 | OperandType.ShortInlineR
-                | OperandType.InlineField
-                | OperandType.InlineBrTarget -> 4<offsets>
+                | OperandType.InlineField ->
+                    instr.arg <- Arg32 <| NumberCreator.extractInt32 code offset
                 | OperandType.InlineI8
-                | OperandType.InlineR -> 8<offsets>
-                | _ -> __unreachable__()
-
-            if offset + size > codeSize then invalidProgram "IL stream unexpectedly ended!"
-
-            let instr = x.NewInstr (OpCode op)
-            instr.offset <- uint32 startOffset
-            offsetToInstr.[int startOffset] <- instr
-            x.InsertBefore(il, instr)
-            offsetToInstr.[int startOffset] <- instr
-            match op.OperandType with
-            | OperandType.InlineNone -> instr.arg <- NoArg
-            | OperandType.ShortInlineVar
-            | OperandType.ShortInlineI ->
-                instr.arg <- Arg8 code.[int offset]
-            | OperandType.InlineVar ->
-                instr.arg <- Arg16 <| BitConverter.ToInt16(code, int offset)
-            | OperandType.InlineI
-            | OperandType.InlineMethod
-            | OperandType.InlineType
-            | OperandType.InlineString
-            | OperandType.InlineSig
-            | OperandType.InlineTok
-            | OperandType.ShortInlineR
-            | OperandType.InlineField ->
-                instr.arg <- Arg32 <| NumberCreator.extractInt32 code offset
-            | OperandType.InlineI8
-            | OperandType.InlineR ->
-                instr.arg <- Arg64 <| BitConverter.ToInt64(code, int offset)
-            | OperandType.ShortInlineBrTarget ->
-                instr.arg <- offset + 1<offsets> + (code.[int offset] |> sbyte |> int |> Offset.from) |> int |> Arg32
-                branch <- true;
-            | OperandType.InlineBrTarget ->
-                instr.arg <- offset + 4<offsets> + NumberCreator.extractOffset code offset |> int |> Arg32
-                branch <- true;
-            | OperandType.InlineSwitch ->
-                let sizeOfInt = Offset.from sizeof<int>
-                if offset + sizeOfInt > codeSize then
-                    invalidProgram "IL stream unexpectedly ended!"
-                let targetsCount = NumberCreator.extractInt32 code offset
-                instr.arg <- Arg32 targetsCount
-                offset <- offset + sizeOfInt
-                let baseOffset = offset + targetsCount * sizeOfInt
-                for i in 1 .. targetsCount do
+                | OperandType.InlineR ->
+                    instr.arg <- Arg64 <| BitConverter.ToInt64(code, int offset)
+                | OperandType.ShortInlineBrTarget ->
+                    let delta = code[int offset] |> sbyte |> int |> Offset.from
+                    instr.arg <- offset + (Offset.from sizeof<int8>) + delta |> int |> Arg32
+                    branch <- true;
+                | OperandType.InlineBrTarget ->
+                    let delta = NumberCreator.extractOffset code offset
+                    instr.arg <- offset + (Offset.from sizeof<int32>) + delta |> int |> Arg32
+                    branch <- true;
+                | OperandType.InlineSwitch ->
+                    let sizeOfInt = Offset.from sizeof<int>
                     if offset + sizeOfInt > codeSize then
                         invalidProgram "IL stream unexpectedly ended!"
-                    let instr = x.NewInstr SwitchArg
-                    instr.arg <- baseOffset + NumberCreator.extractOffset code offset |> int |> Arg32
+                    let targetsCount = NumberCreator.extractInt32 code offset
+                    instr.arg <- Arg32 targetsCount
                     offset <- offset + sizeOfInt
-                    x.InsertBefore(il, instr)
-                branch <- true
-            | _ -> invalidProgram "Unexpected operand type!"
-
-            offset <- offset + size
-
-        assert(offset = codeSize)
-        if branch then
-            x.TraverseProgram (fun instr ->
-                let isJump =
-                    match instr.opcode with
-                    | OpCode opcode ->
-                        match opcode.OperandType with
-                        | OperandType.ShortInlineBrTarget
-                        | OperandType.InlineBrTarget -> true
-                        | _ -> false
-                    | SwitchArg -> true
-                if isJump then
-                    match instr.arg with
-                    | Arg32 offset ->
-                        instr.arg <- Target <| x.InstrFromOffset offset
-                    | _ -> invalidProgram "Wrong operand of branching instruction!")
-
-        // TODO: improve 'EvaluationStackTyper'
-        // EvaluationStackTyper.createBodyStackState m il.next
-
-    member private x.RecalculateOffsets() =
-        let mutable branch = false
-        let mutable tryAgain = true
-        let mutable offset = 0
-        while tryAgain do
-            offset <- 0
-            x.TraverseProgram (fun instr ->
-                instr.offset <- uint32 offset
-
-                match instr.opcode with
-                | OpCode op ->
-                    offset <- offset + op.Size
-                    match instr.arg with
-                    | NoArg -> ()
-                    | Arg8 _ -> offset <- offset + sizeof<int8>
-                    | Arg16 _ -> offset <- offset + sizeof<int16>
-                    | Arg32 _ -> offset <- offset + sizeof<int32>
-                    | Arg64 _ -> offset <- offset + sizeof<int64>
-                    | Target _ ->
-                        match op.OperandType with
-                        | OperandType.ShortInlineBrTarget -> offset <- offset + 1
-                        | OperandType.InlineBrTarget -> offset <- offset + 4
-                        | _ -> __unreachable__()
-                        branch <- true
-                | SwitchArg ->
+                    let baseOffset = offset + targetsCount * sizeOfInt
+                    for i in 1 .. targetsCount do
+                        if offset + sizeOfInt > codeSize then
+                            invalidProgram "IL stream unexpectedly ended!"
+                        let instr = x.NewInstr SwitchArg
+                        instr.arg <- baseOffset + NumberCreator.extractOffset code offset |> int |> Arg32
+                        offset <- offset + sizeOfInt
+                        x.InsertBefore(il, instr)
                     branch <- true
-                    offset <- offset + sizeof<int32>)
+                | _ -> invalidProgram "Unexpected operand type!"
 
-            tryAgain <- false
+                offset <- offset + size
+
+            assert(offset = codeSize)
             if branch then
-                x.TraverseProgram (fun instr ->
-                    match instr.opcode, instr.arg with
-                    | OpCode op, Target tgt when op.OperandType = OperandType.ShortInlineBrTarget ->
-                        let delta = int tgt.offset - int instr.next.offset
-                        if delta < int SByte.MinValue || delta > int SByte.MaxValue then
-                            if op = OpCodes.Leave_S then instr.opcode <- OpCode OpCodes.Leave
-                            else
-                                assert(op.Value >= OpCodes.Br_S.Value && op.Value <= OpCodes.Blt_Un_S.Value)
-                                let op = OpCodeOperations.singleByteOpCodes.[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
-                                assert(op.Value >= OpCodes.Br.Value && op.Value <= OpCodes.Blt_Un.Value)
-                                instr.opcode <- OpCode op
-                            tryAgain <- true
-                    | _ -> ())
-        uint32 offset
+                for instr in x.InstructionsSeq do
+                    if instr.IsJump then
+                        match instr.arg with
+                        | Arg32 offset ->
+                            instr.arg <- Target <| x.InstrFromOffset offset
+                        | _ -> invalidProgram "Wrong operand of branching instruction!"
 
-    member private x.ImportEH() =
-        let parseEH (raw : rawExceptionHandler) = {
-            flags = raw.flags
-            tryBegin = x.InstrFromOffset <| int raw.tryOffset
-            tryEnd = (x.InstrFromOffset <| int (raw.tryOffset + raw.tryLength)).prev
-            handlerBegin =
-                let start = x.InstrFromOffset <| int raw.handlerOffset
-                // TODO: improve 'EvaluationStackTyper'
-                // EvaluationStackTyper.createEHStackState m raw.flags start
-                start
-            handlerEnd = (x.InstrFromOffset <| int (raw.handlerOffset + raw.handlerLength)).prev
-            matcher = if raw.flags &&& 0x0001 = 0 then ClassToken raw.matcher else FilterEH (x.InstrFromOffset <| int raw.matcher)
-        }
-        ehs <- Array.map parseEH body.ehs
+            // TODO: improve 'EvaluationStackTyper'
+            // EvaluationStackTyper.createBodyStackState m il.next
 
-    member x.Import() =
-        x.ImportIL()
-        x.ImportEH() // TODO: replaceBranchAlias in eh! #do
-        x.RecalculateOffsets() |> ignore
-        maxStackSize <- body.properties.maxStackSize
+        member private x.ImportEH() =
+            let parseEH (eh : exceptionHandlingClause) = {
+                tryBegin = x.InstrFromOffset <| int eh.tryOffset
+                tryEnd = (x.InstrFromOffset <| int (eh.tryOffset + eh.tryLength)).prev
+                handlerBegin =
+                    let start = x.InstrFromOffset <| int eh.handlerOffset
+                    // TODO: improve 'EvaluationStackTyper'
+                    // EvaluationStackTyper.createEHStackState m raw.flags start
+                    start
+                handlerEnd = (x.InstrFromOffset <| int (eh.handlerOffset + eh.handlerLength)).prev
+                ehcType =
+                    match eh.ehcType with
+                    | Filter offset -> FilterEH (x.InstrFromOffset (int offset))
+                    | Catch t -> CatchEH t
+                    | Finally -> FinallyEH
+                    | Fault -> FaultEH
+            }
+            ehs <- Array.map parseEH body.ehs
 
-    member x.Export() = // TODO: refactor export #do
-        // One instruction produces 2 + sizeof(native int) bytes in the worst case which can be 10 bytes for 64-bit.
-        // For simplification we just use 10 here.
-        let maxSize = int instrCount * 10
-        let outputIL = Array.zeroCreate maxSize
+        member x.Import() =
+            x.ImportIL()
+            x.ImportEH()
+            x.RecalculateOffsets() |> ignore
 
-        let mutable branch = false
-        let mutable tryAgain = true
-        while tryAgain do
+        member private x.RecalculateOffsets([<Out>] hasBranch : bool byref) =
             let mutable offset = 0
-            x.TraverseProgram (fun instr ->
-                assert(offset < maxSize)
+            hasBranch <- false
+            // Recalculating offsets
+            for instr in x.InstructionsSeq do
                 instr.offset <- uint32 offset
+                offset <- offset + instr.SizeWithArg
+                hasBranch <- hasBranch || instr.IsJump
+            offset
 
+        member private x.NormalizeIL() =
+            let mutable hasBranch = false
+            let mutable tryAgain = true
+            let mutable size = 0
+            while tryAgain do
+                size <- x.RecalculateOffsets(&hasBranch)
+                tryAgain <- false
+                if hasBranch then
+                    // Changing short jumps to long, if needed
+                    for instr in x.InstructionsSeq do
+                        match instr.opcode, instr.arg with
+                        | OpCode op, Target tgt when op.OperandType = OperandType.ShortInlineBrTarget ->
+                            let delta = int tgt.offset - int instr.EndOffset
+                            if delta < int SByte.MinValue || delta > int SByte.MaxValue then
+                                if op = OpCodes.Leave_S then instr.opcode <- OpCode OpCodes.Leave
+                                else
+                                    assert(op.Value >= OpCodes.Br_S.Value && op.Value <= OpCodes.Blt_Un_S.Value)
+                                    let index = op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int
+                                    let op = OpCodeOperations.singleByteOpCodes[index];
+                                    assert(op.Value >= OpCodes.Br.Value && op.Value <= OpCodes.Blt_Un.Value)
+                                    instr.opcode <- OpCode op
+                                tryAgain <- true
+                        | _ -> ()
+            uint32 size
+
+        member private x.ToBytes() =
+            // Normalization before exporting to IL bytes
+            let ilCodeSize = x.NormalizeIL() |> int
+
+            // One instruction produces 2 + sizeof(native int) bytes in the worst case which can be 10 bytes for 64-bit.
+            // For simplification we just use 10 here.
+            let maxSize = int instrCount * 10
+            let outputIL = Array.zeroCreate maxSize
+
+            let mutable switchBase = -1
+            for instr in x.InstructionsSeq do
+                let instrOffset = int instr.offset
+                let mutable offset = instrOffset
+                assert(offset < maxSize)
                 match instr.opcode with
                 | OpCode op ->
                     if uint16 op.Value >= 0x100us then
-                        outputIL.[offset] <- byte OpCodes.Prefix1.Value
+                        outputIL[offset] <- byte OpCodes.Prefix1.Value
                         offset <- offset + 1
-                    outputIL.[offset] <- byte (op.Value &&& 0xFFs)
+                    outputIL[offset] <- byte (op.Value &&& 0xFFs)
                     offset <- offset + 1
                     match instr.arg with
                     | NoArg -> ()
-                    | Arg8 arg ->
-                        outputIL.[offset] <- arg
-                        offset <- offset + sizeof<int8>
+                    | Arg8 arg -> outputIL[offset] <- arg
                     | Arg16 arg ->
                         let success = BitConverter.TryWriteBytes(Span(outputIL, offset, sizeof<int16>), arg)
                         assert success
-                        offset <- offset + sizeof<int16>
                     | Arg32 arg ->
+                        if op = OpCodes.Switch then
+                            switchBase <- offset + sizeof<int32> * (arg + 1)
                         let success = BitConverter.TryWriteBytes(Span(outputIL, offset, sizeof<int32>), arg)
                         assert success
-                        offset <- offset + sizeof<int32>
                     | Arg64 arg ->
                         let success = BitConverter.TryWriteBytes(Span(outputIL, offset, sizeof<int64>), arg)
                         assert success
-                        offset <- offset + sizeof<int64>
-                    | Target _ ->
+                    | Target tgt ->
+                        let delta = int tgt.offset - int instr.EndOffset
                         match op.OperandType with
-                        | OperandType.ShortInlineBrTarget -> offset <- offset + 1
-                        | OperandType.InlineBrTarget -> offset <- offset + 4
-                        | _ -> __unreachable__()
-                        branch <- true
-                | SwitchArg ->
-                    branch <- true
-                    offset <- offset + sizeof<int32>)
-
-            il.offset <- uint32 offset
-
-            tryAgain <- false
-            if branch then
-                let mutable switchBase = 0
-                x.TraverseProgram (fun instr ->
-                    match instr.opcode with
-                    | OpCode op when op = OpCodes.Switch ->
-                        match instr.arg with
-                        | Arg32 arg -> switchBase <- int instr.offset + 1 + sizeof<int32> * (arg + 1)
-                        | _ -> __unreachable__()
-                    | SwitchArg ->
-                        match instr.arg with
-                        | Target tgt ->
-                            let success = BitConverter.TryWriteBytes(Span(outputIL, int instr.offset, sizeof<int>), int tgt.offset - switchBase)
+                        | OperandType.ShortInlineBrTarget ->
+                            assert(delta >= int SByte.MinValue && delta <= int SByte.MaxValue)
+                            outputIL[offset] <- byte (int8 delta)
+                        | OperandType.InlineBrTarget ->
+                            let bytes = Span(outputIL, offset, sizeof<int32>)
+                            let success = BitConverter.TryWriteBytes(bytes, delta)
                             assert success
                         | _ -> __unreachable__()
-                    | OpCode op ->
-                        match instr.arg with
-                        | Target tgt ->
-                            let delta = int tgt.offset - int instr.next.offset
-                            match op.OperandType with
-                            | OperandType.ShortInlineBrTarget ->
-                                if delta < int SByte.MinValue || delta > int SByte.MaxValue then
-                                    if op = OpCodes.Leave_S then instr.opcode <- OpCode OpCodes.Leave
-                                    else
-                                        assert(op.Value >= OpCodes.Br_S.Value && op.Value <= OpCodes.Blt_Un_S.Value)
-                                        let op = OpCodeOperations.singleByteOpCodes.[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
-                                        assert(op.Value >= OpCodes.Br.Value && op.Value <= OpCodes.Blt_Un.Value)
-                                        instr.opcode <- OpCode op
-                                    tryAgain <- true
-                                else outputIL.[int instr.next.offset - sizeof<int8>] <- byte (int8 delta)
-                            | OperandType.InlineBrTarget ->
-                                let success = BitConverter.TryWriteBytes(Span(outputIL, int instr.next.offset - sizeof<int32>, sizeof<int32>), delta)
-                                assert success
-                            | _ -> __unreachable__()
-                        | _ -> ())
+                | SwitchArg ->
+                    match instr.arg with
+                    | Target tgt ->
+                        assert(switchBase >= 0)
+                        let bytes = Span(outputIL, instrOffset, sizeof<int>)
+                        let offset = int tgt.offset - switchBase
+                        let success = BitConverter.TryWriteBytes(bytes, offset)
+                        assert success
+                    | _ -> __unreachable__()
 
-        let methodProps = {ilCodeSize = uint32 il.offset; maxStackSize = maxStackSize}
-        let encodeEH (eh : ehClause) = {
-            flags = eh.flags
-            tryOffset = eh.tryBegin.offset
-            tryLength = eh.tryEnd.next.offset - eh.tryBegin.offset
-            handlerOffset = eh.handlerBegin.offset
-            handlerLength = eh.handlerEnd.next.offset - eh.handlerBegin.offset
-            matcher =
-                match eh.matcher with
-                | ClassToken tok -> tok
-                | FilterEH instr -> instr.offset
+            let ehs = ehs |> Array.map (fun eh -> eh.Export())
+            { il = Array.truncate ilCodeSize outputIL; ehs = ehs }
+
+        member x.Export() =
+            if codeRewritten then x.ToBytes()
+            else body
+
+        member private x.ParseCallee (instr : ilInstr) =
+            Reflection.resolveMethod m instr.Arg32
+
+        member x.AnalyseMethod() =
+            let events = HashSet<analysisEvent>()
+            let dependencies = HashSet<MethodBase>()
+            let mutable instr = il.next
+            while not <| x.IsEnd instr do
+                match instr.opcode with
+                | OpCode opcode ->
+                    if opcode = OpCodes.Call || opcode = OpCodes.Newobj then
+                        let method = x.ParseCallee instr
+                        dependencies.Add method |> ignore
+                    elif opcode = OpCodes.Calli then
+                        events.Add Calli |> ignore
+                    elif opcode = OpCodes.Callvirt then
+                        let method = x.ParseCallee instr
+                        events.Add (CallVirt method) |> ignore
+                    elif opcode = OpCodes.Ldsfld || opcode = OpCodes.Ldsflda then
+                        let field = Reflection.resolveField m instr.Arg32 |> Reflection.wrapField
+                        events.Add (Ldsfld field) |> ignore
+                    elif opcode = OpCodes.Stsfld then
+                        let field = Reflection.resolveField m instr.Arg32 |> Reflection.wrapField
+                        events.Add (Stsfld field) |> ignore
+                | _ -> ()
+                instr <- instr.next
+            { method = m; events = events; dependencies = Seq.toList dependencies }
+
+    let private rewriterCache = Dictionary<MethodBase, ILRewriter>()
+    let private eventsCache = Dictionary<MethodBase, analyseResult>()
+
+    let private createRewriterFromBody (rawMethodBody : rawMethodBody) (m : MethodBase) =
+        let exists, ilRewriter = rewriterCache.TryGetValue m
+        if exists then ilRewriter
+        else
+            let ilRewriter = ILRewriter(rawMethodBody, m)
+            ilRewriter.Import()
+            rewriterCache.Add(m, ilRewriter)
+            ilRewriter
+
+    let private createRewriterFromMethod (m : MethodBase) =
+        let exists, ilRewriter = rewriterCache.TryGetValue m
+        if exists then ilRewriter
+        else
+            let ilRewriter = ILRewriter(m)
+            ilRewriter.Import()
+            rewriterCache.Add(m, ilRewriter)
+            ilRewriter
+
+    let rewriteIL (body : rawMethodBody) (m : MethodBase) =
+        let ilRewriter = createRewriterFromBody body m
+        ilRewriter.Export()
+
+    let instructionsOfMethod (body : rawMethodBody) (m : MethodBase) =
+        let ilRewriter = createRewriterFromBody body m
+        ilRewriter.Instructions
+
+    let private checkEvents (events : HashSet<analysisEvent>) (failPredicate : analysisEvent -> bool) =
+        let mutable success = true
+        for event in events do
+            if success then
+                success <- failPredicate event |> not
+        success
+
+    type private checkResult =
+        {
+            success : bool
+            analyseResult : analyseResult
         }
-        let ehs = Array.map encodeEH ehs
-        {properties = methodProps; il = Array.truncate (int methodProps.ilCodeSize) outputIL; ehs = ehs}
+        with
+        static member Empty(m : MethodBase) = { success = true; analyseResult = analyseResult.Empty m }
+        member x.Union (other : checkResult) =
+            {
+                success = x.success && other.success
+                analyseResult = x.analyseResult.Union other.analyseResult
+            }
+
+    let rec private checkCallee (checkedMethods : HashSet<MethodBase>) (failPredicate : analysisEvent -> bool) (m : MethodBase) k =
+        // Recursive methods handling
+        if checkedMethods.Add m then
+            let result =
+                let exists, result = eventsCache.TryGetValue m
+                if exists then result
+                else
+                    let rewriter = createRewriterFromMethod m
+                    rewriter.AnalyseMethod()
+            let success = checkEvents result.events failPredicate
+            if success then
+                let checkResult = { success = true; analyseResult = result }
+                if result.IsComplete then k checkResult
+                else
+                    checkDependencies checkedMethods failPredicate checkResult result.dependencies (fun checkResult ->
+                    eventsCache[m] <- checkResult.analyseResult
+                    k checkResult)
+            else k { success = false; analyseResult = result }
+        else checkResult.Empty m |> k
+
+    and private checkDependencies checkedMethods (failPredicate : analysisEvent -> bool) resultAcc dependencies k =
+        assert resultAcc.success
+        let analyseDependencies (resultAcc : checkResult) method (k : checkResult -> 'a) =
+            if resultAcc.success then
+                checkCallee checkedMethods failPredicate method (fun calleeResult ->
+                resultAcc.Union calleeResult |> k)
+            else k resultAcc
+        Cps.List.foldlk analyseDependencies resultAcc dependencies k
+
+    let analyseMethod (rawMethodBody : rawMethodBody) (m : MethodBase) (failPredicate : analysisEvent -> bool) =
+        let result =
+            let exists, result = eventsCache.TryGetValue m
+            if exists then result
+            else
+                let rewriter = createRewriterFromBody rawMethodBody m
+                rewriter.AnalyseMethod()
+        let success = checkEvents result.events failPredicate
+        if success then
+            if result.IsComplete then true
+            else
+                let checkedMethods = HashSet<MethodBase>()
+                checkedMethods.Add m |> ignore
+                let mutable checkResult = { success = true; analyseResult = result }
+                for method in result.dependencies do
+                    if checkResult.success then
+                        let calleeResult = checkCallee checkedMethods failPredicate method id
+                        checkResult <- checkResult.Union calleeResult
+                eventsCache[m] <- checkResult.analyseResult
+                checkResult.success
+        else false

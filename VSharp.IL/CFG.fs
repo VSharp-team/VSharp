@@ -5,7 +5,6 @@ open VSharp.GraphUtils
 open global.System
 open System.Reflection
 open System.Collections.Generic
-open FSharpx.Collections
 open Microsoft.FSharp.Collections
 open VSharp
 
@@ -80,7 +79,7 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
 
     member this.ToString() =
         let methodBase = (method :> Core.IMethod).MethodBase
-        this.GetInstructions() |> Seq.map (ILRewriter.PrintILInstr None None methodBase)
+        this.GetInstructions() |> Seq.map (ILRewriter.printILInstr methodBase)
 
     member this.BlockSize with get() =
         this.GetInstructions() |> Seq.length
@@ -211,7 +210,7 @@ and CfgInfo internal (method : MethodWithBody) =
                     addEdge srcBasicBlock newBasicBlock
                     dfs' newBasicBlock dst k
 
-                let processCall (callee: MethodWithBody) callFrom returnTo k =
+                let processCall (callee : MethodWithBody) callFrom returnTo k =
                     calls.Add(currentBasicBlock, CallInfo(callee :?> Method, callFrom, returnTo))
                     currentBasicBlock.FinalOffset <- callFrom
                     let newBasicBlock = makeNewBasicBlock returnTo
@@ -416,7 +415,7 @@ and Method internal (m : MethodBase) as this =
         else res <- value
         res
 
-    member x.InstrsToString() =
+    member x.InstructionsToString() =
         let mutable sb = System.Text.StringBuilder()
         for b in x.BasicBlocks do
             for instr in b.ToString() do
@@ -498,31 +497,31 @@ type ApplicationGraph() =
     let getShortestDistancesToGoals (states : array<codeLocation>) =
         __notImplemented__()
 
-    member this.RegisterMethod (method: Method) =
+    member this.RegisterMethod (method : Method) =
         assert method.HasBody
 
     member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
         addCallEdge sourceLocation targetLocation
 
-    member this.SpawnState (state:IGraphTrackableState) =
-        [|state|] |> addStates None
+    member this.SpawnState (state : IGraphTrackableState) =
+        [| state |] |> addStates None
 
-    member this.SpawnStates (states:seq<IGraphTrackableState>) =
+    member this.SpawnStates (states : seq<IGraphTrackableState>) =
         Array.ofSeq states |> addStates None
 
-    member this.AddForkedStates (parentState:IGraphTrackableState) (forkedStates:seq<IGraphTrackableState>) =
+    member this.AddForkedStates (parentState : IGraphTrackableState) (forkedStates : seq<IGraphTrackableState>) =
         addStates (Some parentState) (Array.ofSeq forkedStates)
 
     member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
         moveState fromLocation toLocation
 
-    member x.AddGoal (location:codeLocation) =
+    member x.AddGoal (location : codeLocation) =
         ()
 
-    member x.AddGoals (locations:array<codeLocation>) =
+    member x.AddGoals (locations : array<codeLocation>) =
         ()
 
-    member x.RemoveGoal (location:codeLocation) =
+    member x.RemoveGoal (location : codeLocation) =
         ()
 
 type IVisualizer =

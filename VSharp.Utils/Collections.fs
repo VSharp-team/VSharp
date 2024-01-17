@@ -340,7 +340,6 @@ module Array =
             lenProd <- lenProd * lengths.[i]
         Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
 
-
     let mapToOneDArray mapper (arr : Array) : obj[] =
         if arr = null then null
         else

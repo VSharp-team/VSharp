@@ -11,10 +11,10 @@ module internal Environment =
     let GetResourceFromDefault (state : state) (_ : term list) =
         Memory.AllocateString "Getting resource strings currently not supported!" state
 
-    let GetCurrentManagedThreadId  (_ : state) (_ : term list) =
+    let GetCurrentManagedThreadId (_ : state) (_ : term list) =
         MakeNumber 0
 
-    let GetManagedThreadId  (_ : state) (_ : term list) =
+    let GetManagedThreadId (_ : state) (_ : term list) =
         MakeNumber 0
 
     let WriteLine (_ : state) (args : term list) =

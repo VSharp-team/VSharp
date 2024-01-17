@@ -16,7 +16,7 @@ module public Prelude =
 
     let public internalfail message = raise (InternalException message)
     let public internalfailf format = Printf.ksprintf internalfail format
-    let undefinedBehaviour reason = internalfailf "Undefined behaviour: %s" reason
+    let undefinedBehaviour reason = internalfail $"Undefined behaviour: %s{reason}"
 
     let inline public __notImplemented__() = raise (NotImplementedException())
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!")

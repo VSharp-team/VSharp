@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using System.Collections.Generic;
 using ChessDotNet;
@@ -196,7 +197,7 @@ namespace IntegrationTests
             return x;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static Dictionary<char, Piece> CreateRepeatingDictionary()
         {
             Dictionary<char, Piece> fenMappings = new Dictionary<char, Piece>()
@@ -209,7 +210,7 @@ namespace IntegrationTests
             return fenMappings;
         }
 
-        [Ignore("GetTypeFromHandle() is not implemented")]
+        [TestSvm(100)]
         public static Dictionary<char, Piece> CreateDictionary()
         {
             Dictionary<char, Piece> fenMappings = new Dictionary<char, Piece>()
