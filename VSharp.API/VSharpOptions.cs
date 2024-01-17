@@ -112,7 +112,7 @@ public readonly record struct VSharpOptions
     public readonly int RandomSeed = DefaultRandomSeed;
     public readonly uint StepsLimit = DefaultStepsLimit;
     public readonly Oracle? Oracle = null;
-    public readonly AIAgentTrainingOptions? AIAgentTrainingOptions = null;
+    public readonly AIAgentTrainingOptions AIAgentTrainingOptions = null;
 
     /// <summary>
     /// Symbolic virtual machine options.
@@ -143,7 +143,7 @@ public readonly record struct VSharpOptions
         int randomSeed = DefaultRandomSeed,
         uint stepsLimit = DefaultStepsLimit,
         Oracle? oracle = null,
-        AIAgentTrainingOptions? aiAgentTrainingOptions = null)
+        AIAgentTrainingOptions aiAgentTrainingOptions = null)
     {
         Timeout = timeout;
         SolverTimeout = solverTimeout;
