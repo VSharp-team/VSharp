@@ -556,6 +556,9 @@ module Loader =
             "System.Boolean System.String.Equals(System.String, System.String, System.StringComparison)"
             "System.Boolean System.String.Equals(this, System.String, System.StringComparison)"
             "System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"
+            "System.Boolean System.Double.TryParse(System.String, System.Double&)"
+            "System.Boolean System.Single.TryParse(System.String, System.Single&)"
+            "System.String System.Exception.GetStackTrace(this)"
 
             // Array
             "System.UIntPtr System.Array.get_NativeLength(this)"
@@ -611,9 +614,8 @@ module Loader =
             // "System.Boolean Internal.Runtime.CompilerServices.Unsafe.IsNullRef(T&)"
             // "System.Boolean System.Runtime.CompilerServices.Unsafe.IsNullRef(T&)"
 
-            "System.Boolean System.Double.TryParse(System.String, System.Double&)"
-            "System.Boolean System.Single.TryParse(System.String, System.Single&)"
-            "System.String System.Exception.GetStackTrace(this)"
+            // TaskWaiter
+            "System.Void System.Runtime.CompilerServices.TaskAwaiter.ValidateEnd(System.Threading.Tasks.Task)"
 
             // ASP.NET Core
             // Configuration builder

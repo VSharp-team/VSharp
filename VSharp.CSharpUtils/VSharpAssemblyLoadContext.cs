@@ -29,7 +29,7 @@ namespace VSharp.CSharpUtils
         private const BindingFlags Flags =
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
 
-        private Assembly? OnAssemblyResolve(object sender, ResolveEventArgs args)
+        private Assembly? OnAssemblyResolve(object? sender, ResolveEventArgs args)
         {
             var existingInstance = Assemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
             if (existingInstance != null)

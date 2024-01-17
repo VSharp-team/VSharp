@@ -9,7 +9,7 @@ open VSharp.Interpreter.IL.CilState
 
 module internal Object =
 
-    let internal MemberwiseClone (_ : IInterpreter) (cilState : cilState) (args : term list) =
+    let MemberwiseClone (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 1)
         let object = args[0]
         let state = cilState.state

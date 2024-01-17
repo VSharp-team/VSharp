@@ -9,35 +9,10 @@ open CilState
 
 type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearcher, targeted : ITargetedSearcher) =
 
-//    let starts = Queue<MethodBase>()
-//    let addedStarts = HashSet<MethodBase>()
-//    let mutable inverseReachability : Dictionary<MethodBase, HashSet<MethodBase>> = null
-
-//    let rememberStart (m : MethodBase) =
-//        if addedStarts.Contains(m) then ()
-//        else
-//            addedStarts.Add(m) |> ignore
-//            starts.Enqueue(m)
-//    let startFrom (m : MethodBase) =
-//        assert(addedStarts.Contains(m))
-////        Logger.warning "Starting for method = %s" (Reflection.getFullMethodName m)
-//        Start(Instruction(0x00, m))
-//    let getInverse (ip : ip) =
-//        let m = CilStateOperations.methodOf ip
-//        if inverseReachability.ContainsKey(m) then inverseReachability.[m]
-//        else HashSet<_>()
-
-
-
     interface IBidirectionalSearcher with
-//            let _, inverseReachability' = CFG.buildMethodsReachabilityForAssembly m
-//            inverseReachability <- inverseReachability'
-//            Seq.iter (fun p -> rememberStart p.loc.method) mainPobs
-//        override x.PriorityQueue _ = StackFrontQueue() :> IPriorityQueue<cilState>
 
         override x.Init cilStates mainPobs =
             backward.Init mainPobs
-//            let start : cilState = CilStateOperations.makeInitialState m (ExplorerBase.FormInitialStateWithoutStatics m)
             forward.Init cilStates
 
         override x.Statuses() = backward.Statuses()
@@ -58,23 +33,6 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             match forward.Pick() with
             | Some s -> GoFront s
             | None -> Stop
-//            match backward.Pick() with
-//            | Propagate(s,p) -> GoBack (s,p)
-//            | InitTarget(from, pobs) ->
-//                let tos = Seq.map (fun (pob : pob) -> Instruction(pob.loc.offset, pob.loc.method)) pobs
-//                targeted.SetTargets from tos
-//                match targeted.Pick() with
-//                | Some s -> GoFront s
-//                | None -> internalfail "Targeted searcher must pick state successfully immediately after adding new targets"
-//            | NoAction ->
-//                match targeted.Pick() with
-//                | Some s -> GoFront s
-//                | None ->
-//                    match forward.Pick() with
-//                    | Some s ->
-//                        backward.RemoveBranch s
-//                        GoFront s
-//                    | None -> Stop
 
         override x.Reset () =
             forward.Reset()
@@ -157,7 +115,6 @@ type BackwardSearcher() =
         else answeredPobs[p'] <- Witnessed s'
         Application.removeGoal p'.loc
         if ancestorOf.ContainsKey p' then
-//            assert(ancestorOf.[p'] <> null)
             Seq.iter (fun (ancestor : pob) ->
                 assert(p' <> ancestor)
                 if currentPobs.Contains(ancestor) || mainPobs.Contains(ancestor) then
