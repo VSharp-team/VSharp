@@ -163,6 +163,7 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.internalId}"
 
         let setCoveredIfNeeded (loc : codeLocation) =
+            // 'Call' instructions are considered covered only after return, because 'call' can throw exception
             if s.StackSize <= stackSize && loc.offset = loc.BasicBlock.FinalOffset then
                 s.AddLocationToHistory loc
 
@@ -202,10 +203,6 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
             if currentMethod.InCoverageZone && not isCovered then
                 visitedBlocksNotCoveredByTests.TryAdd(s, Set.empty) |> ignore
                 Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
-            (*
-                Call instructions are considered covered only after return
-                (because call can throw exception)
-            *)
             setCoveredIfNeeded currentLoc
         | Some currentLoc -> setCoveredIfNeeded currentLoc
         | None -> ()

@@ -505,7 +505,7 @@ namespace VSharp.Test
                     else
                     {
                         context.CurrentResult.SetResult(
-                            _expectedCoverage is not null
+                            _expectedCoverage > 0
                                 ? ResultState.Failure
                                 : ResultState.Success
                         );

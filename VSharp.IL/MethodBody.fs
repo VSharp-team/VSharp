@@ -101,8 +101,8 @@ type MethodWithBody internal (m : MethodBase) =
         | None -> None)
 
     let instructions = lazy(
-        match rawBody.Value with
-        | Some rawBody -> ILRewriter.instructionsOfMethod rawBody actualMethod
+        match methodBody.Value with
+        | Some methodBody -> ILRewriter.instructionsOfMethod methodBody actualMethod
         | None -> internalfailf $"Getting instructions of method {m} without body (extern or abstract)")
 
     let invocationFlags = lazy (
