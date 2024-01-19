@@ -259,10 +259,16 @@ let collectStatesInfoToDump (basicBlocks:ResizeArray<BasicBlock>) =
                                                       , normalize minDistToUncovered m.DistanceToNearestNotVisited m))
     statesInfoToDump
     
-let collectGameState (basicBlocks:ResizeArray<BasicBlock>) =
+let collectGameState (basicBlocks:ResizeArray<BasicBlock>) filterStates =
     
     let vertices = ResizeArray<_>()
     let allStates = HashSet<_>()
+    
+    let activeStates =
+        basicBlocks
+        |> Seq.collect (fun basicBlock -> basicBlock.AssociatedStates)
+        |> Seq.map (fun s -> s.Id)
+        |> fun x -> HashSet x
          
     for currentBasicBlock in basicBlocks do        
         let states =
@@ -278,6 +284,9 @@ let collectGameState (basicBlocks:ResizeArray<BasicBlock>) =
                       s.InstructionsVisitedInCurrentBlock,
                       s.History |> Seq.map (fun kvp -> kvp.Value) |> Array.ofSeq,
                       s.Children |> Array.map (fun s -> s.Id)
+                                 |> (fun x -> if filterStates
+                                              then Array.filter activeStates.Contains x
+                                              else x)
                       )
                 |> allStates.Add
                 |> ignore
@@ -317,7 +326,7 @@ let collectGameStateDelta () =
             basicBlock.IsGoal <- method.InCoverageZone
             let added = basicBlocks.Add(basicBlock)
             ()
-    collectGameState (ResizeArray basicBlocks)    
+    collectGameState (ResizeArray basicBlocks) false  
 
 let dumpGameState fileForResultWithoutExtension =
     let basicBlocks = ResizeArray<_>()
@@ -326,7 +335,7 @@ let dumpGameState fileForResultWithoutExtension =
             basicBlock.IsGoal <- method.Key.InCoverageZone
             basicBlocks.Add(basicBlock)
             
-    let gameState = collectGameState basicBlocks
+    let gameState = collectGameState basicBlocks true
     let statesInfoToDump = collectStatesInfoToDump basicBlocks
     let gameStateJson = JsonSerializer.Serialize gameState        
     let statesInfoJson = JsonSerializer.Serialize statesInfoToDump
