@@ -173,7 +173,6 @@ type Feedback =
 
 [<Struct>]
 type GameMap =
-    val Id: uint
     val StepsToPlay: uint<step>
     val StepsToStart: uint<step>
     [<JsonConverter(typeof<JsonStringEnumConverter>)>]
@@ -181,9 +180,8 @@ type GameMap =
     val AssemblyFullName: string
     val NameOfObjectToCover: string
     val MapName: string
-    new (id, stepsToPlay, stepsToStart, assembly, defaultSearcher, objectToCover) =
+    new (stepsToPlay, stepsToStart, assembly, defaultSearcher, objectToCover) =
         {
-            Id = id
             StepsToPlay = stepsToPlay
             StepsToStart = stepsToStart
             AssemblyFullName = assembly
@@ -193,9 +191,8 @@ type GameMap =
         }
         
     [<JsonConstructor>]
-    new (id, stepsToPlay, stepsToStart, assemblyFullName, defaultSearcher, nameOfObjectToCover, mapName) =
+    new (stepsToPlay, stepsToStart, assemblyFullName, defaultSearcher, nameOfObjectToCover, mapName) =
         {
-            Id = id
             StepsToPlay = stepsToPlay
             StepsToStart = stepsToStart
             AssemblyFullName = assemblyFullName

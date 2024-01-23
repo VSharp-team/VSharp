@@ -40,11 +40,9 @@ let mutable inTrainMode = true
 
 let loadGameMaps (datasetDescriptionFilePath:string) =
     let jsonString = File.ReadAllText datasetDescriptionFilePath
-    let maps = Dictionary<uint,GameMap>()
-    for map in System.Text.Json.JsonSerializer.Deserialize<GameMap[]> jsonString do
-        if not <| maps.ContainsKey map.Id
-        then maps.Add (map.Id, map)
-        else failwithf $"Id-s of maps must be unique, but maps contains more then one map with id{map.Id}."
+    let maps = ResizeArray<GameMap>()
+    for map in System.Text.Json.JsonSerializer.Deserialize<GameMap[]> jsonString do        
+        maps.Add map        
     maps
 
 let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
@@ -193,25 +191,25 @@ let app port : WebPart =
         path "/gameServer" >=> handShake (ws port)
     ]
 
-let generateDataForPretraining outputDirectory datasetBasePath (maps:Dictionary<uint32,GameMap>) stepsToSerialize =
-    for kvp in maps do
-        if kvp.Value.StepsToStart = 0u<step>
+let generateDataForPretraining outputDirectory datasetBasePath (maps:ResizeArray<GameMap>) stepsToSerialize =
+    for map in maps do
+        if map.StepsToStart = 0u<step>
         then
-            printfn $"Generation for {kvp.Value.MapName} started."
-            let assembly = RunnerProgram.TryLoadAssembly <| FileInfo(Path.Combine (datasetBasePath, kvp.Value.AssemblyFullName)) 
-            let method = RunnerProgram.ResolveMethod(assembly, kvp.Value.NameOfObjectToCover)
+            printfn $"Generation for {map.MapName} started."
+            let assembly = RunnerProgram.TryLoadAssembly <| FileInfo(Path.Combine (datasetBasePath, map.AssemblyFullName)) 
+            let method = RunnerProgram.ResolveMethod(assembly, map.NameOfObjectToCover)
             let aiTrainingOptions =
                 {
                     stepsToSwitchToAI = 0u<step>
                     stepsToPlay = 0u<step>
                     defaultSearchStrategy = searchMode.BFSMode
                     serializeSteps = true
-                    mapName = kvp.Value.MapName
+                    mapName = map.MapName
                     oracle = None
                 } 
             let options = VSharpOptions(timeout = 5 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.ExecutionTreeContributedCoverage, stepsLimit = stepsToSerialize, solverTimeout=2, aiAgentTrainingOptions = aiTrainingOptions)
             let statistics = TestGenerator.Cover(method, options)
-            printfn $"Generation for {kvp.Value.MapName} finished."
+            printfn $"Generation for {map.MapName} finished."
             Application.reset()
             API.Reset()
             HashMap.hashMap.Clear()
