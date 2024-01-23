@@ -167,6 +167,8 @@ module API =
                 fork state condition sightType zero
 
         let TryTermToObj state term = Memory.tryTermToObj state term
+        let TryTermToFullyConcreteObj state term = Memory.tryTermToFullyConcreteObj state term
+        let ReTrackObject state (obj : obj) = state.concreteMemory.ReTrackObject obj
 
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
@@ -530,7 +532,8 @@ module API =
         let WriteStackLocation state location value = Memory.writeStackLocation state location value
 
         let Write state reference value =
-            let write state reference = Memory.write Memory.emptyReporter state reference value
+            let write state reference =
+                Memory.write Memory.emptyReporter state (transformBoxedRef reference) value
             Branching.guardedStatedMap write state reference
 
         let WriteUnsafe (reporter : IErrorReporter) state reference value =

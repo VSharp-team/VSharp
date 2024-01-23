@@ -79,6 +79,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) terminate called after throwing an instance of 'PAL_SEHException'")]
     public class Blockchain
     {
         [TestSvm(100, strat: SearchStrategy.DFS)]

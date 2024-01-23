@@ -271,7 +271,7 @@ module TypeSolver =
 
     let private typeParameterCandidates makeGenericCandidates =
         let getMock _ = EmptyTypeMock() :> ITypeMock
-        let validate (t: Type) =
+        let validate (t : Type) =
             if t.IsGenericTypeDefinition then
                 makeGenericCandidates t |> Option.map GenericCandidate
             else Candidate t |> Some
@@ -279,7 +279,7 @@ module TypeSolver =
         enumerateTypes List.empty getMock validate assemblies
 
     let private typeParameterGroundCandidates getMock subst (parameter : Type, constraints : typeConstraints) =
-        let validate (typ: Type) =
+        let validate (typ : Type) =
             if not typ.IsGenericTypeDefinition && GroundUtils.satisfiesTypeParameterConstraints parameter subst typ then
                 Candidate typ |> Some
             else None
@@ -303,7 +303,7 @@ module TypeSolver =
             makeGenericCandidate
             childDepth
 
-    let private makeGenericCandidate (typedef: Type) depth =
+    let private makeGenericCandidate (typedef : Type) depth =
         let childDepth _ _ _ = Int32.MaxValue
         genericCandidate.TryCreate typedef depth (makeParameterSubstitutions childDepth)
 
@@ -423,7 +423,9 @@ module TypeSolver =
             let typeVars = List.fold collectVars typeVars inputConstraints |> Array.ofList
 
             let solveWithSubst subst =
-                solveTypesConstraints getMock inputConstraints subst |> Option.map (makePair (decodeTypeSubst subst))
+                solveTypesConstraints getMock inputConstraints subst
+                |> Option.map (makePair (decodeTypeSubst subst))
+
             solveParams getMock (pdict.Empty()) typeVars |> Seq.tryPick solveWithSubst |> Option.map (fun (a, b) -> b, a)
 
     let private getGenericParameters (m : IMethod) =
@@ -601,7 +603,7 @@ module TypeSolver =
 
     let refineTypes (state : state) =
         match solveTypes state.model state with
-        | TypeSat _ -> ()
+        | TypeSat -> ()
         | TypeUnsat -> internalfail "Refining types: branch is unreachable"
 
     let keepOnlyMock state thisRef =

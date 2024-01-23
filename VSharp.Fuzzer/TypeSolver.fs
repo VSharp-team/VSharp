@@ -19,7 +19,11 @@ type internal TypeSolver() =
 
     let mockMethod (freshMock: Mocking.Type) (generate: System.Type -> obj) (method: Mocking.Method) =
         let baseMethod = method.BaseMethod
-        let implementation = Array.init defaultClausesCount (fun _ -> generate baseMethod.ReturnType)
+        let implementation =
+            if baseMethod.ReturnType = typeof<System.Void> then
+                Array.empty
+            else
+                Array.init defaultClausesCount (fun _ -> generate baseMethod.ReturnType)
         let outParams = baseMethod.GetParameters() |> Array.filter (fun p -> p.IsOut)
         let outImplementations =
             if Array.isEmpty outParams then Array.empty
@@ -54,34 +58,42 @@ type internal TypeSolver() =
             systemTypeCache.Add(mock, dynamicType)
             dynamicType
 
-    member this.MockType (t: System.Type) (generate: System.Type -> obj) =
-        Logger.traceTypeSolving $"Mock type {t.Name}"
+    let mockTypes (ts: System.Type list) (generate: System.Type -> obj) =
+        Logger.traceTypeSolving $"Mock type {ts}"
         let mock =
-            match mockCache.TryGetValue [t] with
+            match mockCache.TryGetValue ts with
             | true, v ->
-                Logger.traceTypeSolving $"{t.Name} got from cache"
+                Logger.traceTypeSolving $"{ts} got from cache"
                 v
             | false, _ ->
-                Logger.traceTypeSolving $"{t.Name} new TypeMock"
-                let mock = TypeMock([t])
-                mockCache.Add([t], mock)
+                Logger.traceTypeSolving $"{ts} new TypeMock"
+                let mock = TypeMock(ts)
+                mockCache.Add(ts, mock)
                 mock
         let encodedMock = encodeMock mock generate
         let typ = mockToType encodedMock
         mock, typ
+
+    member this.MockType (t: System.Type) (generate: System.Type -> obj) =
+        mockTypes [t] generate
 
     member this.GetMocks () = mockTypeCache
 
     member this.SolveGenericMethodParameters (method: Method) (generate: System.Type -> obj) =
         // TODO: Receive type parameters substitution from master process
         Logger.traceTypeSolving $"Solve generics for {method.Name}"
+
+        let mockedGenerics = System.Collections.Generic.Dictionary<System.Type, ITypeMock>()
+
         let substituteGenerics classParams methodParams =
             let getConcreteType =
                 function
                 | ConcreteType t -> t
                 | MockType m ->
-                    mockCache.Add (m.SuperTypes |> Seq.toList, m)
-                    encodeMock m generate |> mockToType
+                    let typeMock, systemType = mockTypes (m.SuperTypes |> Seq.toList) generate
+                    if mockedGenerics.ContainsKey(systemType) |> not then
+                        mockedGenerics.Add(systemType, typeMock)
+                    systemType
 
             let methodBase = (method :> IMethod).MethodBase
             let classParams = classParams |> Array.map getConcreteType
@@ -96,7 +108,7 @@ type internal TypeSolver() =
         | Some(classParams, methodParams) ->
             let method = substituteGenerics classParams methodParams
             Logger.traceTypeSolving $"Solved generics for {method.Name}"
-            Some (method, typeStorage)
+            Some (method, typeStorage, mockedGenerics)
         | _ ->
             Logger.traceTypeSolving $"Failed solve generics for {method.Name}"
             None

@@ -246,27 +246,28 @@ module internal OpCodeOperations =
     let singleByteOpCodes = Array.create equalSizeOpCodesCount OpCodes.Nop;
     let twoBytesOpCodes = Array.create equalSizeOpCodesCount OpCodes.Nop;
 
-    let private fillOpCodes =
+    do
+        // Filling opcodes
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let resolve (field : FieldInfo) =
+        for field in typeof<OpCodes>.GetRuntimeFields() do
             match field.GetValue() with
-            | :? OpCode as opCode -> let value = int opCode.Value
-                                     if isSingleByteOpCodeValue opCode then singleByteOpCodes.[value] <- opCode
-                                     else twoBytesOpCodes.[value &&& 0xFF] <- opCode
+            | :? OpCode as opCode ->
+                let value = int opCode.Value
+                if isSingleByteOpCodeValue opCode then singleByteOpCodes[value] <- opCode
+                else twoBytesOpCodes[value &&& 0xFF] <- opCode
             | _ -> ()
-        typeof<OpCodes>.GetRuntimeFields() |> Seq.iter resolve
 
-    let getOpCode (ilBytes : byte []) (offset : offset) =
+    let getOpCode (ilBytes : byte[]) (offset : offset) =
         let offset = int offset
-        let b1 = int16 ilBytes.[offset]
-        if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]
+        let b1 = int16 ilBytes[offset]
+        if isSingleByteOpCode b1 then singleByteOpCodes[int b1]
         elif offset + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
-        else twoBytesOpCodes.[int ilBytes.[offset + 1]]
+        else twoBytesOpCodes[int ilBytes[offset + 1]]
 
-    let writeOpCode (ilBytes : byte []) (offset : offset) opCode =
+    let writeOpCode (ilBytes : byte[]) (offset : offset) opCode =
         let offset = int offset
         if isSingleByteOpCodeValue opCode then
-            ilBytes.[offset] <- byte (opCode.Value &&& 0xFFs)
+            ilBytes[offset] <- byte (opCode.Value &&& 0xFFs)
         else
-            ilBytes.[offset] <- byte OpCodes.Prefix1.Value
-            ilBytes.[offset + 1] <- byte (opCode.Value &&& 0xFFs)
+            ilBytes[offset] <- byte OpCodes.Prefix1.Value
+            ilBytes[offset + 1] <- byte (opCode.Value &&& 0xFFs)

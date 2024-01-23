@@ -78,6 +78,44 @@ namespace IntegrationTests
                 return false;
             }
         }
+
+        public class A
+        {
+            public Func<int, int> Func;
+            public int I;
+        }
+
+        public static int ConcreteMemoryHelper(A a)
+        {
+            return a.Func(a.I);
+        }
+
+        [TestSvm(100)]
+        public static int ConcreteMemoryTest(int i)
+        {
+            var x = 0;
+            var arr = new int[] {1, 3, 4};
+            Func<int, int> func = arg =>
+            {
+                x += arg;
+                arr[0] += x;
+                return arr[0];
+            };
+
+            var a = new A();
+            a.I = 1;
+            a.Func = func;
+
+            var b = new A
+            {
+                I = 1,
+                Func = func
+            };
+            arr[0] = i;
+
+            return ConcreteMemoryHelper(a) + ConcreteMemoryHelper(b);
+        }
+
     }
 
     public class SomeData
@@ -87,6 +125,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) Input test is incorrect && Failed to reproduce")]
     public class Events
     {
         public struct IRQContext

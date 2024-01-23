@@ -79,6 +79,8 @@ module API =
         val PtrToRefFork : state -> pointerBase -> Type -> term -> list<option<address> * state>
 
         val TryTermToObj : state -> term -> obj option
+        val TryTermToFullyConcreteObj : state -> term -> obj option
+        val ReTrackObject : state -> obj -> unit
 
         val IsStruct : term -> bool
         val IsReference : term -> bool

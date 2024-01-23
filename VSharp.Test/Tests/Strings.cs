@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Text;
 using NUnit.Framework;
 using VSharp.Test;
@@ -339,12 +340,12 @@ namespace IntegrationTests
         }
 
         [Ignore("takes too much time")]
-        public static string StringRegex2(string str)
+        public static int StringRegex2(string str)
         {
             var result = System.Text.RegularExpressions.Regex.Match(str, ".*");
             if (result.Value != str)
-                return "";
-            return result.Value;
+                return -1;
+            return 1;
         }
 
         [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
@@ -356,7 +357,7 @@ namespace IntegrationTests
             return result.Groups["major"].Value + result.Groups["minor"].Value + result.Groups["patch"].Value;
         }
 
-        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        [TestSvm(100)]
         public static string StringRegex4()
         {
             var input = "7.3.7";
@@ -364,6 +365,46 @@ namespace IntegrationTests
             return result.Groups["major"].Value + result.Groups["minor"].Value + result.Groups["patch"].Value;
         }
 
+        [TestSvm(100)]
+        public static string StringRegex5()
+        {
+            var input = "kek";
+            var result = System.Text.RegularExpressions.Regex.Match(input, "(?<fst>)");
+            return result.Groups["fst"].Value;
+        }
+
+        [TestSvm(100)]
+        public static bool StringHashtable()
+        {
+            var table = new Hashtable { { "fst", 1 } };
+            return table.ContainsKey("fst");
+        }
+
+        [Ignore("fix strings comparison")]
+        public static int StringGetHashCode(string str)
+        {
+            if (str == "abc")
+            {
+                if (str.GetHashCode() == "abc".GetHashCode())
+                    return 1;
+                return -1;
+            }
+
+            return 0;
+        }
+
+        [Ignore("takes too much time")]
+        public static int StringGetHashCode1(string str)
+        {
+            if (str == "abc")
+            {
+                if (str.GetHashCode() == "abc".GetHashCode())
+                    return 1;
+                return -1;
+            }
+
+            return 0;
+        }
         [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
         public static int FromUtf16(char[] a)
         {

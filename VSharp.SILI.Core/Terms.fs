@@ -19,6 +19,7 @@ type IMethod =
     abstract HasThis : bool
     abstract HasParameterOnStack : bool
     abstract IsConstructor : bool
+    abstract IsStaticConstructor : bool
     abstract IsExternalMethod : bool
     abstract ContainsGenericParameters : bool
     abstract GenericArguments : Type[]
@@ -49,7 +50,7 @@ type stackKey =
             | TemporaryLocalVariableKey (typ, index) -> $"temporary##%s{Reflection.getFullTypeName typ}%d{index}"
         fullname.GetDeterministicHashCode()
     interface IComparable with
-        override x.CompareTo(other: obj) =
+        override x.CompareTo(other : obj) =
             match other with
             | :? stackKey as other ->
                 match x, other with

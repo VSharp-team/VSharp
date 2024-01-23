@@ -15,6 +15,7 @@ module Loader =
         let bindingFlags = BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
         let internalCalls = ResizeArray<string * MethodInfo>()
         for t in ts do
+            assert(t <> null)
             for m in t.GetMethods(bindingFlags) do
                 let mutable found = false
                 for attr in m.GetCustomAttributes<ImplementsAttribute>() do
@@ -96,40 +97,121 @@ module Loader =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
         let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
         let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|]
-        let string = [|"System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"|]
-        let span = [|
-            "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
-            "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
-            "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
-            "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
-        |]
-        let vector = [|
-            "System.Void System.Numerics.Vector`1[T]..ctor(this, T)"
-            "System.Void System.Numerics.Vector`1[T]..ctor(this, T[])"
-            "System.Void System.Numerics.Vector`1[T]..ctor(this, T[], System.Int32)"
-            "System.Int32 System.Numerics.Vector`1[T].get_Count()"
-            "System.Boolean System.Numerics.Vector`1[T].op_Inequality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Boolean System.Numerics.Vector`1[T].op_Equality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseOr(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.BitwiseAnd(System.Numerics.Vector`1[T, System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.Equals(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_BitwiseAnd(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_BitwiseOr(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].op_ExclusiveOr(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.ConditionalSelect(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector`1[T].get_AllBitsSet()"
-            "System.Numerics.Vector`1[T] System.Numerics.Vector.LessThanOrEqual(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-            "System.Boolean System.Numerics.Vector.LessThanOrEqualAll(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
-        |]
+        let string =
+            [|
+                "System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"
+                "System.Boolean System.String.Equals(System.String, System.String)"
+            |]
+        let span =
+            [|
+                "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+                "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
+                "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
+                "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+            |]
+        let vectorType = typedefof<System.Numerics.Vector<_>>
+        let vectorMethods = Reflection.getAllMethods vectorType |> Array.map Reflection.getFullMethodName
+        let vectorConstructors = Reflection.getAllConstructors vectorType |> Array.map Reflection.getFullMethodName
+        let vectorExtensions = Reflection.getAllMethods typeof<System.Numerics.Vector> |> Array.map Reflection.getFullMethodName
         let runtimeHelpers = [|
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.String)"
              "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.EnumEquals(T, T)"
+             "System.ReadOnlySpan`1[T] System.Runtime.CompilerServices.RuntimeHelpers.CreateSpan(System.RuntimeFieldHandle)"
+        |]
+        let arithmetics = [|
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.Int32)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.Int64)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.IntPtr)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.Int32)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.Int64)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.IntPtr)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UIntPtr)"
+            "System.UInt32 System.Numerics.BitOperations.RotateLeft(System.UInt32, System.Int32)"
+            "System.UInt64 System.Numerics.BitOperations.RotateLeft(System.UInt64, System.Int32)"
+            "System.UIntPtr System.Numerics.BitOperations.RotateLeft(System.UIntPtr, System.Int32)"
+            "System.UInt32 System.Numerics.BitOperations.RotateRight(System.UInt32, System.Int32)"
+            "System.UInt64 System.Numerics.BitOperations.RotateRight(System.UInt64, System.Int32)"
+            "System.UIntPtr System.Numerics.BitOperations.RotateRight(System.UIntPtr, System.Int32)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.Byte)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt16)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt32)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt64)"
         |]
         let interlocked = [|
             "System.Int32 System.Threading.Interlocked.Or(System.Int32&, System.Int32)"
         |]
-        Array.concat [intPtr; volatile; defaultComparer; string; span; vector; runtimeHelpers; interlocked]
+        Array.concat [
+            intPtr
+            volatile
+            defaultComparer
+            string
+            span
+            vectorMethods
+            vectorConstructors
+            vectorExtensions
+            runtimeHelpers
+            interlocked
+            arithmetics
+        ]
+
+    let private invocationForbidden =
+        set [
+            "System.Boolean System.Diagnostics.Debugger.get_IsAttached()"
+            "System.Int32 System.Threading.PlatformHelper.get_ProcessorCount()"
+            "System.Int32 System.Environment.get_ProcessorCount()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Lzcnt.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Lzcnt+X64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Arm.ArmBase.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Arm.AdvSimd+Arm64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Arm.ArmBase+Arm64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Arm.AdvSimd.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Avx2.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.Sse2+X64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.X86Base.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.X86.X86Base+X64.get_IsSupported()"
+            "System.Boolean System.Runtime.Intrinsics.Vector128.get_IsHardwareAccelerated()"
+            "System.Boolean System.Net.Quic.QuicListener.get_IsSupported()"
+            "System.Boolean System.Console.get_IsOutputRedirected()"
+            "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack()"
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack()"
+            "System.Void System.Threading.Thread.SpinWaitInternal(System.Int32)"
+            "System.Void System.Threading.SpinWait.SpinOnce(this)"
+            "System.Boolean System.Threading.Thread.Yield()"
+            "System.Void System.Threading.Thread.SleepInternal(System.Int32)"
+            "System.Void System.Threading.Monitor.PulseAll(System.Object)"
+            "System.Boolean System.Threading.WaitHandle.WaitOne(this)"
+            "System.Boolean System.Threading.WaitHandle.WaitOneNoCheck(this, System.Int32)"
+            "System.Void System.Threading.Interlocked.MemoryBarrier()"
+            "System.Boolean System.Runtime.InteropServices.Marshal.IsBuiltInComSupportedInternal()"
+            "System.Void System.Threading.Monitor.Exit(System.Object)"
+            "System.Void System.Runtime.InteropServices.Marshal.SetLastPInvokeError(System.Int32)"
+            "System.Int32 System.Runtime.InteropServices.Marshal.GetLastPInvokeError()"
+        ]
+
+    let isInvocationForbidden fullMethodName =
+        Set.contains fullMethodName invocationForbidden
+
+    let private externInvocationForbidden : Set<DllManager.dllImportInfo> =
+        set [
+            { dllName = "libc"; entryPoint = "rand" }
+            { dllName = "msvcrt"; entryPoint = "rand" }
+        ]
+
+    let isExternInvocationForbidden dllImportInfo =
+        Set.contains dllImportInfo externInvocationForbidden
 
     let private concreteInvocations =
         set [
@@ -184,6 +266,7 @@ module Loader =
             "System.Object System.Reflection.RtFieldInfo.GetValue(this, System.Object)"
             "System.Reflection.Assembly System.RuntimeType.get_Assembly(this)"
             "System.Void System.Type+<>c..ctor(this)"
+            "System.RuntimeTypeHandle System.RuntimeType.get_TypeHandle(this)"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
@@ -231,7 +314,6 @@ module Loader =
             "System.Object System.Runtime.InteropServices.GCHandle.InternalGet(System.IntPtr)"
             "System.Span`1[System.Byte] System.Runtime.InteropServices.MemoryMarshal.AsBytes(System.Span`1[T]))"
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
-//            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
 
             // Diagnostics
@@ -376,9 +458,43 @@ module Loader =
             "System.Void VSharp.CSharpUtils.Exceptions.CreateArgumentNullException()"
             "System.Void VSharp.CSharpUtils.Exceptions.CreateOutOfMemoryException()"
 
+            // Testing concrete memory
+            "System.Int32 IntegrationTests.Lists.ConcreteMemoryTestHelper(System.Collections.Generic.List`1[IntegrationTests.Lists+Bucket])"
+            "System.Int32 IntegrationTests.Lists.ConcreteMemoryTestHelper1(System.Collections.Generic.List`1[System.Object])"
+            "System.Int32 IntegrationTests.Lists.ConcreteMemoryTestHelper2(System.Collections.Generic.List`1[IntegrationTests.Lists+IBucket])"
+            "System.Int32 IntegrationTests.Delegates.ConcreteMemoryHelper(IntegrationTests.Delegates+A)"
+
             // Arithmetics
             "System.Double System.Math.Pow(System.Double, System.Double)"
             "System.Double System.Math.Min(System.Double, System.Double)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.Log2(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.PopCount(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.Int32)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.Int64)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.IntPtr)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.TrailingZeroCount(System.UIntPtr)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.Int32)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.Int64)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.IntPtr)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UInt32)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UInt64)"
+            "System.Int32 System.Numerics.BitOperations.LeadingZeroCount(System.UIntPtr)"
+            "System.UInt32 System.Numerics.BitOperations.RotateLeft(System.UInt32, System.Int32)"
+            "System.UInt64 System.Numerics.BitOperations.RotateLeft(System.UInt64, System.Int32)"
+            "System.UIntPtr System.Numerics.BitOperations.RotateLeft(System.UIntPtr, System.Int32)"
+            "System.UInt32 System.Numerics.BitOperations.RotateRight(System.UInt32, System.Int32)"
+            "System.UInt64 System.Numerics.BitOperations.RotateRight(System.UInt64, System.Int32)"
+            "System.UIntPtr System.Numerics.BitOperations.RotateRight(System.UIntPtr, System.Int32)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.Byte)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt16)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt32)"
+            "System.UInt32 System.Numerics.BitOperations.Crc32C(System.UInt32, System.UInt64)"
 
             // ASP.NET Core
             // Configuration builder
@@ -409,6 +525,12 @@ module Loader =
             "System.Boolean System.Collections.Generic.Dictionary`2[TKey,TValue].TryGetValue(this, TKey, TValue&)"
             "System.Void System.Collections.Generic.SortedDictionary`2+KeyValuePairComparer[TKey,TValue]..ctor(this, System.Collections.Generic.IComparer`1[TKey])"
 
+            // Hashtable
+            "System.Void System.Collections.Hashtable..ctor(this)"
+            "System.Void System.Collections.Hashtable.rehash(this, System.Int32)"
+            "System.Void System.Collections.Hashtable.expand(this)"
+            "System.Object System.Collections.Hashtable.get_Item(this, System.Object)"
+
             // Set
             "System.Int32 System.Collections.Generic.HashSet`1[T].Initialize(this, System.Int32)"
             "System.Void System.Collections.Generic.HashSet`1[T].UnionWith(this, System.Collections.Generic.IEnumerable`1[T])"
@@ -437,6 +559,14 @@ module Loader =
             "System.String[] System.String.Split(this, System.Char[], System.StringSplitOptions)"
             "System.Int32 System.Globalization.CompareInfo.Compare(this, System.String, System.String, System.Globalization.CompareOptions)"
             "System.Boolean System.String.Contains(this, System.Char)"
+            "System.Int32 System.String.GetHashCode(this)"
+            "System.Int32 System.CultureAwareComparer.GetHashCode(this, System.String)"
+            "System.Boolean System.String.EqualsHelper(System.String, System.String)"
+            "System.Boolean System.String.Equals(System.String, System.String)"
+            "System.Boolean System.String.Equals(this, System.String)"
+            "System.Boolean System.String.Equals(System.String, System.String, System.StringComparison)"
+            "System.Boolean System.String.Equals(this, System.String, System.StringComparison)"
+            "System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"
 
             // Array
             "System.UIntPtr System.Array.get_NativeLength(this)"
@@ -444,6 +574,7 @@ module Loader =
 
             // List
             "System.Void System.Collections.Generic.List`1[T]..ctor(this)"
+            "T System.Collections.Generic.List`1[T].get_Item(this, System.Int32)"
             "T[] System.Collections.Generic.List`1[T].ToArray(this)"
             "System.Void System.Collections.Generic.List`1[T].Add(this, T)"
             "System.Void System.Collections.Generic.List`1[T].AddWithResize(this, T)"

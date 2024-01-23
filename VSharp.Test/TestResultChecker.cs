@@ -1,7 +1,9 @@
 using System.IO;
 using System.Reflection;
 using System.Diagnostics;
-using static VSharp.CoverageRunner.CoverageRunner;
+using VSharp.CoverageTool;
+using VSharp.CSharpUtils;
+
 
 namespace VSharp.Test;
 
@@ -14,11 +16,16 @@ public static class TestResultChecker
         var info = new ProcessStartInfo
         {
             WorkingDirectory = testDir.FullName,
-            FileName = "dotnet",
+            FileName = DotnetExecutablePath.ExecutablePath,
             Arguments = $"{TestRunnerPath} {testDir.FullName}"
         };
 
-        var success = RunWithLogging(info);
+        var proc = info.StartWithLogging(
+            x => Logger.printLogString(Logger.Info, $"{x}"),
+            x => Logger.printLogString(Logger.Error, $"{x}")
+        );
+        proc.WaitForExit();
+        var success = proc.IsSuccess();
 
         if (!success)
             Logger.printLogString(Logger.Error, "TestRunner Check failed!");
@@ -34,16 +41,16 @@ public static class TestResultChecker
         out string resultMessage)
     {
         var runnerWithArgs = $"{TestRunnerPath} {testDir.FullName}";
-        var coverage = RunAndGetCoverage(runnerWithArgs, testDir, methodInfo);
-        actualCoverage = coverage;
+        var coverageTool = new PassiveCoverageTool(testDir, methodInfo);
+        actualCoverage = coverageTool.RunWithCoverage(runnerWithArgs);
         resultMessage = string.Empty;
 
-        if (expectedCoverage == coverage)
+        if (expectedCoverage == actualCoverage)
         {
             return true;
         }
 
-        resultMessage = $"Incomplete coverage! Expected {expectedCoverage}, but got {coverage}";
+        resultMessage = $"Incomplete coverage! Expected {expectedCoverage}, but got {actualCoverage}";
         return false;
     }
 }

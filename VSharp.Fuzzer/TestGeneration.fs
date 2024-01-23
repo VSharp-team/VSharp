@@ -57,11 +57,24 @@ module internal TestGeneration =
             else
                 Obj
 
+        if generationData.method.HasParameterOnStack then
+            Logger.traceTestGeneration "Method has parameter on stack, create new stack frame"
+            Memory.NewStackFrame state None []
+            Memory.NewStackFrame model None []
+
         Logger.traceTestGeneration "Creating first frame and filling stack"
         let this =
             if m.HasThis then
+                let thisType = generationData.thisType
                 match generationData.this with
-                | Obj -> Some (Memory.ObjectToTerm state generationData.this generationData.thisType)
+                | Obj when thisType.IsValueType ->
+                    let this = Memory.ObjectToTerm state generationData.this thisType
+                    let thisRef = Memory.AllocateTemporaryLocalVariable state 0 thisType this
+                    Memory.AllocateTemporaryLocalVariable model 0 thisType this |> ignore
+                    Some thisRef
+                | Obj ->
+                    let thisRef = Memory.ObjectToTerm state generationData.this thisType
+                    Some thisRef
                 | Mock mock -> Some (Memory.AllocateMock state mock generationData.thisType)
                 | _ -> failwith "Unexpected this type kind: Pointer or Ref"
             else None
@@ -83,10 +96,6 @@ module internal TestGeneration =
                     Logger.traceTestGeneration $"Create object for parameter: {pi.Position}"
                     Memory.ObjectToTerm state arg argType
             Some result
-
-        if generationData.method.HasParameterOnStack then
-            Logger.traceTestGeneration "Method has parameter on stack, create new stack frame"
-            Memory.NewStackFrame state None []
 
         let parameters =
             Array.zip generationData.args generationData.method.Parameters

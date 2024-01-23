@@ -27,7 +27,7 @@ module Contracts =
 
     [<DataContract; CLIMutable>]
     type BooleanData =  {
-        [<DataMember(Order = 1)>] boolValue: bool
+        [<DataMember(Order = 1)>] boolValues: bool[]
     }
 
     [<DataContract; CLIMutable>]
@@ -37,13 +37,13 @@ module Contracts =
 
     [<DataContract; CLIMutable>]
     type CoverageData = {
-        [<DataMember(Order = 1)>] rawData: RawCoverageReport
+        [<DataMember(Order = 1)>] rawData: RawCoverageReport[]
         [<DataMember(Order = 2)>] methods: System.Collections.Generic.Dictionary<int, RawMethodInfo>
     }
 
     [<DataContract; CLIMutable>]
     type ExecutionData = {
-        [<DataMember(Order = 1)>] moduleName: string 
+        [<DataMember(Order = 1)>] moduleName: string
         [<DataMember(Order = 2)>] methodId: int
         [<DataMember(Order = 3)>] threadId: int
         [<DataMember(Order = 4)>] fuzzerSeed: int
@@ -57,7 +57,7 @@ module Contracts =
 
     [<DataContract; CLIMutable>]
     type FuzzingData = {
-        [<DataMember(Order = 1)>] moduleName: string 
+        [<DataMember(Order = 1)>] moduleName: string
         [<DataMember(Order = 2)>] methodId: int
     }
 
@@ -72,7 +72,6 @@ module Contracts =
     type IFuzzerService =
         abstract Finish: UnitData -> Task
         abstract SetupAssembly: AssemblyData -> Task
-        abstract SetupOutputDirectory: StringData -> Task
         abstract Fuzz: FuzzingData -> Task
         abstract WaitForReady: UnitData -> CallContext -> Task
 
@@ -82,6 +81,7 @@ module private Grpc =
     let runGrpcServer<'service when 'service: not struct> port (service: 'service) token =
         WebHost
            .CreateDefaultBuilder()
+           .UseSetting(WebHostDefaults.SuppressStatusMessagesKey, "True")
            .ConfigureKestrel(fun options ->
                 options.ListenLocalhost(port, fun listenOptions ->
                     listenOptions.Protocols <- HttpProtocols.Http2
@@ -115,7 +115,7 @@ module private Grpc =
 module Services =
     let private traceData x = Logger.traceCommunication $"Received: {x}"
 
-    type FuzzerService (onFinish, onFuzz, onSetupAssembly, onSetupDir) =
+    type FuzzerService (onFinish, onFuzz, onSetupAssembly) =
         interface Contracts.IFuzzerService with
             member this.Finish _ =
                 traceData "Finish"
@@ -126,9 +126,6 @@ module Services =
             member this.SetupAssembly data =
                 traceData data
                 onSetupAssembly data.assemblyName
-            member this.SetupOutputDirectory data =
-                traceData data
-                onSetupDir data.stringValue
             member this.WaitForReady _ _ =
                 traceData "WaitForReady"
                 Task.FromResult() :> Task
@@ -137,7 +134,16 @@ module Services =
         interface Contracts.IMasterProcessService with
             member this.TrackCoverage data =
                 traceData data
-                onTrackCoverage data.methods data.rawData
+                // [||] due the deserialization is null
+                // https://github.com/protobuf-net/protobuf-net/issues/221
+                let rawData =
+                    data.rawData
+                    |> Array.map (fun x ->
+                        if x.rawCoverageLocations = null then
+                            {x with rawCoverageLocations = [||] }
+                        else x
+                )
+                onTrackCoverage data.methods rawData
             member this.TrackExecutionSeed data =
                 traceData data
                 onTrackExecutionSeed data
@@ -155,7 +161,7 @@ let private masterProcessPort = 10043
 let connectFuzzerService () = Grpc.runGrpcClient<Contracts.IFuzzerService> fuzzerPort
 let connectMasterProcessService () = Grpc.runGrpcClient<Contracts.IMasterProcessService> masterProcessPort
 
-let private waitTimeout = 1000000
+let private waitTimeout = 30000
 let private waitServiceForReady wait =
     let tokenSource = new CancellationTokenSource()
     let mutable callOptions = CallOptions().WithWaitForReady(true).WithCancellationToken(tokenSource.Token)

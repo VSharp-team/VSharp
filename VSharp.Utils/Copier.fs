@@ -3,20 +3,9 @@ namespace VSharp.Utils
 open System
 open System.Collections.Generic
 open System.Runtime.Serialization
-open System.Threading
 open VSharp
 
-type Copier () =
-    static let nonCopyableTypes = [
-        typeof<Type>
-        TypeUtils.systemRuntimeType
-        typeof<Thread>
-        typeof<System.Diagnostics.Tracing.EventSource>
-        typeof<System.Reflection.FieldInfo>
-    ]
-
-    let cannotBeCopied (typ : Type) =
-        List.exists typ.IsAssignableTo nonCopyableTypes
+type Copier() =
 
     let copiedObjects = Dictionary<physicalAddress, physicalAddress>()
 
@@ -24,8 +13,8 @@ type Copier () =
         let obj = phys.object
         let typ = TypeUtils.getTypeOfConcrete obj
         let shouldNotCopy typ =
-            cannotBeCopied typ || TypeUtils.isPrimitive typ
-            || typ.IsEnum || typ.IsPointer || typ = typeof<System.Reflection.Pointer>
+            TypeUtils.isSolidType typ || TypeUtils.isPrimitive typ
+            || typ.IsEnum || typ.IsPointer
             || typ = typeof<IntPtr> || typ = typeof<UIntPtr>
         match obj with
         | null -> phys
@@ -69,8 +58,7 @@ type Copier () =
             let phys' = {object = obj'}
             copiedObjects.Add(phys, phys')
             let target' = deepCopyObject {object = obj.Target}
-            let targetField = typ.GetField("_target", Reflection.instanceBindingFlags)
-            assert(targetField <> null)
+            let targetField = Reflection.delegateTargetField.Value
             targetField.SetValue(obj', target'.object)
             phys'
         | _ when typ.IsClass || typ.IsValueType ->
@@ -82,6 +70,9 @@ type Copier () =
                 let v' = deepCopyObject {object = field.GetValue obj}
                 field.SetValue(obj', v'.object)
             phys'
-        | _ -> internalfailf "ConcreteMemory, deepCopyObject: unexpected object %O" obj
+        | _ -> internalfail $"ConcreteMemory, deepCopyObject: unexpected object {obj}"
 
     member this.DeepCopy (phys : physicalAddress) = deepCopyObject phys
+
+    member this.CopyingObjects with get() =
+        copiedObjects.Keys

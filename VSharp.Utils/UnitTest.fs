@@ -142,7 +142,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
     member x.AddExternMock extMock =
         externMocks.Add extMock
 
-    member x.ApplyExternMocks(testName: string) =
+    member x.ApplyExternMocks(testName : string) =
         for externMock in externMocks do
             let extMock = externMock.Decode()
             ExtMocking.buildAndPatch testName memoryGraph.DecodeValue extMock

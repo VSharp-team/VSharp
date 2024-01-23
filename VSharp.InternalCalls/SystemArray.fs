@@ -17,17 +17,25 @@ module internal SystemArray =
     let get_Rank state args =
         GetRank state args
 
-    let get_Length state args =
-        assert(List.length args = 1)
+    let commonGetLength state arrayRef =
         let getLengthFromRank arrayRef =
             let rank = Terms.MostConcreteTypeOfRef state arrayRef |> Types.RankOf
-            assert (rank >= 1)
+            assert(rank >= 1)
             let lengths = List.init rank (MakeNumber >> Memory.ArrayLengthByDimension state arrayRef)
             match lengths with
             | [l] -> l
             | l::ls -> List.fold Arithmetics.Mul l ls
             | _ -> __unreachable__()
-        GuardedApplyExpression (List.head args) getLengthFromRank
+        GuardedApplyExpression arrayRef getLengthFromRank
+
+    let get_Length state args =
+        assert(List.length args = 1)
+        commonGetLength state args[0]
+
+    let get_NativeLength state args =
+        assert(List.length args = 1)
+        let length = commonGetLength state args[0]
+        Types.Cast length typeof<UIntPtr>
 
     let ContainsChar (state : state) args =
         assert(List.length args = 3)

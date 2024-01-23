@@ -5,24 +5,7 @@
 #include <set>
 #include <map>
 
-#ifdef IMAGEHANDLER_EXPORTS
-#define IMAGEHANDLER_API __declspec(dllexport)
-#else
-#define IMAGEHANDLER_API __declspec(dllimport)
-#endif
-
-extern "C" IMAGEHANDLER_API void SetEntryMain(char* assemblyName, int assemblyNameLength, char* moduleName, int moduleNameLength, int methodToken);
-extern "C" IMAGEHANDLER_API void GetHistory(UINT_PTR size, UINT_PTR bytes);
-extern "C" IMAGEHANDLER_API void SetCurrentThreadId(int mapId);
-
 namespace vsharp {
-
-extern WCHAR* mainAssemblyName;
-extern int mainAssemblyNameLength;
-extern WCHAR* mainModuleName;
-extern int mainModuleNameLength;
-extern mdMethodDef mainToken;
-extern bool rewriteMainOnly;
 
 extern std::set<std::pair<FunctionID, ModuleID>> instrumentedMethods;
 
@@ -38,14 +21,15 @@ private:
     std::mutex mutex;
     HRESULT doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength);
 
-    bool currentMethodIsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) const;
-
 public:
     explicit Instrumenter(ICorProfilerInfo8 &profilerInfo);
     ~Instrumenter();
 
     HRESULT instrument(FunctionID functionId);
 };
+
+bool IsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method);
+bool InstrumentationIsNeeded(const WCHAR *moduleName, int moduleSize, mdMethodDef method);
 
 }
 

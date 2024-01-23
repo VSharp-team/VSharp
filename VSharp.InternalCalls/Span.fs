@@ -2,6 +2,7 @@ namespace VSharp.System
 
 open System
 open global.System
+open System.Reflection
 
 open VSharp
 open VSharp.Core
@@ -19,13 +20,18 @@ module internal ReadOnlySpan =
     let private isLengthField fieldId =
         fieldId.name = "_length"
 
-    let ptrFieldIsByRef (ptrFieldType : Type) =
+    let private ptrFieldIsByRef (ptrFieldType : Type) =
         ptrFieldType.FullName.Contains("System.ByReference")
 
-    let readOnlySpanType() =
-        typeof<int>.Assembly.GetType("System.ReadOnlySpan`1")
+    let private readOnlySpanType = lazy typeof<int>.Assembly.GetType("System.ReadOnlySpan`1")
+    let private createReadOnlySpanType (elemType : Type) =
+        readOnlySpanType.Value.MakeGenericType elemType
 
-    let GetLength (cilState : cilState) (spanStruct : term) =
+    let private spanType = lazy typeof<int>.Assembly.GetType("System.Span`1")
+    let private createSpanType (elemType : Type) =
+        spanType.Value.MakeGenericType elemType
+
+    let CommonGetLength (cilState : cilState) (spanStruct : term) =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let lenField = spanFields |> Array.find (fst >> isLengthField) |> fst
@@ -60,7 +66,7 @@ module internal ReadOnlySpan =
         let this, wrappedType, index = args[0], args[1], args[2]
         let t = Helpers.unwrapType wrappedType
         let spanStruct = cilState.Read this
-        let len = GetLength cilState spanStruct
+        let len = CommonGetLength cilState spanStruct
         let ref = GetContentsRef cilState spanStruct
         let checkIndex (cilState : cilState) k =
             let readIndex (cilState : cilState) k =
@@ -89,6 +95,14 @@ module internal ReadOnlySpan =
                 (i.Raise i.IndexOutOfRangeException)
                 k
         i.NpeOrInvoke cilState ref checkIndex id
+
+    let GetLength (_ : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 2)
+        let this = args[0]
+        let spanStruct = cilState.Read this
+        let length = CommonGetLength cilState spanStruct
+        cilState.Push length
+        List.singleton cilState
 
     let private PrepareRefField state ref : term =
         let cases = Memory.TryAddressFromRef state ref
@@ -161,11 +175,18 @@ module internal ReadOnlySpan =
             nonNullCase
             id
 
+    let private CreateReadOnlySpan elemType =
+        createReadOnlySpanType elemType
+        |> Memory.DefaultOf
+
+    let private CreateSpan elemType =
+        createSpanType elemType
+        |> Memory.DefaultOf
+
     let CreateFromString (_ : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
         assert(List.length args = 1)
         let string = args[0]
-        let spanType = readOnlySpanType().MakeGenericType(typeof<char>)
-        let span = Memory.DefaultOf spanType
+        let span = CreateReadOnlySpan typeof<char>
         let state = cilState.state
         let length = Memory.StringLength state string
         let nullCase cilState k =
@@ -183,3 +204,41 @@ module internal ReadOnlySpan =
             nullCase
             nonNullCase
             id
+
+    let CreateSpanFromFieldHandle (_ : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
+        assert(List.length args = 2)
+        let t = Helpers.unwrapType args[0]
+        let fieldHandleTerm = args[1]
+        let state = cilState.state
+        match TryTermToObj state fieldHandleTerm with
+        | Some (:? RuntimeFieldHandle as rfh) ->
+            let fieldInfo = FieldInfo.GetFieldFromHandle rfh
+            let rawData = Reflection.arrayFromField fieldInfo t
+            let arrayType = t.MakeArrayType()
+            let arrayRef = Memory.AllocateConcreteObject state rawData arrayType
+            let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None
+            let lengthOfArray = MakeNumber rawData.Length
+            let span = CreateReadOnlySpan t
+            let span = InitSpanStruct cilState span refToFirstElement lengthOfArray
+            cilState.Push span
+            List.singleton cilState
+        | _ -> internalfail $"CreateSpanFromFieldHandle: unexpected field handle {fieldHandleTerm}"
+
+    let GetSpanDataFrom (_ : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
+        assert(List.length args = 3)
+        let fieldHandleTerm, typeHandleTerm, countRef = args[0], args[1], args[2]
+        let state = cilState.state
+        match TryTermToObj state fieldHandleTerm, TryTermToObj state typeHandleTerm with
+        | Some (:? RuntimeFieldHandle as rfh), Some (:? RuntimeTypeHandle as rth) ->
+            let fieldInfo = FieldInfo.GetFieldFromHandle rfh
+            let t = global.System.Type.GetTypeFromHandle rth
+            let rawData = Reflection.arrayFromField fieldInfo t
+            let arrayType = t.MakeArrayType()
+            let arrayRef = Memory.AllocateConcreteObject state rawData arrayType
+            let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None
+            let count = MakeNumber rawData.Length
+            let cilStates = cilState.Write countRef count
+            assert(List.length cilStates = 1 && cilStates[0] = cilState)
+            cilState.Push refToFirstElement
+            List.singleton cilState
+        | _ -> internalfail $"GetSpanDataFrom: unexpected field handle {fieldHandleTerm} or type handle {typeHandleTerm}"

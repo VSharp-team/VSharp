@@ -77,7 +77,7 @@ module public Reflection =
         let m = resolveModule assemblyName moduleName
         m.ResolveMethod(token)
 
-    let resolveMethodBaseFromAssembly (assembly: Assembly) (moduleName: string) (token: int32) =
+    let resolveMethodBaseFromAssembly (assembly : Assembly) (moduleName : string) (token : int32) =
         let m =
             assembly.Modules
             |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
@@ -164,6 +164,8 @@ module public Reflection =
         methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)
 
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
+
+    let getAllConstructors (t : Type) = t.GetConstructors(allBindingFlags)
 
     // MethodInfo's GetGenericMethodDefinition erases ReflectedType, this function overcomes that
     let getGenericMethodDefinition (method : MethodInfo) =
@@ -331,7 +333,7 @@ module public Reflection =
     // If it's free to override in derived classes of 'targetType', result will be 'targetType'
     // If some type 't' in the hierarchy defines same method or adds new slot for it, result will be base type of 't'
     // If in some type 't' in the hierarchy this method marked 'final', result will be 't'
-    let lastCanOverrideType (targetType: Type) (virtualMethod : MethodInfo) =
+    let lastCanOverrideType (targetType : Type) (virtualMethod : MethodInfo) =
         match virtualMethod.DeclaringType with
         | t when not virtualMethod.IsVirtual -> t
         | i when i.IsInterface && TypeUtils.typeImplementsInterface targetType i -> targetType
@@ -545,6 +547,12 @@ module public Reflection =
         let extractFieldInfo (field : FieldInfo) = wrapField field, field
         FSharp.Collections.Array.map extractFieldInfo fields
 
+    let delegateTargetField = lazy(
+            let field = typeof<Delegate>.GetField("_target", instanceBindingFlags)
+            assert(field <> null)
+            field
+        )
+
     // Returns pair (valueFieldInfo, hasValueFieldInfo)
     let fieldsOfNullable typ =
         let fs = fieldsOf false typ
@@ -582,6 +590,26 @@ module public Reflection =
         let fieldValue : obj = fieldInfo.GetValue null
         let size = TypeUtils.internalSizeOf fieldInfo.FieldType
         reinterpretValueTypeAsByteArray fieldValue size
+
+    let private reinterpretValueTypeAsArray (value : obj) (elemType : Type) (size : int) =
+        let rawData = Array.CreateInstance(elemType, size)
+        let handle = GCHandle.Alloc(rawData, GCHandleType.Pinned)
+        try
+            Marshal.StructureToPtr(value, handle.AddrOfPinnedObject(), false)
+        finally
+            handle.Free()
+        rawData
+
+    let arrayFromField (fieldInfo : FieldInfo) (elemType : Type) =
+        if elemType = typeof<byte> then
+            byteArrayFromField fieldInfo :> Array
+        else
+            let fieldValue : obj = fieldInfo.GetValue null
+            let byteSize = TypeUtils.internalSizeOf fieldInfo.FieldType
+            let elemSize = TypeUtils.internalSizeOf elemType
+            assert(byteSize % elemSize = 0)
+            let size = byteSize / elemSize
+            reinterpretValueTypeAsArray fieldValue elemType size
 
     // ------------------------------ Layout Utils ------------------------------
 
@@ -621,21 +649,30 @@ module public Reflection =
 
     let private cachedTypes = Dictionary<Type, bool>()
 
-    let rec private isReferenceOrContainsReferencesHelper (t : Type) =
-        if t.IsValueType |> not then true
-        else
-            t.GetFields(allBindingFlags)
-            |> Array.exists (fun field -> field.FieldType = t || isReferenceOrContainsReferencesHelper field.FieldType)
+    let private hasNoRefs (t : Type) =
+        t.IsPrimitive || t.IsEnum || t.IsPointer
+        || t = typeof<IntPtr> || t = typeof<UIntPtr>
 
     let isReferenceOrContainsReferences (t : Type) =
         let result = ref false
         if cachedTypes.TryGetValue(t, result) then result.Value
         else
-            let result = isReferenceOrContainsReferencesHelper t
+            let queue = Queue<Type>()
+            let cache = HashSet<Type>()
+            queue.Enqueue t
+            let mutable result = false
+            while (queue.Count > 0 && not result) do
+                let t = queue.Dequeue()
+                if not (hasNoRefs t) && cache.Add t then
+                    if not t.IsValueType then
+                        result <- true
+                    else
+                        for field in t.GetFields(allBindingFlags) do
+                            queue.Enqueue field.FieldType
             cachedTypes.Add(t, result)
             result
 
-    let isBuiltInType (t: Type) =
+    let isBuiltInType (t : Type) =
         let builtInAssembly = mscorlibAssembly
         t.Assembly = builtInAssembly
 

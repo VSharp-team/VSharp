@@ -8,15 +8,15 @@ open System.Reflection.Emit
 type instructionPointer =
     | Exit of Method
     | Instruction of offset * Method
-    | Leave of instructionPointer * ExceptionHandlingClause list * offset * Method
+    | Leave of instructionPointer * exceptionHandlingClause list * offset * Method
     // current observing clauses; observed clauses; frames to observe catch clause; frames to observe finally clauses
-    | SearchingForHandler of ExceptionHandlingClause list option * ExceptionHandlingClause list * codeLocation list * codeLocation list
+    | SearchingForHandler of exceptionHandlingClause list option * exceptionHandlingClause list * codeLocation list * codeLocation list
     // ip of filter function; handler offset; previous searching handler information
-    | InFilterHandler of instructionPointer * offset * ExceptionHandlingClause list * ExceptionHandlingClause list * codeLocation list * codeLocation list
+    | InFilterHandler of instructionPointer * offset * exceptionHandlingClause list * exceptionHandlingClause list * codeLocation list * codeLocation list
     // ``None'' -- we are seeking for next finally or fault handler, ``Some _'' -- we are executing handler;
     // current observing clauses; last clauses to observe; last location to check last clauses;
     // rest frames of possible handlers; starting code location of handler if one was valid
-    | SecondBypass of instructionPointer option * ExceptionHandlingClause list option * ExceptionHandlingClause list * codeLocation option * codeLocation list * codeLocation option
+    | SecondBypass of instructionPointer option * exceptionHandlingClause list option * exceptionHandlingClause list * codeLocation option * codeLocation list * codeLocation option
     with
 
     static member internal CreateLeave ip ehcs dst m =

@@ -4,6 +4,8 @@
 #include "cComPtr.h"
 #include "profiler.h"
 #include "os.h"
+#include "coverageTracker.h"
+#include "profilerState.h"
 #include <locale>
 #include <string>
 #include <cstring>
@@ -13,12 +15,6 @@
 #define UNUSED(x) (void)x
 
 using namespace vsharp;
-
-static std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> conv16;
-
-void ConvertToWCHAR(const char *str, std::u16string &result) {
-    result = conv16.from_bytes(str);
-}
 
 CorProfiler::CorProfiler() : refCount(0), corProfilerInfo(nullptr)
 {
@@ -35,7 +31,7 @@ CorProfiler::~CorProfiler()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk)
 {
-    const char* waitDebuggerAttached = std::getenv("WAIT_DEBUGGER_ATTACHED_COVERAGE_TOOL");
+    const char* waitDebuggerAttached = std::getenv("COVERAGE_TOOL_WAIT_DEBUGGER_ATTACHED");
     volatile int done = waitDebuggerAttached == nullptr ? 1 : 0;
     while (!done) OS::sleepSeconds(1);
 
@@ -60,48 +56,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
     #define IfFailRet(EXPR) do { HRESULT hr = (EXPR); if(FAILED(hr)) { return (hr); } } while (0)
     IfFailRet(this->corProfilerInfo->SetEventMask(eventMask));
 
-    const char* isPassive = std::getenv("COVERAGE_ENABLE_PASSIVE");
 
-#ifdef _LOGGING
-    const char* name = isPassive == nullptr ? "lastrun.log" : "lastcoverage.log";
-    open_log(name);
-#endif
-
-    InitializeProbes();
-    bool collectMainOnly = false;
-    // reading environment variables to determine the running mode
-    if (isPassive != nullptr) {
-        LOG(tout << "WORKING IN PASSIVE MODE" << std::endl);
-
-        isPassiveRun = true;
-        collectMainOnly = true;
-
-        std::u16string assemblyNameU16;
-        std::u16string moduleNameU16;
-
-        // setting up entry main
-        ConvertToWCHAR(std::getenv("COVERAGE_METHOD_ASSEMBLY_NAME"), assemblyNameU16);
-        ConvertToWCHAR(std::getenv("COVERAGE_METHOD_MODULE_NAME"), moduleNameU16);
-        mainToken = std::stoi(std::getenv("COVERAGE_METHOD_TOKEN"));
-
-        mainAssemblyNameLength = assemblyNameU16.size();
-        mainAssemblyName = new WCHAR[mainAssemblyNameLength];
-        memcpy(mainAssemblyName, assemblyNameU16.data(), mainAssemblyNameLength * sizeof(WCHAR));
-
-        mainModuleNameLength = moduleNameU16.size();
-        mainModuleName = new WCHAR[mainModuleNameLength];
-        memcpy(mainModuleName, moduleNameU16.data(), mainModuleNameLength * sizeof(WCHAR));
-
-        passiveResultPath = std::getenv("COVERAGE_RESULT_NAME");
-
-        if (std::getenv("COVERAGE_INSTRUMENT_MAIN_ONLY")) {
-            rewriteMainOnly = true;
-        }
-    }
-
-    threadInfo = new ThreadInfo(corProfilerInfo);
-    threadTracker = new ThreadTracker();
-    coverageTracker = new CoverageTracker(collectMainOnly);
+    profilerState = new ProfilerState((ICorProfilerInfo8*)this);
 
     LOG(tout << "Initialize finished" << std::endl);
     return S_OK;
@@ -109,19 +65,19 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
 {
-    isFinished = true;
+    profilerState->isFinished = true;
 
     // waiting until all current requests are resolved
     while (std::atomic_load(&shutdownBlockingRequestsCount) > 0) {}
 
     LOG(tout << "SHUTDOWN");
-    if (isPassiveRun) {
+    if (profilerState->isPassiveRun) {
 
         size_t tmpSize;
-        auto tmpBytes = coverageTracker->serializeCoverageReport(&tmpSize);;
+        auto tmpBytes = profilerState->coverageTracker->serializeCoverageReport(&tmpSize);;
 
         std::ofstream fout;
-        fout.open(passiveResultPath, std::ios::out|std::ios::binary);
+        fout.open(profilerState->passiveResultPath, std::ios::out|std::ios::binary);
         fout.write(tmpBytes, static_cast<long>(tmpSize));
         fout.close();
     }
@@ -129,9 +85,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
 #ifdef _LOGGING
     close_log();
 #endif
-
-    delete[] mainModuleName;
-    delete[] mainAssemblyName;
 
     if (this->corProfilerInfo != nullptr)
     {
@@ -262,7 +215,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::FunctionUnloadStarted(FunctionID function
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock)
 {
     // the process was finished, ignoring all firther requests
-    if (isFinished) return S_OK;
+    if (profilerState->isFinished) return S_OK;
 
     std::atomic_fetch_add(&shutdownBlockingRequestsCount, 1);
 
@@ -437,6 +390,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::MovedReferences(ULONG cMovedObjectIDRange
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ObjectAllocated(ObjectID objectId, ClassID classId)
 {
+    LOG(tout << "ObjectAllocated: " << GetObjectTypeName(objectId));
     return S_OK;
 }
 
@@ -450,6 +404,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ObjectsAllocatedByClass(ULONG cClassCount
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ObjectReferences(ObjectID objectId, ClassID classId, ULONG cObjectRefs, ObjectID objectRefIds[])
 {
+    LOG(tout << "ObjectReferences: " << GetObjectTypeName(objectId));
     UNUSED(objectId);
     UNUSED(classId);
     UNUSED(cObjectRefs);
@@ -467,19 +422,18 @@ HRESULT STDMETHODCALLTYPE CorProfiler::RootReferences(ULONG cRootRefs, ObjectID 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionThrown(ObjectID thrownObjectId)
 {
     auto exceptionName = GetObjectTypeName(thrownObjectId);
-    LOG(tout << "EXCEPTION THROWN: " << GetObjectTypeName(thrownObjectId));
-    if (threadTracker->isCurrentThreadTracked()) {
+    LOG(
+        if(profilerState->threadTracker->hasMapping()) {
+            tout << "EXCEPTION THROWN: " << exceptionName << " on mapped thread " << profilerState->threadTracker->getCurrentThreadMappedId();
+        } else {
+            tout << "EXCEPTION THROWN: " << exceptionName;
+        }
+    );
+    if (profilerState->threadTracker->isCurrentThreadTracked()) {
         if (exceptionName == "System.Threading.ThreadAbortException") {
             LOG(tout << "Invocation aborted");
-            threadTracker->loseCurrentThread();
-            coverageTracker->invocationAborted();
-        }
-        else if (
-            exceptionName == "System.AccessViolationException" ||
-            exceptionName == "System.StackOverflowException"
-        ) {
-            dumpUncatchableException(exceptionName);
-            exit(0);
+            profilerState->coverageTracker->invocationAborted();
+            profilerState->threadTracker->abortCurrentThread();
         }
     }
     return S_OK;
@@ -487,7 +441,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionThrown(ObjectID thrownObjectId)
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionEnter(FunctionID functionId)
 {
-    LOG(tout << "EXCEPTION Search function enter");
+    LOG(tout << "EXCEPTION Search function enter " << GetFunctionName(functionId));
     UNUSED(functionId);
     return S_OK;
 }
@@ -500,24 +454,24 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionLeave()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterEnter(FunctionID functionId)
 {
-    if (isFinished || !threadTracker->isCurrentThreadTracked()) return S_OK;
+    if (profilerState->isFinished || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
     LOG(tout << "EXCEPTION Search filter enter");
-    threadTracker->filterEnter();
+    profilerState->threadTracker->filterEnter();
     UNUSED(functionId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterLeave()
 {
-    if (isFinished || !threadTracker->isCurrentThreadTracked()) return S_OK;
+    if (profilerState->isFinished || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
     LOG(tout << "EXCEPTION Search filter leave");
-    threadTracker->filterLeave();
+    profilerState->threadTracker->filterLeave();
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchCatcherFound(FunctionID functionId)
 {
-    LOG(tout << "EXCEPTION Search catcher found");
+    LOG(tout << "EXCEPTION Search catcher found " << GetFunctionName(functionId));
     UNUSED(functionId);
     return S_OK;
 }
@@ -538,9 +492,9 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerLeave(UINT_PTR ptr)
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionEnter(FunctionID functionId)
 {
-    LOG(tout << "EXCEPTION UNWIND FUNCTION ENTER: " << functionId);
-    if (threadTracker->isCurrentThreadTracked())
-        threadTracker->unwindFunctionEnter(functionId);
+    LOG(tout << "EXCEPTION UNWIND FUNCTION ENTER: " << GetFunctionName(functionId));
+    if (profilerState->threadTracker->isCurrentThreadTracked())
+        profilerState->threadTracker->unwindFunctionEnter(functionId);
     return S_OK;
 }
 
@@ -548,8 +502,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionLeave()
 {
     LOG(tout << "EXCEPTION UNWIND FUNCTION LEAVE");
     // the process was finished, ignoring all further requests
-    if (isFinished || !threadTracker->isCurrentThreadTracked()) return S_OK;
-    threadTracker->unwindFunctionLeave();
+    if (profilerState->isFinished || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
+    profilerState->threadTracker->unwindFunctionLeave();
     return S_OK;
 }
 
@@ -780,6 +734,25 @@ std::string CorProfiler::GetObjectTypeName(ObjectID objectId) {
     DWORD flags;
     mdTypeDef baseType;
     spMetadata->GetTypeDefProps(type, name, 256, &nameSize, &flags, &baseType);
+
+    return OS::unicodeToAnsi(name);
+}
+
+std::string CorProfiler::GetFunctionName(FunctionID functionId) {
+    ClassID classId;
+    ModuleID moduleId;
+    mdToken token;
+    corProfilerInfo->GetFunctionInfo(functionId, &classId, &moduleId, &token);
+
+    CComPtr<IMetaDataImport> spMetadata;
+    corProfilerInfo->GetModuleMetaData(moduleId, ofRead, IID_IMetaDataImport, reinterpret_cast<IUnknown**>(&spMetadata));
+
+    WCHAR name[256];
+    ULONG nameSize = 256;
+    DWORD flags;
+    mdTypeDef baseType;
+
+    spMetadata->GetMethodProps(token, NULL, name, nameSize, &flags, NULL, NULL, NULL, NULL, NULL);
 
     return OS::unicodeToAnsi(name);
 }

@@ -1,9 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net7.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -24,7 +23,12 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="CoverageTool.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
       <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" />
+      <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
     </ItemGroup>
 
     <Target Name="UnixBuildCoverage" AfterTargets="BeforeBuild" Condition=" !$([MSBuild]::IsOSPlatform('Windows')) ">
@@ -54,6 +58,10 @@
             <Link>libvsharpCoverage.dll</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="7.0.*" />
     </ItemGroup>
 
 </Project>

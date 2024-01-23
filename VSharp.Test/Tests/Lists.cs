@@ -924,6 +924,8 @@ namespace IntegrationTests
 
         class A
         {
+            public int x;
+            public int y;
         }
         class B
         {
@@ -1001,15 +1003,25 @@ namespace IntegrationTests
             return arr;
         }
 
-        public struct Bucket
+        public interface IBucket
         {
-            object _key;
-            object _value;
+            object GetValue();
+        }
+
+        public struct Bucket : IBucket
+        {
+            public object Key;
+            public object Value;
 
             public Bucket(object key, object value)
             {
-                _key = key;
-                _value = value;
+                Key = key;
+                Value = value;
+            }
+
+            public object GetValue()
+            {
+                return Value;
             }
         }
 
@@ -1045,6 +1057,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
+        [IgnoreFuzzer("Need recursion constraints in generators")]
         public static int ListTest1(List<object> l, object e)
         {
             var i = l.LastIndexOf(e);
@@ -1072,6 +1085,34 @@ namespace IntegrationTests
             return array[0];
         }
 
+        [TestSvm(93)]
+        public static int HashtableTest1(int a)
+        {
+            Hashtable dataHashtable = new Hashtable();
+            dataHashtable[0] = 0;
+            dataHashtable[1] = 1;
+            dataHashtable[2] = a;
+            if ((int)dataHashtable[2] != a)
+                return -1;
+            return 1;
+        }
+
+        [TestSvm(95)]
+        public static int HashtableTest2(int i)
+        {
+            Hashtable dataHashtable = new Hashtable();
+            dataHashtable[0] = 0;
+            dataHashtable[1] = 1;
+            var a = new A();
+            a.x = 1;
+            a.y = 2;
+            dataHashtable[2] = a;
+            a.x = i;
+            if (((A)dataHashtable[2]).x != i)
+                return -1;
+            return 1;
+        }
+
         [TestSvm(96)]
         public static int ConcreteHashtableTest()
         {
@@ -1093,6 +1134,114 @@ namespace IntegrationTests
             if ((int)dataHashtable["major"] != 3)
                 return -1;
             return 0;
+        }
+
+        [TestSvm(88)]
+        public static int ConcreteMemoryTest(int i)
+        {
+            var l = new List<int>();
+            l.Add(1);
+            l.Add(2);
+            l.Add(i);
+            if (l[2] != i)
+                return -1;
+            return 1;
+        }
+
+        public static int ConcreteMemoryTestHelper(List<Bucket> l)
+        {
+            var sum = 0;
+            foreach (var bucket in l)
+            {
+                if (bucket.Value is int[] a)
+                {
+                    foreach (var elem in a)
+                    {
+                        sum += elem;
+                    }
+                }
+            }
+
+            return sum;
+        }
+
+        [TestSvm(96)]
+        public static int ConcreteMemoryTest1(int i)
+        {
+            var arr1 = new int[] { 1, 2, 3 };
+            var arr2 = new int[] { 4, 5, 6 };
+            var l = new List<Bucket>();
+            l.Add(new Bucket(1, arr1));
+            l.Add(new Bucket(2, arr2));
+            arr1[0] = i;
+            arr2[0] = i;
+            if (ConcreteMemoryTestHelper(l) != i * 2 + 2 + 3 + 5 + 6)
+                return -1;
+            return 1;
+        }
+
+        public static int ConcreteMemoryTestHelper1(List<object> l)
+        {
+            var sum = 0;
+            foreach (var bucket in l)
+            {
+                if (((Bucket)bucket).Value is int[] a)
+                {
+                    foreach (var elem in a)
+                    {
+                        sum += elem;
+                    }
+                }
+            }
+
+            return sum;
+        }
+
+        [TestSvm(96)]
+        public static int ConcreteMemoryTest2(int i)
+        {
+            var arr1 = new int[] { 1, 2, 3 };
+            var arr2 = new int[] { 4, 5, 6 };
+            var l = new List<object>();
+            l.Add(new Bucket(1, arr1));
+            l.Add(new Bucket(2, arr2));
+            arr1[0] = i;
+            arr2[0] = i;
+            if (ConcreteMemoryTestHelper1(l) != i * 2 + 2 + 3 + 5 + 6)
+                return -1;
+            return 1;
+        }
+
+        public static int ConcreteMemoryTestHelper2(List<IBucket> l)
+        {
+            var sum = 0;
+            foreach (var bucket in l)
+            {
+                if (bucket.GetValue() is int[] a)
+                {
+                    foreach (var elem in a)
+                    {
+                        sum += elem;
+                    }
+                }
+            }
+
+            return sum;
+        }
+
+        [TestSvm(96)]
+        public static int ConcreteMemoryTest3(int i)
+        {
+            var arr1 = new int[] { 1, 2, 3 };
+            var arr2 = new int[] { 4, 5, 6 };
+            var l = new List<IBucket>();
+            l.Add(new Bucket(1, arr1));
+            l.Add(new Bucket(2, arr2));
+            arr1[0] = i;
+            arr2[0] = i;
+            if (ConcreteMemoryTestHelper2(l) != i * 2 + 2 + 3 + 5 + 6)
+                return -1;
+            return 1;
         }
 
         [TestSvm(86)]
@@ -1130,6 +1279,7 @@ namespace IntegrationTests
     public static class SpanTests
     {
         [TestSvm(96)]
+        [IgnoreFuzzer("Need AccessViolation handling")]
         public static unsafe byte SpanTest(int[] a, byte b, int i)
         {
             fixed (void* ptr = a)
@@ -1208,6 +1358,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("Need recursion constraints in generators")]
     public static class RecursiveAccess
     {
         public static First G(First f)
@@ -2045,6 +2196,7 @@ namespace IntegrationTests
 
 
         [TestSvm(100)]
+        [IgnoreFuzzer("(known bug) DecodeString: unexpected representation")]
         public int GetValue(int index)
         {
             if (index < 0 || index > 10)
@@ -2053,6 +2205,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
+        [IgnoreFuzzer("(known bug) DecodeString: unexpected representation")]
         public void SetValue(int index, int value)
         {
             if (index < 0 || index > 10)

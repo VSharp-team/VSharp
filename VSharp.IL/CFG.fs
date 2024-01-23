@@ -6,7 +6,6 @@ open VSharp.ML.GameServer.Messages
 open global.System
 open System.Reflection
 open System.Collections.Generic
-open FSharpx.Collections
 open Microsoft.FSharp.Collections
 open VSharp
 
@@ -134,7 +133,7 @@ type BasicBlock (method: MethodWithBody, startOffset: offset, id:uint<basicBlock
 
     member this.ToString() =
         let methodBase = (method :> Core.IMethod).MethodBase
-        this.GetInstructions() |> Seq.map (ILRewriter.PrintILInstr None None methodBase)
+        this.GetInstructions() |> Seq.map (ILRewriter.printILInstr methodBase)
 
     member this.BlockSize with get() =
         this.GetInstructions() |> Seq.length
@@ -283,7 +282,7 @@ and CfgInfo internal (method : MethodWithBody, getNextBasicBlockGlobalId: unit -
                     addEdge srcBasicBlock newBasicBlock
                     dfs' newBasicBlock dst k
 
-                let processCall (callee: MethodWithBody) callFrom returnTo k =
+                let processCall (callee : MethodWithBody) callFrom returnTo k =
                     calls.Add(currentBasicBlock, CallInfo(callee :?> Method, callFrom, returnTo))
                     currentBasicBlock.FinalOffset <- callFrom
                     currentBasicBlock.ContainsThrow <- true
@@ -489,7 +488,7 @@ and Method internal (m : MethodBase,getNextBasicBlockGlobalId) as this =
         else res <- value
         res
 
-    member x.InstrsToString() =
+    member x.InstructionsToString() =
         let mutable sb = System.Text.StringBuilder()
         for b in x.BasicBlocks do
             for instr in b.ToString() do
@@ -574,8 +573,7 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
             else
                 callFrom.OutgoingEdges.Add(dummyTerminalForCallEdge, HashSet [|callTo|])
             
-            calledMethodCfgInfo.Sinks                
-            |> ResizeArray.iter (fun returnFrom ->
+            for returnFrom in calledMethodCfgInfo.Sinks do            
                 let exists,returnEdges = returnFrom.OutgoingEdges.TryGetValue dummyTerminalForReturnEdge
                 if exists
                 then
@@ -587,13 +585,12 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
                 assert added
                 let added = applicationGraphDelta.TouchedBasicBlocks.Add returnFrom
                 ()
-                    )
             
             let added = callTo.IncomingCallEdges.Add callFrom
             assert added
-            if callFrom <> returnTo then
-                let removed = callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge //CallGraph.dummyTerminalForCallShortcut
-                assert removed
+            //if callFrom <> returnTo then
+            //    let removed = callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge //CallGraph.dummyTerminalForCallShortcut
+            //    assert removed
         else ()
 
     let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
@@ -646,32 +643,32 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
     let getShortestDistancesToGoals (states : array<codeLocation>) =
         __notImplemented__()
 
-    member this.RegisterMethod (method: Method) =
+    member this.RegisterMethod (method : Method) =
         assert method.HasBody
         applicationGraphDelta.LoadedMethods.Add method
 
     member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
         addCallEdge sourceLocation targetLocation
 
-    member this.SpawnState (state:IGraphTrackableState) =
-        [|state|] |> addStates None
+    member this.SpawnState (state : IGraphTrackableState) =
+        [| state |] |> addStates None
 
-    member this.SpawnStates (states:seq<IGraphTrackableState>) =
+    member this.SpawnStates (states : seq<IGraphTrackableState>) =
         Array.ofSeq states |> addStates None
 
-    member this.AddForkedStates (parentState:IGraphTrackableState) (forkedStates:seq<IGraphTrackableState>) =
+    member this.AddForkedStates (parentState : IGraphTrackableState) (forkedStates : seq<IGraphTrackableState>) =
         addStates (Some parentState) (Array.ofSeq forkedStates)
 
     member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
         moveState fromLocation toLocation
 
-    member x.AddGoal (location:codeLocation) =
+    member x.AddGoal (location : codeLocation) =
         ()
 
-    member x.AddGoals (locations:array<codeLocation>) =
+    member x.AddGoals (locations : array<codeLocation>) =
         ()
 
-    member x.RemoveGoal (location:codeLocation) =
+    member x.RemoveGoal (location : codeLocation) =
         ()
 
 type IVisualizer =

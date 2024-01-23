@@ -47,6 +47,7 @@
         <Compile Include="Copier.fs" />
         <Compile Include="NumericUtils.fs" />
         <Compile Include="CoverageDeserializer.fs" />
+        <Compile Include="EnvironmentUtils.fs" />
     </ItemGroup>
 
     <ItemGroup>

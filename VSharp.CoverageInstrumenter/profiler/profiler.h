@@ -7,8 +7,6 @@
 #include "pal.h"
 #include "ntimage.h"
 #include "corhdr.h"
-#define CoTaskMemAlloc(cb) malloc(cb)
-#define CoTaskMemFree(cb) free(cb)
 #define UINT_PTR_FORMAT "lx"
 #endif //UNIX
 
@@ -16,9 +14,10 @@
 #include "corhdr.h"
 #include <clrtypes.h>
 #include <cstdlib>
-#define CoTaskMemAlloc(cb) malloc(cb)
-#define CoTaskMemFree(cb) free(cb)
 #define UINT_PTR_FORMAT "llx"
 #endif //WIN
+
+#define CoTaskMemAlloc(cb) malloc(cb)
+#define CoTaskMemFree(cb) free(cb)
 
 #endif //_PROFILER_H

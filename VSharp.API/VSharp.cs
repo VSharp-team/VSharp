@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using VSharp.CoverageTool;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Explorer;
@@ -32,6 +33,7 @@ namespace VSharp
             StepsCount = stepsCount;
             IncompleteBranches = iies;
             GeneratedTestInfos = generatedTestInfos;
+            Coverage = -1;
         }
 
         /// <summary>
@@ -59,6 +61,7 @@ namespace VSharp
         /// </summary>
         public uint StepsCount { get; }
 
+        public int Coverage { get; set; }
         /// <summary>
         /// Some program branches might be failed to investigate. This enumerates the reasons of such failures.
         /// </summary>
@@ -78,7 +81,9 @@ namespace VSharp
         {
             writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", TestGenerationTime.Hours,
                 TestGenerationTime.Minutes, TestGenerationTime.Seconds, TestGenerationTime.Milliseconds);
-            writer.WriteLine("Total coverage: {0}", GeneratedTestInfos.LastOrDefault().Coverage);
+            writer.WriteLine($"Approximate coverage: {GeneratedTestInfos.LastOrDefault().Coverage}");
+            if (Coverage >= 0)
+                writer.WriteLine($"Precise coverage: {Coverage}");
             var count = IncompleteBranches.Count();
             if (count > 0)
             {
@@ -300,6 +305,17 @@ namespace VSharp
             return TestRunner.TestRunner.ReproduceTests(testDir);
         }
 
+        private static readonly string TestRunnerPath = typeof(TestRunner.TestRunner).Assembly.Location;
+
+        private static int CheckCoverage(
+            DirectoryInfo testDir,
+            MethodBase methodBase)
+        {
+            var runnerWithArgs = $"{TestRunnerPath} {testDir.FullName}";
+            var coverageTool = new PassiveCoverageTool(testDir, methodBase);
+            return coverageTool.RunWithCoverage(runnerWithArgs);
+        }
+
         /// <summary>
         /// Generates test coverage for specified method.
         /// </summary>
@@ -484,11 +500,24 @@ namespace VSharp
         /// </summary>
         /// <param name="method">Method to be covered with tests.</param>
         /// <param name="statistics">Summary of tests generation process.</param>
+        /// <param name="checkCoverage">If true, forces coverage tool to check precise coverage</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        public static bool CoverAndRun(MethodBase method, out Statistics statistics, VSharpOptions options = new())
+        public static bool CoverAndRun(
+            MethodBase method,
+            out Statistics statistics,
+            VSharpOptions options = new(),
+            bool checkCoverage = false)
         {
             statistics = Cover(method, options);
+            var testDir = statistics.OutputDir;
+            if (checkCoverage)
+            {
+                var coverage = CheckCoverage(testDir, method);
+                statistics.Coverage = coverage;
+                return coverage != -1;
+            }
+
             return Reproduce(statistics.OutputDir);
         }
 

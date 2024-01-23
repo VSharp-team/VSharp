@@ -20,70 +20,6 @@ public:
     explicit ProbeCall(INT_PTR addr);
 };
 
-enum CoverageEvent {
-    EnterMain,
-    Enter,
-    LeaveMain,
-    Leave,
-    BranchHit,
-    Call,
-    Tailcall,
-    TrackCoverage,
-    StsfldHit
-};
-
-struct MethodInfo {
-    mdMethodDef token;
-    ULONG assemblyNameLength;
-    WCHAR *assemblyName;
-    ULONG moduleNameLength;
-    WCHAR *moduleName;
-
-    void serialize(std::vector<char>& buffer) const;
-};
-
-struct CoverageRecord {
-    OFFSET offset;
-    CoverageEvent event;
-    ThreadID thread;
-    int methodId;
-
-    void serialize(std::vector<char>& buffer) const;
-};
-
-class CoverageHistory {
-private:
-    std::vector<CoverageRecord*> records{};
-public:
-    explicit CoverageHistory(OFFSET offset, int methodId);
-    void addCoverage(OFFSET offset, CoverageEvent event, int methodId);
-    void serialize(std::vector<char>& buffer) const;
-    ~CoverageHistory();
-
-    std::set<int> visitedMethods;
-};
-
-class CoverageTracker {
-
-private:
-    bool collectMainOnly;
-    std::mutex collectedMethodsMutex;
-    std::vector<MethodInfo> collectedMethods;
-    ThreadStorage<CoverageHistory*> trackedCoverage;
-public:
-    explicit CoverageTracker(bool collectMainOnly);
-    bool isCollectMainOnly() const;
-    void addCoverage(OFFSET offset, CoverageEvent event, int methodId);
-    void invocationAborted();
-    size_t collectMethod(MethodInfo info);
-    char* serializeCoverageReport(size_t* size);
-    void clear();
-    ~CoverageTracker();
-};
-/// ------------------------------ Commands ---------------------------
-
-
-extern CoverageTracker* coverageTracker;
 
 /// ------------------------------ Probes declarations ---------------------------
 
@@ -127,6 +63,5 @@ extern CoverageProbes coverageProbes;
 
 CoverageProbes* getProbes();
 void InitializeProbes();
-
 }
 #endif // PROBES_H_

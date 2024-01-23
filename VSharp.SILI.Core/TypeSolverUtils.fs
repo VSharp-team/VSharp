@@ -264,7 +264,7 @@ type typeParameterConstraints(parameter : Type, constraints : typeConstraints) =
     let potentiallyIsValueTypeOrInterface (t : Type) =
         t.IsGenericParameter || isValueType t || t.IsInterface
 
-    member x.Merge(other: typeConstraints) =
+    member x.Merge(other : typeConstraints) =
         constraints.Merge other
 
     member x.IsContradicting() =
@@ -385,7 +385,7 @@ module private GenericUtils =
 
     type parameterSubstitution = pdict<Type, Type>
 
-    let substitute (typedef: Type) (subst: parameterSubstitution) =
+    let substitute (typedef : Type) (subst : parameterSubstitution) =
         let substitute t = PersistentDict.tryFind subst t |> Option.defaultValue t
         Reflection.concretizeType substitute typedef
 
@@ -401,7 +401,7 @@ module private GenericUtils =
     let private collectDependencies parameters =
         let dependencies = Dictionary<Type, Type list>()
         let maxDepths = Dictionary<Type, int>()
-        let addParameterDependencies (typ: Type) =
+        let addParameterDependencies (typ : Type) =
             assert typ.IsGenericParameter
             let parameterDependencies, depth = typ.GetGenericParameterConstraints() |> Array.fold getDependencies ([], 0)
             dependencies.Add(typ, parameterDependencies)
@@ -640,7 +640,7 @@ and genericCandidate private (
             let traceback = List.collect (fun i -> get typArgs[i] |> List.collect (fun i -> track[i]) |> List.distinct)
             Array.map traceback indices
 
-    let trackIndices (typ: Type) (supertype: Type) =
+    let trackIndices (typ : Type) (supertype : Type) =
         let genericsCount = (TypeUtils.getGenericArgs typ).Length
         Array.init genericsCount List.singleton |> trackIndicesHelper typ supertype
 
@@ -666,7 +666,7 @@ and genericCandidate private (
                 newConstraints.Add(t, typeConstraints.Empty)
 
             let mutable propagated = true
-            let updateWithVariance i (param: Type) =
+            let updateWithVariance i (param : Type) =
                 if propagated then
                     let typ = supertypeArgs[i]
                     let contains, parameterConstraints = newConstraints.TryGetValue param
@@ -788,15 +788,15 @@ and genericCandidate private (
         assert(notEqual.GetGenericArguments().Length = 1)
         propagateEqual constraints typedef notEqual |> ignore
 
-    let propagateNotSupertype constraints (typedef : Type) supertypes (notSupertype: Type) =
+    let propagateNotSupertype constraints (typedef : Type) supertypes (notSupertype : Type) =
         assert(notSupertype.GetGenericArguments().Length = 1)
         propagateSupertype constraints typedef supertypes notSupertype |> ignore
 
-    let propagateNotSubtype constraints typedef (notSubtype: Type) =
+    let propagateNotSubtype constraints typedef (notSubtype : Type) =
         assert(notSubtype.GetGenericArguments().Length = 1)
         propagateSubtype constraints typedef notSubtype |> ignore
 
-    let propagateConstraints (constraints: typeConstraints) : typeConstraints[] option =
+    let propagateConstraints (constraints : typeConstraints) : typeConstraints[] option =
         propagate typedef supertypesDefs parameters genericInterfaces constraints
 
     let propagateNotConstraints typedef supertypesDefs parameters interfaces (toPropagate : typeConstraints) =
@@ -830,7 +830,7 @@ and genericCandidate private (
         parameterSubstitutions.Substitutions
         |> Seq.map (GenericUtils.substitute typedef)
 
-    static member TryCreate (typedef: Type) depth makeSubstitution =
+    static member TryCreate (typedef : Type) depth makeSubstitution =
         if depth <= 0 then None
         else
             option {
@@ -846,12 +846,12 @@ and genericCandidate private (
         let selfConstraints = selfConstraints.Copy()
         selfConstraints.Merge constraints |> ignore
 
-        let isSupertypeValid interfacesDefs supertypesDefs (supertype: Type) =
+        let isSupertypeValid interfacesDefs supertypesDefs (supertype : Type) =
             let supertypeDef = TypeUtils.getTypeDef supertype
             if supertypeDef.IsInterface && not typedef.IsInterface then Array.contains supertypeDef interfacesDefs
             else List.contains supertypeDef supertypesDefs
 
-        let isSubtypeValid (subtype: Type) =
+        let isSubtypeValid (subtype : Type) =
             if subtype.IsInterface && not typedef.IsInterface then false
             else
                 let supertypesDefs = TypeUtils.getSupertypes subtype |> List.map TypeUtils.getTypeDef
@@ -926,8 +926,8 @@ with
     static member GroupBy (userAssembly : Assembly) (items: _ seq) (toCandidate : _ -> candidate) toType =
         let items = List.ofSeq items
         let isPublicBuiltIn (t : Type) = TypeUtils.isPublic t && Reflection.isBuiltInType t
-        let isPublicUser (t: Type) = TypeUtils.isPublic t && t.Assembly = userAssembly
-        let isPrivateUser (t: Type) = not (TypeUtils.isPublic t) && t.Assembly = userAssembly
+        let isPublicUser (t : Type) = TypeUtils.isPublic t && t.Assembly = userAssembly
+        let isPrivateUser (t : Type) = not (TypeUtils.isPublic t) && t.Assembly = userAssembly
 
         let inline getCandidates p items = List.partition (toType >> p) items
         let publicBuiltIn, rest = getCandidates isPublicBuiltIn items

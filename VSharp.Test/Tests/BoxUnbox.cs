@@ -166,6 +166,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) Last generated test is incorrect")]
     public class BoxUnboxWithGeneric<G, T, U, V>
         where G : IVirtual
         where T : class, IVirtual

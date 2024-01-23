@@ -3,6 +3,7 @@
 namespace IntegrationTests
 {
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) reproducing test failed")]
     public struct Wrapper<T>
     {
         private T _value;
@@ -29,6 +30,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) reproducing test failed")]
     public struct Wrapper2<T>
     {
         private int _anotherValue;
@@ -53,6 +55,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) reproducing test failed")]
     public struct Wrapper3<T> where T : class
     {
         private T _value;
@@ -79,6 +82,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    [IgnoreFuzzer("(Known bug) reproducing test failed")]
     public struct Wrapper4<T, U, V> where T : class where U : struct where V : new()
     {
         private T _value0;

@@ -13,9 +13,7 @@ class CorProfiler : public ICorProfilerCallback8
 private:
     std::atomic<int> refCount;
     ICorProfilerInfo8 *corProfilerInfo;
-    char *passiveResultPath = nullptr;
-    bool isPassiveRun = false;
-    bool isFinished = false;
+
 
 public:
     CorProfiler();
@@ -152,6 +150,7 @@ public:
     }
 
     std::string GetObjectTypeName(ObjectID objectId);
+    std::string GetFunctionName(FunctionID functionId);
 };
 
 }
