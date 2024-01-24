@@ -175,11 +175,7 @@ let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackabl
                  , distanceToNearestUncovered, distanceToNearestNotVisited, distanceToNearestReturn)
     
 let getFolderToStoreSerializationResult (prefix:string) suffix =
-    let prefix = Path.Combine(Path.GetDirectoryName prefix, "SerializedEpisodes")
-    let folderName = Path.Combine(prefix, suffix)
-    if Directory.Exists folderName
-    then Directory.Delete(folderName, true)
-    let _ = Directory.CreateDirectory folderName
+    let folderName = Path.Combine(Path.Combine(prefix, "SerializedEpisodes"), suffix)
     folderName
 
 let computeStatistics (gameState:GameState) =
@@ -328,7 +324,7 @@ let collectGameStateDelta () =
             ()
     collectGameState (ResizeArray basicBlocks) false  
 
-let dumpGameState fileForResultWithoutExtension =
+let dumpGameState fileForResultWithoutExtension (movedStateId:uint<stateId>) =
     let basicBlocks = ResizeArray<_>()
     for method in Application.loadedMethods do
         for basicBlock in method.Key.BasicBlocks do
@@ -341,6 +337,7 @@ let dumpGameState fileForResultWithoutExtension =
     let statesInfoJson = JsonSerializer.Serialize statesInfoToDump
     File.WriteAllText(fileForResultWithoutExtension + "_gameState", gameStateJson)
     File.WriteAllText(fileForResultWithoutExtension + "_statesInfo", statesInfoJson)
+    File.WriteAllText(fileForResultWithoutExtension + "_movedState", string movedStateId)
     
 let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =
     let rewardForCoverage =

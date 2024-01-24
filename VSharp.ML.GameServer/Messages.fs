@@ -28,7 +28,7 @@ type [<Measure>] instruction
 [<Struct>]
 type GameOverMessageBody =    
      interface IRawOutgoingMessageBody
-     val ActualCoverage: System.Nullable<uint>
+     val ActualCoverage: uint<percent>
      val TestsCount: uint32<test>
      val ErrorsCount: uint32<error>
      new (actualCoverage, testsCount, errorsCount) = {ActualCoverage = actualCoverage; TestsCount = testsCount; ErrorsCount = errorsCount}
@@ -148,6 +148,40 @@ type GameState =
     val Map: GameMapEdge[]
     new (graphVertices, states, map) = {GraphVertices = graphVertices; States = states; Map = map}
     
+    member this.ToDot file drawHistoryEdges =
+        let vertices = ResizeArray<_>()
+        let edges = ResizeArray<_>()
+        for v in this.GraphVertices do
+            let color = if v.CoveredByTest
+                        then "green"
+                        elif v.VisitedByState
+                        then "red"
+                        elif v.TouchedByState
+                        then "yellow"
+                        else "white"
+            vertices.Add($"{v.Id} [label={v.Id}, shape=box, style=filled, fillcolor={color}]")
+            for s in v.States do
+                edges.Add($"99{s}00 -> {v.Id} [label=L]")
+        for s in this.States do
+            vertices.Add($"99{s.Id}00 [label={s.Id}, shape=circle]")
+            for v in s.Children do
+                edges.Add($"99{s.Id}00 -> 99{v}00 [label=ch]")
+            if drawHistoryEdges
+            then 
+                for v in s.History do
+                    edges.Add($"99{s.Id}00 -> {v.GraphVertexId} [label={v.NumOfVisits}]")
+        for e in this.Map do
+            edges.Add($"{e.VertexFrom}->{e.VertexTo}[label={e.Label.Token}]")
+        let dot =
+            seq
+                {
+                    "digraph g{"
+                    yield! vertices
+                    yield! edges
+                    "}"
+                }
+        System.IO.File.WriteAllLines(file, dot)
+    
 type [<Measure>] coverageReward
 type [<Measure>] visitedInstructionsReward
 type [<Measure>] maxPossibleReward
@@ -219,7 +253,7 @@ type InputMessage =
      new (stateId) = {StateId = stateId}     
  
 type OutgoingMessage =
-    | GameOver of System.Nullable<uint>*uint32<test>*uint32<error>    
+    | GameOver of uint<percent>*uint32<test>*uint32<error>    
     | MoveReward of Reward
     | IncorrectPredictedStateId of uint<stateId>
     | ReadyForNextStep of GameState

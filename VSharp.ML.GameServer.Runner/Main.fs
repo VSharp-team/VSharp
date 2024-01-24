@@ -1,4 +1,3 @@
-open System.Collections.Generic
 open System.IO
 open System.Reflection
 open Argu
@@ -13,9 +12,25 @@ open Suave.WebSocket
 open VSharp
 open VSharp.Core
 open VSharp.Explorer
+open VSharp.IL
 open VSharp.ML.GameServer.Messages
 open VSharp.Runner
-   
+
+
+[<Struct>]
+type ExplorationResult =
+    val ActualCoverage: uint<percent>
+    val TestsCount: uint<test>
+    val ErrorsCount: uint<error>
+    val StepsCount: uint<step>
+    new (actualCoverage, testsCount, errorsCount, stepsCount) =
+        {
+            ActualCoverage = actualCoverage
+            TestsCount = testsCount
+            ErrorsCount = errorsCount
+            StepsCount = stepsCount
+        }
+    
 type Mode =
     | Server = 0
     | Generator = 1
@@ -37,6 +52,26 @@ type CliArguments =
             | StepsToSerialize _ -> "Maximal number of steps for each method to serialize."
             
 let mutable inTrainMode = true
+
+let explore (gameMap:GameMap) options =
+    let assembly = RunnerProgram.TryLoadAssembly <| FileInfo gameMap.AssemblyFullName
+    let method = RunnerProgram.ResolveMethod(assembly, gameMap.NameOfObjectToCover)
+    let statistics = TestGenerator.Cover(method, options)
+    let actualCoverage = 
+        try 
+            let testsDir = statistics.OutputDir
+            let _expectedCoverage = 100
+            let exploredMethodInfo = AssemblyManager.NormalizeMethod method
+            let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
+            printfn $"Actual coverage for {gameMap.MapName}: {actualCoverage}"
+            if actualCoverage < 0 then 0u<percent> else uint actualCoverage * 1u<percent>
+        with
+        e ->
+            printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
+            0u<percent>
+
+    ExplorationResult(actualCoverage, statistics.TestsCount * 1u<test>, statistics.ErrorsCount *1u<error>, statistics.StepsCount * 1u<step>)
+
 
 let loadGameMaps (datasetDescriptionFilePath:string) =
     let jsonString = File.ReadAllText datasetDescriptionFilePath
@@ -78,38 +113,7 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
             fun (gameState:GameState) ->
                 let toDot drawHistory =
                     let file = Path.Join ("dot",$"{cnt}.dot")
-                    let vertices = ResizeArray<_>()
-                    let edges = ResizeArray<_>()
-                    for v in gameState.GraphVertices do
-                        let color = if v.CoveredByTest
-                                    then "green"
-                                    elif v.VisitedByState
-                                    then "red"
-                                    elif v.TouchedByState
-                                    then "yellow"
-                                    else "white"
-                        vertices.Add($"{v.Id} [label={v.Id}, shape=box, style=filled, fillcolor={color}]")
-                        for s in v.States do
-                            edges.Add($"99{s}00 -> {v.Id} [label=L]")
-                    for s in gameState.States do
-                        vertices.Add($"99{s.Id}00 [label={s.Id}, shape=circle]")
-                        for v in s.Children do
-                            edges.Add($"99{s.Id}00 -> 99{v}00 [label=ch]")
-                        if drawHistory
-                        then 
-                            for v in s.History do
-                                edges.Add($"99{s.Id}00 -> {v.GraphVertexId} [label={v.NumOfVisits}]")
-                    for e in gameState.Map do
-                        edges.Add($"{e.VertexFrom}->{e.VertexTo}[label={e.Label.Token}]")
-                    let dot =
-                        seq
-                            {
-                                "digraph g{"
-                                yield! vertices
-                                yield! edges
-                                "}"
-                            }
-                    File.WriteAllLines(file,dot)
+                    gameState.ToDot file drawHistory
                     cnt <- cnt + 1u
                 //toDot false
                 let res = 
@@ -140,10 +144,7 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
                 match message with
                 | ServerStop -> loop <- false
                 | Start gameMap ->
-                    let assembly = RunnerProgram.TryLoadAssembly <| FileInfo gameMap.AssemblyFullName
-                    let actualCoverage,testsCount,errorsCount =                         
-                        let method = RunnerProgram.ResolveMethod(assembly, gameMap.NameOfObjectToCover)
-                        let aiTrainingOptions =
+                    let aiTrainingOptions =
                             {
                                 stepsToSwitchToAI = gameMap.StepsToStart
                                 stepsToPlay = gameMap.StepsToPlay
@@ -156,27 +157,13 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
                                 mapName = gameMap.MapName
                                 oracle = Some oracle
                             } 
-                        let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.AI, aiAgentTrainingOptions = aiTrainingOptions, solverTimeout=2)
-                        let statistics = TestGenerator.Cover(method, options)
-                        let actualCoverage = 
-                            try 
-                                let testsDir = statistics.OutputDir
-                                let _expectedCoverage = 100
-                                let exploredMethodInfo = AssemblyManager.NormalizeMethod method
-                                let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
-                                printfn $"Actual coverage for {gameMap.MapName}: {actualCoverage}"
-                                System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
-                            with
-                            e ->
-                                printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
-                                System.Nullable(0u)
-
-                        actualCoverage, statistics.TestsCount * 1u<test>, statistics.ErrorsCount *1u<error>
+                    let options = VSharpOptions(timeout = 15 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.AI, aiAgentTrainingOptions = aiTrainingOptions, solverTimeout=2)
+                    let explorationResult = explore gameMap options
                     
                     Application.reset()
                     API.Reset()
                     HashMap.hashMap.Clear()
-                    do! sendResponse (GameOver (actualCoverage, testsCount, errorsCount))
+                    do! sendResponse (GameOver (explorationResult.ActualCoverage, explorationResult.TestsCount, explorationResult.ErrorsCount))
                 | x -> failwithf $"Unexpected message: %A{x}"
                 
         | (Close, _, _) ->
@@ -196,8 +183,7 @@ let generateDataForPretraining outputDirectory datasetBasePath (maps:ResizeArray
         if map.StepsToStart = 0u<step>
         then
             printfn $"Generation for {map.MapName} started."
-            let assembly = RunnerProgram.TryLoadAssembly <| FileInfo(Path.Combine (datasetBasePath, map.AssemblyFullName)) 
-            let method = RunnerProgram.ResolveMethod(assembly, map.NameOfObjectToCover)
+            let map = GameMap(map.StepsToPlay, map.StepsToStart, Path.Combine (datasetBasePath, map.AssemblyFullName), map.DefaultSearcher, map.NameOfObjectToCover, map.MapName)
             let aiTrainingOptions =
                 {
                     stepsToSwitchToAI = 0u<step>
@@ -206,10 +192,17 @@ let generateDataForPretraining outputDirectory datasetBasePath (maps:ResizeArray
                     serializeSteps = true
                     mapName = map.MapName
                     oracle = None
-                } 
+                }
+            
             let options = VSharpOptions(timeout = 5 * 60, outputDirectory = outputDirectory, searchStrategy = SearchStrategy.ExecutionTreeContributedCoverage, stepsLimit = stepsToSerialize, solverTimeout=2, aiAgentTrainingOptions = aiTrainingOptions)
-            let statistics = TestGenerator.Cover(method, options)
-            printfn $"Generation for {map.MapName} finished."
+            let folderForResults = Serializer.getFolderToStoreSerializationResult outputDirectory map.MapName
+            if Directory.Exists folderForResults
+            then Directory.Delete(folderForResults, true)
+            let _ = Directory.CreateDirectory folderForResults
+            
+            let explorationResult = explore map options
+            File.WriteAllText(Path.Join(folderForResults, "result"), $"{explorationResult.ActualCoverage} {explorationResult.TestsCount} {explorationResult.StepsCount} {explorationResult.ErrorsCount}")
+            printfn $"Generation for {map.MapName} finished with coverage {explorationResult.ActualCoverage}, tests {explorationResult.TestsCount}, steps {explorationResult.StepsCount},errors {explorationResult.ErrorsCount}."
             Application.reset()
             API.Reset()
             HashMap.hashMap.Clear()
