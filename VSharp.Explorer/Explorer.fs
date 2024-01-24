@@ -1,6 +1,7 @@
 namespace VSharp.Explorer
 
 open System
+open System.IO
 open System.Reflection
 open System.Threading
 open System.Threading.Tasks
@@ -20,9 +21,25 @@ type IReporter =
     abstract member ReportInternalFail : Method -> Exception -> unit
     abstract member ReportCrash : Exception -> unit
 
+type EntryPointConfiguration(mainArguments : string[]) =
+
+    member x.Args with get() =
+        if mainArguments = null then None
+        else Some mainArguments
+
+type WebConfiguration(mainArguments : string[], environmentName : string, contentRootPath : DirectoryInfo, applicationName : string) =
+    inherit EntryPointConfiguration(mainArguments)
+
+    member internal x.ToWebConfig() =
+        {
+            environmentName = environmentName
+            contentRootPath = contentRootPath
+            applicationName = applicationName
+        }
+
 type private IExplorer =
     abstract member Reset: seq<Method> -> unit
-    abstract member StartExploration: (Method * state) list -> (Method * string[] * state) list -> Task
+    abstract member StartExploration: (Method * state) list -> (Method * EntryPointConfiguration * state) list -> Task
 
 type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVMStatistics, reporter: IReporter) =
 
@@ -236,20 +253,23 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
             reportInternalFail method e
             []
 
-    member private x.FormEntryPointInitialStates (method : Method, mainArguments : string[], initialState : state) : cilState list =
+    member private x.FormEntryPointInitialStates (method : Method, config : EntryPointConfiguration, initialState : state) : cilState list =
         try
             assert method.IsStatic
-            let optionArgs = if mainArguments = null then None else Some mainArguments
-            let state = { initialState with complete = mainArguments <> null }
-            state.model <- Memory.EmptyModel method
-            let argsToState args =
-                let stringType = typeof<string>
-                let argsNumber = MakeNumber mainArguments.Length
-                Memory.AllocateConcreteVectorArray state argsNumber stringType args
-            let arguments = Option.map (argsToState >> Some >> List.singleton) optionArgs
-            Memory.InitFunctionFrame state method None arguments
+            let optionArgs = config.Args
             let parameters = method.Parameters
-            if Array.length parameters > 0 && Option.isNone optionArgs then
+            let hasParameters = Array.length parameters > 0
+            let state = { initialState with complete = not hasParameters || Option.isSome optionArgs }
+            state.model <- Memory.EmptyModel method
+            match optionArgs with
+            | Some args ->
+                let stringType = typeof<string>
+                let argsNumber = MakeNumber args.Length
+                let argsRef = Memory.AllocateConcreteVectorArray state argsNumber stringType args
+                let args = Some (List.singleton (Some argsRef))
+                Memory.InitFunctionFrame state method None args
+            | None when hasParameters ->
+                Memory.InitFunctionFrame state method None None
                 // NOTE: if args are symbolic, constraint 'args != null' is added
                 assert(Array.length parameters = 1)
                 let argsParameter = Array.head parameters
@@ -262,8 +282,16 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                     | _ -> __unreachable__()
                 let argsForModel = Memory.AllocateVectorArray modelState (MakeNumber 0) typeof<String>
                 Memory.WriteStackLocation modelState (ParameterKey argsParameter) argsForModel
+            | None ->
+                let args = Some List.empty
+                Memory.InitFunctionFrame state method None args
             Memory.InitializeStaticMembers state method.DeclaringType
-            let initialState = cilState.CreateInitial method state
+            let initialState =
+                match config with
+                | :? WebConfiguration as config ->
+                    let webConfig = config.ToWebConfig()
+                    cilState.CreateWebInitial method state webConfig
+                | _ -> cilState.CreateInitial method state
             [initialState]
         with
         | e ->
@@ -504,7 +532,7 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
         for explorer in explorers do
             explorer.Reset entryMethods
 
-    member x.StartExploration (isolated : MethodBase seq) (entryPoints : (MethodBase * string[]) seq) : unit =
+    member x.StartExploration (isolated : MethodBase seq) (entryPoints : (MethodBase * EntryPointConfiguration) seq) : unit =
 
         try
             let trySubstituteTypeParameters method =

@@ -96,7 +96,8 @@ type exceptionRegisterStack =
             head, { stack = tail }
         | _ -> internalfail "Pop: exceptionRegisterStack is empty!"
     member x.Push elem = { stack = Stack.push x.stack elem }
-    static member singleton x = { stack = Stack.singleton x }
+    static member Initial = { stack = Stack.singleton NoException }
+    static member Singleton x = { stack = Stack.singleton x }
     static member map f stack = { stack = Stack.map (exceptionRegister.map f) stack.stack }
 
 type memoryMode =
@@ -161,7 +162,7 @@ and IMemory =
 
     abstract EvaluationStack : evaluationStack with get, set
 
-    abstract Stack : callStack
+    abstract Stack : callStack with get, set
 
     abstract StackBuffers : pdict<stackKey, stackBufferRegion> with get, set
 
@@ -307,7 +308,7 @@ and
         mutable exceptionsRegister : exceptionRegisterStack                // Heap-address of exception objects, multiple if nested 'try' blocks
         mutable model : model                                              // Concrete valuation of symbolics
         memory : IMemory
-        complete : bool                                                    // If true, reading of undefined locations would result in default values
+        mutable complete : bool                                                    // If true, reading of undefined locations would result in default values
         methodMocks : IDictionary<IMethod, IMethodMock>
     }
     with

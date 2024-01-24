@@ -671,3 +671,12 @@ module Loader =
 
     let internal isInvokeInternalCall (fullMethodName : string) =
         concreteInvocations.Contains fullMethodName
+
+    let internal isAspNetStart (fullMethodName : string) =
+        fullMethodName = "System.Void Microsoft.AspNetCore.Hosting.HostingApplication..ctor(this, Microsoft.AspNetCore.Http.RequestDelegate, Microsoft.Extensions.Logging.ILogger, System.Diagnostics.DiagnosticListener, System.Diagnostics.ActivitySource, System.Diagnostics.DistributedContextPropagator, Microsoft.AspNetCore.Http.IHttpContextFactory)"
+
+    let internal isAspNetConfiguration (fullMethodName : string) =
+        fullMethodName = "System.Void Microsoft.AspNetCore.Builder.WebApplicationOptions..ctor(this)"
+
+    let internal isExecutorExecute (fullMethodName : string) =
+        fullMethodName = "System.Object Microsoft.Extensions.Internal.ObjectMethodExecutor.Execute(this, System.Object, System.Object[])"

@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Diagnostics;
@@ -7,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using VSharp.CSharpUtils;
+using VSharp.Explorer;
 
 namespace VSharp.Runner
 {
@@ -34,11 +36,10 @@ namespace VSharp.Runner
 
         private static void EntryPointHandler(
             FileInfo assemblyPath,
-            string[] args,
+            string[]? args,
             int timeout,
             int solverTimeout,
             DirectoryInfo output,
-            bool unknownArgs,
             bool renderTests,
             bool runTests,
             SearchStrategy strat,
@@ -47,7 +48,6 @@ namespace VSharp.Runner
             ExplorationMode explorationMode)
         {
             var assembly = TryLoadAssembly(assemblyPath);
-            var inputArgs = unknownArgs ? null : args;
             var options =
                 new VSharpOptions(
                     timeout: timeout,
@@ -61,11 +61,82 @@ namespace VSharp.Runner
 
             if (assembly == null) return;
 
+            var configuration = new EntryPointConfiguration(args);
             Statistics statistics;
             if (runTests)
-                TestGenerator.CoverAndRun(assembly, inputArgs, out statistics, options);
+                TestGenerator.CoverAndRun(assembly, configuration, out statistics, options);
             else
-                statistics = TestGenerator.Cover(assembly, inputArgs, options);
+                statistics = TestGenerator.Cover(assembly, configuration, options);
+            PostProcess(statistics);
+        }
+
+        private static DirectoryInfo FindRootPath(FileInfo assemblyPath, string? assemblyName)
+        {
+            DirectoryInfo? rootPath = null;
+            var currentPath = assemblyPath.Directory;
+            while (rootPath == null && currentPath != null)
+            {
+                IEnumerable<FileSystemInfo> files;
+                if (assemblyName == null)
+                    files = currentPath.EnumerateDirectories("Controllers");
+                else
+                    files = currentPath.EnumerateFiles($"{assemblyName}.csproj");
+                if (files.Any())
+                    rootPath = currentPath;
+                currentPath = currentPath.Parent;
+            }
+
+            if (rootPath == null)
+                throw new ArgumentException("Cannot find content root path, please provide it via option '--root-path'");
+
+            return rootPath;
+        }
+
+        private static void WebAppHandler(
+            FileInfo assemblyPath,
+            string[]? args,
+            string? environmentName,
+            DirectoryInfo? contentRootPath,
+            string? applicationName,
+            int timeout,
+            int solverTimeout,
+            DirectoryInfo output,
+            bool renderTests,
+            bool runTests,
+            SearchStrategy strat,
+            Verbosity verbosity,
+            uint recursionThreshold,
+            ExplorationMode explorationMode)
+        {
+            var assembly = TryLoadAssembly(assemblyPath);
+            var options =
+                new VSharpOptions(
+                    timeout: timeout,
+                    solverTimeout: solverTimeout,
+                    outputDirectory: output.FullName,
+                    renderTests: renderTests,
+                    searchStrategy: strat,
+                    verbosity: verbosity,
+                    recursionThreshold: recursionThreshold,
+                    explorationMode: explorationMode);
+
+            if (assembly == null) return;
+
+            environmentName ??= "Production";
+            var assemblyName = assembly.GetName().Name;
+            applicationName ??= assemblyName;
+            if (applicationName == null)
+                throw new ArgumentException("Cannot find application name, please provide it via option '--app-name'");
+            contentRootPath ??= FindRootPath(assemblyPath, assemblyName);
+
+            Debug.Assert(environmentName != null && applicationName != null && contentRootPath != null);
+            var webConfiguration = new WebConfiguration(args, environmentName, contentRootPath, applicationName);
+
+            Statistics statistics;
+            if (runTests)
+                TestGenerator.CoverAndRun(assembly, webConfiguration, out statistics, options);
+            else
+                statistics = TestGenerator.Cover(assembly, webConfiguration, options);
             PostProcess(statistics);
         }
 
@@ -304,15 +375,12 @@ namespace VSharp.Runner
 
             var entryPointCommand =
                 new Command("--entry-point", "Generate test coverage from the entry point of assembly (assembly must contain Main method)");
-            var argsArgument =
-                new Argument<string[]>("args", description: "Command line arguments");
-            var unknownArgsOption = new Option<bool>(
-                "--unknown-args",
-                description: "Force engine to generate various input console arguments");
+            var argsOption = new Option<string[]?>(
+                "--args",
+                description: "Command line arguments");
             rootCommand.AddCommand(entryPointCommand);
             entryPointCommand.AddArgument(assemblyPathArgument);
-            entryPointCommand.AddArgument(argsArgument);
-            entryPointCommand.AddOption(unknownArgsOption);
+            entryPointCommand.AddOption(argsOption);
             entryPointCommand.SetHandler(context =>
             {
                 var parseResult = context.ParseResult;
@@ -320,11 +388,10 @@ namespace VSharp.Runner
                 Debug.Assert(output is not null);
                 EntryPointHandler(
                     parseResult.GetValueForArgument(assemblyPathArgument),
-                    parseResult.GetValueForArgument(argsArgument),
+                    parseResult.GetValueForOption(argsOption),
                     parseResult.GetValueForOption(timeoutOption),
                     parseResult.GetValueForOption(solverTimeoutOption),
                     output,
-                    parseResult.GetValueForOption(unknownArgsOption),
                     parseResult.GetValueForOption(renderTestsOption),
                     parseResult.GetValueForOption(runTestsOption),
                     parseResult.GetValueForOption(searchStrategyOption),
@@ -334,6 +401,42 @@ namespace VSharp.Runner
                 );
             });
 
+            var webCommand =
+                new Command("--web", "Generate integration tests for web application");
+            rootCommand.AddCommand(webCommand);
+            webCommand.AddArgument(assemblyPathArgument);
+            webCommand.AddOption(argsOption);
+            var environmentNameOption = new Option<string>(
+                "--e-name",
+                description: "Name of environment in which web application will be explored");
+            var rootPathOption = new Option<DirectoryInfo?>(
+                "--root-path",
+                description: "Root path of web application");
+            var applicationNameOption = new Option<string>(
+                "--app-name",
+                description: "Web application name");
+            webCommand.SetHandler(context =>
+            {
+                var parseResult = context.ParseResult;
+                var output = parseResult.GetValueForOption(outputOption);
+                Debug.Assert(output is not null);
+                WebAppHandler(
+                    parseResult.GetValueForArgument(assemblyPathArgument),
+                    parseResult.GetValueForOption(argsOption),
+                    parseResult.GetValueForOption(environmentNameOption),
+                    parseResult.GetValueForOption(rootPathOption),
+                    parseResult.GetValueForOption(applicationNameOption),
+                    parseResult.GetValueForOption(timeoutOption),
+                    parseResult.GetValueForOption(solverTimeoutOption),
+                    output,
+                    parseResult.GetValueForOption(renderTestsOption),
+                    parseResult.GetValueForOption(runTestsOption),
+                    parseResult.GetValueForOption(searchStrategyOption),
+                    parseResult.GetValueForOption(verbosityOption),
+                    parseResult.GetValueForOption(recursionThresholdOption),
+                    parseResult.GetValueForOption(explorationModeOption)
+                );
+            });
             var allPublicMethodsCommand =
                 new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);

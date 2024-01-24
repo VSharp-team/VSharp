@@ -311,6 +311,7 @@ module API =
 
         val CallStackContainsFunction : state -> IMethod -> bool
         val CallStackSize : state -> int
+        val ClearStack : state -> unit
         val GetCurrentExploringFunction : state -> IMethod
         val EntryFunction : state -> IMethod
 

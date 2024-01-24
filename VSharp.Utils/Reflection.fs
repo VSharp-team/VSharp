@@ -44,6 +44,9 @@ module public Reflection =
     let instanceNonPublicBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         BindingFlags.Instance ||| BindingFlags.NonPublic
+    let instancePublicBindingFlags =
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
+        BindingFlags.Instance ||| BindingFlags.Public
     let allBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         staticBindingFlags ||| instanceBindingFlags
@@ -230,6 +233,9 @@ module public Reflection =
 
     // --------------------------------- Methods --------------------------------
 
+    let methodIsDynamic (m : MethodBase) =
+        m.DeclaringType = null
+
     let getMethodDescriptor (m : MethodBase) =
         let reflectedType = m.ReflectedType
         let typeHandle =
@@ -243,7 +249,7 @@ module public Reflection =
             if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
         let methodHandle =
-            if m :? DynamicMethod then m.GetHashCode() |> nativeint
+            if methodIsDynamic m then m.GetHashCode() |> nativeint
             else m.MethodHandle.Value
         {
             methodHandle = methodHandle
@@ -685,3 +691,300 @@ module public Reflection =
 
     let isInstanceOfType (typeOfObj : Type) =
         typeOfObj = typeof<Type> || typeOfObj = TypeUtils.systemRuntimeType
+
+    // -------------------------------- Types --------------------------------
+
+    let private typeAttributes = lazy (
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
+        TypeAttributes.Public ||| TypeAttributes.Abstract ||| TypeAttributes.Sealed)
+
+    let private methodAttributes = lazy (
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
+        MethodAttributes.Public ||| MethodAttributes.HideBySig ||| MethodAttributes.Static)
+
+    let dynamicModule = lazy (
+        // Defining dynamic assembly
+        let dynamicAssemblyName = $"AspNetSupport.{Guid.NewGuid()}"
+        let assemblyBuilder = AssemblyManager.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
+        assemblyBuilder.DefineDynamicModule dynamicAssemblyName)
+
+    let createAspNetStartMethod (requestDelegateType : Type) (iHttpContextFactoryType : Type) =
+        // Getting all needed types and assemblies
+        let assemblies = AssemblyManager.GetAssemblies()
+        let httpAssembly =
+            assemblies |> Seq.find (fun a -> a.FullName.Contains("Microsoft.AspNetCore.Http,"))
+        let httpAssemblyTypes = httpAssembly.GetExportedTypes()
+        let featuresAssembly =
+            assemblies |> Seq.find (fun a -> a.FullName.Contains("Microsoft.Extensions.Features,"))
+        let featuresAssemblyTypes = featuresAssembly.GetTypes()
+        let abstractionsAssembly = requestDelegateType.Assembly
+        let abstractionsAssemblyTypes = abstractionsAssembly.GetExportedTypes()
+        let featureCollectionType =
+            featuresAssemblyTypes |> Array.find (fun t -> t.Name = "FeatureCollection")
+        let httpContextType =
+            abstractionsAssemblyTypes |> Array.find (fun t -> t.Name = "HttpContext")
+        let httpRequestFeatureType =
+            httpAssemblyTypes |> Array.find (fun t -> t.Name = "HttpRequestFeature")
+        let iHttpRequestFeatureType =
+            let interfaces = httpRequestFeatureType.GetInterfaces()
+            assert(Array.length interfaces = 1)
+            interfaces[0]
+        let httpResponseFeatureType =
+            httpAssemblyTypes |> Array.find (fun t -> t.Name = "HttpResponseFeature")
+        let iHttpResponseFeatureType =
+            let interfaces = httpResponseFeatureType.GetInterfaces()
+            assert(Array.length interfaces = 1)
+            interfaces[0]
+        let streamResponseBodyFeatureType =
+            httpAssemblyTypes |> Array.find (fun t -> t.Name = "StreamResponseBodyFeature")
+        let iHttpResponseBodyFeatureType =
+            let interfaces = streamResponseBodyFeatureType.GetInterfaces()
+            assert(Array.length interfaces = 1)
+            interfaces[0]
+        let memoryStreamType = typeof<System.IO.MemoryStream>
+        let streamType = typeof<System.IO.Stream>
+        let streamWriterType = typeof<System.IO.StreamWriter>
+
+        let typeName = $"AspNetStart{Guid.NewGuid()}"
+        let typeBuilder = dynamicModule.Value.DefineType(typeName, typeAttributes.Value)
+        let methodName = $"AspNetStartMethod{Guid.NewGuid()}"
+        let methodBuilder = typeBuilder.DefineMethod(methodName, methodAttributes.Value)
+        methodBuilder.SetReturnType typeof<Void>
+        // Setting arguments
+        methodBuilder.SetParameters([|
+            // RequestDelegate
+            requestDelegateType
+            // IHttpContextFactory
+            iHttpContextFactoryType
+            // Path, Method, Body
+            typeof<string>; typeof<string>; typeof<string>
+        |])
+        let ilGenerator = methodBuilder.GetILGenerator()
+
+        // Declaring local variables
+        let memoryStreamLocal = ilGenerator.DeclareLocal(memoryStreamType)
+        let streamWriterLocal = ilGenerator.DeclareLocal(streamWriterType)
+        let featureCollectionLocal = ilGenerator.DeclareLocal(featureCollectionType)
+        let httpRequestFeatureLocal = ilGenerator.DeclareLocal(httpRequestFeatureType)
+        let httpResponseFeatureLocal = ilGenerator.DeclareLocal(httpResponseFeatureType)
+        let httpResponseBodyFeatureLocal = ilGenerator.DeclareLocal(streamResponseBodyFeatureType)
+        let contextLocal = ilGenerator.DeclareLocal(httpContextType)
+
+        // var memoryStreamLocal = new MemoryStream();
+        let memoryStreamCtor = memoryStreamType.GetConstructor(Array.empty)
+        ilGenerator.Emit(OpCodes.Newobj, memoryStreamCtor)
+        ilGenerator.Emit(OpCodes.Stloc, memoryStreamLocal)
+
+        // var streamWriterLocal = new StreamWriter(stream);
+        ilGenerator.Emit(OpCodes.Ldloc, memoryStreamLocal)
+        let streamWriterCtor = streamWriterType.GetConstructor(Array.singleton memoryStreamType)
+        ilGenerator.Emit(OpCodes.Newobj, streamWriterCtor)
+        ilGenerator.Emit(OpCodes.Stloc, streamWriterLocal)
+
+        // streamWriterLocal.Write(body);
+        ilGenerator.Emit(OpCodes.Ldloc, streamWriterLocal)
+        let writeMethod = streamWriterType.GetMethod("Write", instancePublicBindingFlags, Array.singleton typeof<string>)
+        ilGenerator.Emit(OpCodes.Ldarg, 4)
+        ilGenerator.Emit(OpCodes.Callvirt, writeMethod)
+
+        // streamWriterLocal.Flush();
+        ilGenerator.Emit(OpCodes.Ldloc, streamWriterLocal)
+        let flushMethod = streamWriterType.GetMethod("Flush", instancePublicBindingFlags, Array.empty)
+        ilGenerator.Emit(OpCodes.Callvirt, flushMethod)
+
+        // memoryStreamLocal.Position = 0;
+        ilGenerator.Emit(OpCodes.Ldloc, memoryStreamLocal)
+        ilGenerator.Emit(OpCodes.Ldc_I4_0)
+        ilGenerator.Emit(OpCodes.Conv_I8)
+        let streamPositionProperty = memoryStreamType.GetProperty("Position", instancePublicBindingFlags)
+        let streamPositionSetMethod = streamPositionProperty.SetMethod
+        ilGenerator.Emit(OpCodes.Callvirt, streamPositionSetMethod)
+
+        // var featureCollectionLocal = new FeatureCollection();
+        let featureCollectionCtor = featureCollectionType.GetConstructor(Array.empty)
+        ilGenerator.Emit(OpCodes.Newobj, featureCollectionCtor)
+        ilGenerator.Emit(OpCodes.Stloc, featureCollectionLocal)
+
+        // var httpRequestFeatureLocal = new HttpRequestFeature();
+        let httpRequestFeatureCtor = httpRequestFeatureType.GetConstructor(Array.empty)
+        ilGenerator.Emit(OpCodes.Newobj, httpRequestFeatureCtor)
+        ilGenerator.Emit(OpCodes.Stloc, httpRequestFeatureLocal)
+
+        // httpRequestFeatureLocal.Path = path;
+        ilGenerator.Emit(OpCodes.Ldloc, httpRequestFeatureLocal)
+        let requestPathProperty = httpRequestFeatureType.GetProperty("Path", instancePublicBindingFlags)
+        let requestPathSetMethod = requestPathProperty.SetMethod
+        ilGenerator.Emit(OpCodes.Ldarg_2)
+        ilGenerator.Emit(OpCodes.Callvirt, requestPathSetMethod)
+
+        // httpRequestFeatureLocal.Method = method;
+        ilGenerator.Emit(OpCodes.Ldloc, httpRequestFeatureLocal)
+        let requestMethodProperty = httpRequestFeatureType.GetProperty("Method", instancePublicBindingFlags)
+        let requestMethodSetMethod = requestMethodProperty.SetMethod
+        ilGenerator.Emit(OpCodes.Ldarg_3)
+        ilGenerator.Emit(OpCodes.Callvirt, requestMethodSetMethod)
+
+        // httpRequestFeatureLocal.Body = stream;
+        ilGenerator.Emit(OpCodes.Ldloc, httpRequestFeatureLocal)
+        let requestBodyProperty = httpRequestFeatureType.GetProperty("Body", instancePublicBindingFlags)
+        let requestBodySetMethod = requestBodyProperty.SetMethod
+        ilGenerator.Emit(OpCodes.Ldloc, memoryStreamLocal)
+        ilGenerator.Emit(OpCodes.Callvirt, requestBodySetMethod)
+
+        // featureCollectionLocal.Set<IHttpRequestFeature>(httpRequestFeatureLocal);
+        let featuresSetGenericMethod = featureCollectionType.GetMethod("Set", instancePublicBindingFlags)
+        assert featuresSetGenericMethod.IsGenericMethod
+        let featuresSetMethod = featuresSetGenericMethod.MakeGenericMethod(iHttpRequestFeatureType)
+        ilGenerator.Emit(OpCodes.Ldloc, featureCollectionLocal)
+        ilGenerator.Emit(OpCodes.Ldloc, httpRequestFeatureLocal)
+        ilGenerator.Emit(OpCodes.Callvirt, featuresSetMethod)
+
+        // var httpResponseFeatureLocal = new HttpResponseFeature();
+        let httpResponseFeatureCtor = httpResponseFeatureType.GetConstructor(Array.empty)
+        ilGenerator.Emit(OpCodes.Newobj, httpResponseFeatureCtor)
+        ilGenerator.Emit(OpCodes.Stloc, httpResponseFeatureLocal)
+
+        // memoryStreamLocal = new MemoryStream();
+        ilGenerator.Emit(OpCodes.Newobj, memoryStreamCtor)
+        ilGenerator.Emit(OpCodes.Stloc, memoryStreamLocal)
+
+        // httpResponseFeatureLocal.Body = memoryStreamLocal;
+        ilGenerator.Emit(OpCodes.Ldloc, httpResponseFeatureLocal)
+        let responseBodyProperty = httpResponseFeatureType.GetProperty("Body", instancePublicBindingFlags)
+        let responseBodySetMethod = responseBodyProperty.SetMethod
+        ilGenerator.Emit(OpCodes.Ldloc, memoryStreamLocal)
+        ilGenerator.Emit(OpCodes.Callvirt, responseBodySetMethod)
+
+        // httpResponseBodyFeatureLocal = new StreamResponseBodyFeature(memoryStreamLocal);
+        let streamResponseBodyFeatureCtor = streamResponseBodyFeatureType.GetConstructor(Array.singleton streamType)
+        assert(streamResponseBodyFeatureCtor <> null)
+        ilGenerator.Emit(OpCodes.Ldloc, memoryStreamLocal)
+        ilGenerator.Emit(OpCodes.Newobj, streamResponseBodyFeatureCtor)
+        ilGenerator.Emit(OpCodes.Stloc, httpResponseBodyFeatureLocal)
+
+        // featureCollectionLocal.Set<IHttpResponseFeature>(httpResponseFeatureLocal);
+        let featuresSetMethod = featuresSetGenericMethod.MakeGenericMethod(iHttpResponseFeatureType)
+        ilGenerator.Emit(OpCodes.Ldloc, featureCollectionLocal)
+        ilGenerator.Emit(OpCodes.Ldloc, httpResponseFeatureLocal)
+        ilGenerator.Emit(OpCodes.Callvirt, featuresSetMethod)
+
+        // featureCollectionLocal.Set<IHttpResponseBodyFeature>(httpResponseBodyFeatureLocal);
+        let featuresSetMethod = featuresSetGenericMethod.MakeGenericMethod(iHttpResponseBodyFeatureType)
+        ilGenerator.Emit(OpCodes.Ldloc, featureCollectionLocal)
+        ilGenerator.Emit(OpCodes.Ldloc, httpResponseBodyFeatureLocal)
+        ilGenerator.Emit(OpCodes.Callvirt, featuresSetMethod)
+
+        // defaultContextLocal = iHttpContextFactory.Create(features);
+        let createMethod = iHttpContextFactoryType.GetMethod("Create", instancePublicBindingFlags)
+        assert(createMethod <> null)
+        ilGenerator.Emit(OpCodes.Ldarg_1)
+        ilGenerator.Emit(OpCodes.Ldloc, featureCollectionLocal)
+        ilGenerator.Emit(OpCodes.Callvirt, createMethod)
+        ilGenerator.Emit(OpCodes.Stloc, contextLocal)
+
+        // app.Invoke(defaultContextLocal).Wait();
+        // Calling 'Invoke' method
+        let invokeMethod = requestDelegateType.GetMethod("Invoke", instanceBindingFlags)
+        assert(invokeMethod <> null)
+        ilGenerator.Emit(OpCodes.Ldarg_0)
+        ilGenerator.Emit(OpCodes.Ldloc, contextLocal)
+        ilGenerator.Emit(OpCodes.Callvirt, invokeMethod)
+        // Calling 'Wait'
+        let taskType = invokeMethod.ReturnType
+        let waitMethod = taskType.GetMethod("Wait", instancePublicBindingFlags, Array.empty)
+        assert(waitMethod <> null)
+        ilGenerator.Emit(OpCodes.Callvirt, waitMethod)
+
+        ilGenerator.Emit(OpCodes.Ret)
+
+        let t = typeBuilder.CreateType()
+        t.GetMethod(methodName, staticBindingFlags)
+
+    let createAspNetConfigureMethod (webAppOptionsType : Type) =
+        let typeName = $"AspNetConfigure{Guid.NewGuid()}"
+        let typeBuilder = dynamicModule.Value.DefineType(typeName, typeAttributes.Value)
+        let methodName = $"AspNetConfigureMethod{Guid.NewGuid()}"
+        let methodBuilder = typeBuilder.DefineMethod(methodName, methodAttributes.Value)
+        methodBuilder.SetReturnType typeof<Void>
+        // WebApplicationOptions, EnvironmentName, ApplicationName, ContentRootPath
+        methodBuilder.SetParameters([| webAppOptionsType; typeof<string>; typeof<string>; typeof<string> |])
+        let ilGenerator = methodBuilder.GetILGenerator()
+
+        // Calling parent (object) constructor
+        let objectCtor = typeof<obj>.GetConstructor(Array.empty)
+        ilGenerator.Emit(OpCodes.Ldarg_0)
+        ilGenerator.Emit(OpCodes.Call, objectCtor)
+
+        // Setting 'EnvironmentName' in 'WebApplicationOptions'
+        let environmentNameProperty = webAppOptionsType.GetProperty("EnvironmentName", instancePublicBindingFlags)
+        assert(environmentNameProperty <> null)
+        let setEnvironmentNameMethod = environmentNameProperty.GetSetMethod()
+        assert(setEnvironmentNameMethod <> null)
+        ilGenerator.Emit(OpCodes.Ldarg_0)
+        ilGenerator.Emit(OpCodes.Ldarg_1)
+        ilGenerator.Emit(OpCodes.Callvirt, setEnvironmentNameMethod)
+
+        // Setting 'ApplicationName' in 'WebApplicationOptions'
+        let applicationNameProperty = webAppOptionsType.GetProperty("ApplicationName", instancePublicBindingFlags)
+        assert(applicationNameProperty <> null)
+        let setApplicationNameMethod = applicationNameProperty.GetSetMethod()
+        assert(setApplicationNameMethod <> null)
+        ilGenerator.Emit(OpCodes.Ldarg_0)
+        ilGenerator.Emit(OpCodes.Ldarg_2)
+        ilGenerator.Emit(OpCodes.Callvirt, setApplicationNameMethod)
+
+        // Setting 'ContentRootPath' in 'WebApplicationOptions'
+        let contentRootPathProperty = webAppOptionsType.GetProperty("ContentRootPath", instancePublicBindingFlags)
+        assert(contentRootPathProperty <> null)
+        let setContentRootPathMethod = contentRootPathProperty.GetSetMethod()
+        assert(setContentRootPathMethod <> null)
+        ilGenerator.Emit(OpCodes.Ldarg_0)
+        ilGenerator.Emit(OpCodes.Ldarg_3)
+        ilGenerator.Emit(OpCodes.Callvirt, setContentRootPathMethod)
+
+        ilGenerator.Emit(OpCodes.Ret)
+
+        let t = typeBuilder.CreateType()
+        t.GetMethod(methodName, staticBindingFlags)
+
+    let createInvokeMethod (methodInfo : MethodInfo) =
+        assert(not methodInfo.ContainsGenericParameters)
+        let typeName = $"Invoker{Guid.NewGuid()}"
+        let typeBuilder = dynamicModule.Value.DefineType(typeName, typeAttributes.Value)
+        let methodName = $"Invoke{Guid.NewGuid()}"
+        let methodBuilder = typeBuilder.DefineMethod(methodName, methodAttributes.Value)
+        methodBuilder.SetReturnType typeof<obj>
+        methodBuilder.SetParameters([|
+            // This, Args
+            typeof<obj>; typeof<obj[]>
+        |])
+        let ilGenerator = methodBuilder.GetILGenerator()
+
+        // Loading 'this', if needed
+        let hasThis = hasThis methodInfo
+        if hasThis then
+            ilGenerator.Emit(OpCodes.Ldarg_0)
+
+        // Loading parameters
+        let mutable i = 0
+        for arg in methodInfo.GetParameters() do
+            ilGenerator.Emit(OpCodes.Ldarg_1)
+            ilGenerator.Emit(OpCodes.Ldc_I4, i)
+            ilGenerator.Emit(OpCodes.Ldelem, arg.ParameterType)
+            i <- i + 1
+
+        // Calling method
+        if methodInfo.IsVirtual then
+            assert hasThis
+            ilGenerator.Emit(OpCodes.Callvirt, methodInfo)
+        else ilGenerator.Emit(OpCodes.Call, methodInfo)
+
+        // Boxing result value, if needed
+        let returnType = methodInfo.ReturnType
+        if returnType.IsValueType then
+            ilGenerator.Emit(OpCodes.Box, returnType)
+
+        ilGenerator.Emit(OpCodes.Ret)
+
+        let t = typeBuilder.CreateType()
+        t.GetMethod(methodName, staticBindingFlags)

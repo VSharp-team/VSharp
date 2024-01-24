@@ -821,6 +821,62 @@ type ILInterpreter() as this =
                 true
         else false
 
+    member private x.StartAspNet (cilState : cilState) args =
+        Logger.trace "Starting exploration of ASP.NET application"
+        cilState.ClearStack()
+        cilState.state.complete <- false
+        assert(List.length args = 6)
+        let requestDelegate = args[0]
+        let iHttpContextFactory = args[5]
+        let requestDelegateType = MostConcreteTypeOfRef cilState.state requestDelegate
+        let iHttpContextFactoryType = MostConcreteTypeOfRef cilState.state iHttpContextFactory
+        let method =
+            Reflection.createAspNetStartMethod requestDelegateType iHttpContextFactoryType
+            |> Application.getMethod
+        let pathArg = Memory.AllocateString "/api/get" cilState.state
+        let methodArg = Memory.AllocateString "GET" cilState.state
+        let bodyArg = Memory.AllocateString "Body" cilState.state
+        let parameters = Some [Some requestDelegate; Some iHttpContextFactory; Some pathArg; Some methodArg; Some bodyArg]
+        Memory.InitFunctionFrame cilState.state method None parameters
+        Instruction(0<offsets>, method) |> cilState.PushToIp
+        List.singleton cilState
+
+    member private x.ConfigureAspNet (cilState : cilState) thisOption =
+        let webAppOptions = Option.get thisOption
+        let webAppOptionsType = MostConcreteTypeOfRef cilState.state webAppOptions
+        let method =
+            Reflection.createAspNetConfigureMethod webAppOptionsType
+            |> Application.getMethod
+        let webConfig = Option.get cilState.webConfiguration
+        let environmentName = Memory.AllocateString webConfig.environmentName cilState.state
+        let applicationName = Memory.AllocateString webConfig.applicationName cilState.state
+        let contentRootPath = Memory.AllocateString webConfig.contentRootPath.FullName cilState.state
+        let parameters = Some [Some webAppOptions; Some environmentName; Some applicationName; Some contentRootPath]
+        Memory.InitFunctionFrame cilState.state method None parameters
+        Instruction(0<offsets>, method) |> cilState.PushToIp
+        List.singleton cilState
+
+    member private x.ExecutorExecute (cilState : cilState) thisOption args =
+        assert(cilState.state.memory.MemoryMode = ConcreteMode)
+        assert(List.length args = 2)
+        match thisOption with
+        | Some({term = HeapRef({term = ConcreteHeapAddress address}, _)}) ->
+            let cm = cilState.state.memory.ConcreteMemory
+            let executor = cm.VirtToPhys address
+            assert(executor <> null)
+            let executorType = executor.GetType()
+            let methodInfoProperty = executorType.GetProperty("MethodInfo", Reflection.instancePublicBindingFlags)
+            let methodInfo = methodInfoProperty.GetMethod.Invoke(executor, Array.empty) :?> MethodInfo
+            assert(methodInfo <> null)
+            let invokeMethod =
+                Reflection.createInvokeMethod methodInfo
+                |> Application.getMethod
+            let args = Some (List.map Some args)
+            Memory.InitFunctionFrame cilState.state invokeMethod None args
+            Instruction(0<offsets>, invokeMethod) |> cilState.PushToIp
+            List.singleton cilState
+        | _ -> internalfail $"ExecutorExecute: unexpected 'this' {thisOption}"
+
     member private x.InlineOrCall (method : Method) (args : term list) thisOption (cilState : cilState) k =
         x.InstantiateThisIfNeed cilState.state thisOption method
 
@@ -836,7 +892,13 @@ type ILInterpreter() as this =
                 ILInterpreter.FallThroughCall cilState
             cilState
 
-        if x.TryConcreteInvoke method args thisOption cilState then
+        if cilState.WebExploration && method.IsAspNetStart then
+            x.StartAspNet cilState args |> k
+        elif cilState.WebExploration && method.IsAspNetConfiguration then
+            x.ConfigureAspNet cilState thisOption |> k
+        elif cilState.WebExploration && method.IsExecutorExecute then
+            x.ExecutorExecute cilState thisOption args |> k
+        elif x.TryConcreteInvoke method args thisOption cilState then
             fallThroughCall cilState |> List.singleton |> k
         elif method.IsFSharpInternalCall then
             let typeAndMethodArgs = typeAndMethodArgs()

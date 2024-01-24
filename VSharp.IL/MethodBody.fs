@@ -24,7 +24,7 @@ type MethodWithBody internal (m : MethodBase) =
     let parameters = m.GetParameters()
     let hasThis = Reflection.hasThis m
     let hasNonVoidResult = lazy(Reflection.hasNonVoidResult m)
-    let isDynamic = m :? DynamicMethod
+    let isDynamic = Reflection.methodIsDynamic m
     let metadataToken = if isDynamic then m.GetHashCode() else m.MetadataToken
     let isStatic = m.IsStatic
     let isAbstract = m.IsAbstract
@@ -43,6 +43,9 @@ type MethodWithBody internal (m : MethodBase) =
     let tryFSharpInternalCall = lazy(Map.tryFind fullGenericMethodName.Value Loader.FSharpImplementations)
     let isFSharpInternalCall = lazy(Option.isSome tryFSharpInternalCall.Value)
     let isCSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.CSharpImplementations)
+    let isAspNetStart = lazy(Loader.isAspNetStart fullGenericMethodName.Value)
+    let isAspNetConfiguration = lazy(Loader.isAspNetConfiguration fullGenericMethodName.Value)
+    let isExecutorExecute = lazy(Loader.isExecutorExecute fullGenericMethodName.Value)
     let isShimmed = lazy(Loader.isShimmed fullGenericMethodName.Value)
     let isConcreteCall = lazy(Loader.isInvokeInternalCall fullGenericMethodName.Value)
     let isRuntimeException = lazy(Loader.isRuntimeExceptionsImplementation fullGenericMethodName.Value)
@@ -64,7 +67,8 @@ type MethodWithBody internal (m : MethodBase) =
         )
     let isExternalCall = lazy Reflection.isExternalMethod m
 
-    let externInvocationForbidden = lazy(
+    let externInvocationForbidden =
+        lazy(
             match DllManager.parseDllImport m with
             | Some info -> Loader.isExternInvocationForbidden info
             | None -> false
@@ -324,6 +328,9 @@ type MethodWithBody internal (m : MethodBase) =
 
     member x.IsFSharpInternalCall with get() = isFSharpInternalCall.Value
     member x.IsCSharpInternalCall with get() = isCSharpInternalCall.Value
+    member x.IsAspNetStart with get() = isAspNetStart.Value
+    member x.IsAspNetConfiguration with get() = isAspNetConfiguration.Value
+    member x.IsExecutorExecute with get() = isExecutorExecute.Value
 
     member x.GetInternalCall with get() =
         match tryFSharpInternalCall.Value with

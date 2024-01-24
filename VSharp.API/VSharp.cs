@@ -165,7 +165,7 @@ namespace VSharp
             IEnumerable<MethodBase> methods,
             coverageZone coverageZone,
             VSharpOptions options,
-            string[]? mainArguments = null)
+            EntryPointConfiguration? configuration = null)
         {
             Logger.changeVerbosityTuple(Logger.defaultTag, options.Verbosity.ToLoggerLevel());
 
@@ -215,14 +215,15 @@ namespace VSharp
 
             var statistics = explorer.Statistics;
             var isolated = new List<MethodBase>();
-            var entryPoints = new List<Tuple<MethodBase, string[]?>>();
+            var entryPoints = new List<Tuple<MethodBase, EntryPointConfiguration>>();
 
             foreach (var method in methods)
             {
                 var normalizedMethod = AssemblyManager.NormalizeMethod(method);
                 if (normalizedMethod == normalizedMethod.Module.Assembly.EntryPoint)
                 {
-                    entryPoints.Add(new Tuple<MethodBase, string[]?>(normalizedMethod, mainArguments));
+                    configuration ??= new EntryPointConfiguration(null);
+                    entryPoints.Add(new Tuple<MethodBase, EntryPointConfiguration>(normalizedMethod, configuration));
                 }
                 else
                 {
@@ -468,12 +469,15 @@ namespace VSharp
         /// Generates test coverage for the entry point of the specified assembly.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="args">Command line arguments of entry point.</param>
+        /// <param name="configuration">Configuration of entry point or web application exploration.</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, string[]? args, VSharpOptions options = new())
+        public static Statistics Cover(
+            Assembly assembly,
+            EntryPointConfiguration configuration,
+            VSharpOptions options = new())
         {
             AssemblyManager.LoadCopy(assembly);
 
@@ -485,7 +489,7 @@ namespace VSharp
 
             var methods = new List<MethodBase> { entryPoint };
 
-            var statistics = StartExploration(methods, coverageZone.MethodZone, options, args);
+            var statistics = StartExploration(methods, coverageZone.MethodZone, options, configuration);
             if (options.RenderTests)
                 Render(statistics);
             return statistics;
@@ -577,14 +581,18 @@ namespace VSharp
         /// Generates test coverage for entry point of the specified assembly and runs all tests.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="args">Command line arguments of entry point.</param>
+        /// <param name="configuration">Configuration of entry point or web application exploration.</param>
         /// <param name="statistics">Summary of tests generation process.</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
-        public static bool CoverAndRun(Assembly assembly, string[]? args, out Statistics statistics, VSharpOptions options = new())
+        public static bool CoverAndRun(
+            Assembly assembly,
+            EntryPointConfiguration configuration,
+            out Statistics statistics,
+            VSharpOptions options = new())
         {
-            statistics = Cover(assembly, args, options);
+            statistics = Cover(assembly, configuration, options);
             return Reproduce(statistics.OutputDir);
         }
     }

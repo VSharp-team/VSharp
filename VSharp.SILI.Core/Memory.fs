@@ -580,7 +580,7 @@ module internal Memory =
                     typeVariables = (MappedStack.empty, Stack.empty)
                     currentTime = [1]
                     startingTime = VectorTime.zero
-                    exceptionsRegister = exceptionRegisterStack.singleton NoException
+                    exceptionsRegister = exceptionRegisterStack.Initial
                     model = PrimitiveModel (Dictionary())
                     memory = self
                     complete = false
@@ -1965,7 +1965,9 @@ module internal Memory =
             override _.MemoryMode
                 with get() = memoryMode
                 and set value = memoryMode <- value
-            override _.Stack with get() = stack
+            override _.Stack
+                with get() = stack
+                and set(callStack: callStack) = stack <- callStack
             override _.StackBuffers
                 with get() = stackBuffers
                 and set value = stackBuffers <- value

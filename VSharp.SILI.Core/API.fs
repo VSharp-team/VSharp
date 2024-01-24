@@ -4,7 +4,6 @@ open System
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
-open Memory
 
 module API =
 
@@ -364,6 +363,7 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
+        open Memory
 
         let EmptyIsolatedState() = state.MakeEmpty false
         let EmptyCompleteState() = state.MakeEmpty true
@@ -392,7 +392,7 @@ module API =
                     else StringArrayInfo state addr None
                 assert(arrayType.dimension = List.length indices)
                 match valueType with
-                | Some valueType when not (Memory.isSafeContextWrite arrayType.elemType valueType) ->
+                | Some valueType when not (isSafeContextWrite arrayType.elemType valueType) ->
                     Ptr (HeapLocation(addr, typ)) valueType (state.memory.ArrayIndicesToOffset addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
             | Ref(ArrayIndex(address, innerIndices, arrayType) as ref) ->
@@ -401,7 +401,7 @@ module API =
                 | None ->
                     let indices = List.map2 add indices innerIndices
                     ArrayIndex(address, indices, arrayType) |> Ref
-                | Some typ when Memory.isSafeContextWrite arrayType.elemType typ ->
+                | Some typ when isSafeContextWrite arrayType.elemType typ ->
                     let indices = List.map2 add indices innerIndices
                     ArrayIndex(address, indices, arrayType) |> Ref
                 | Some typ ->
@@ -419,7 +419,7 @@ module API =
                     match valueType with
                     | None ->
                         elemType, state.memory.ArrayIndicesToOffset address arrayType indices
-                    | Some t when Memory.isSafeContextWrite elemType t ->
+                    | Some t when isSafeContextWrite elemType t ->
                         t, state.memory.ArrayIndicesToOffset address arrayType indices
                     | Some t ->
                         assert(List.length indices = 1)
@@ -473,11 +473,11 @@ module API =
             | HeapRef _ -> HeapReferenceToBoxReference ref
             | _ -> ref
 
-        let ExtractAddress ref = Memory.extractAddress ref
-        let ExtractPointerOffset ptr = Memory.extractPointerOffset ptr
+        let ExtractAddress ref = extractAddress ref
+        let ExtractPointerOffset ptr = extractPointerOffset ptr
 
         let Read state reference =
-            transformBoxedRef reference |> state.memory.Read Memory.emptyReporter
+            transformBoxedRef reference |> state.memory.Read emptyReporter
         let ReadUnsafe (reporter : IErrorReporter) state reference =
             reporter.ConfigureState state
             transformBoxedRef reference |> state.memory.Read reporter
@@ -497,7 +497,7 @@ module API =
             Merging.guardedApply doRead term
 
         let ReadField state term field =
-            CommonReadField Memory.emptyReporter state term field
+            CommonReadField emptyReporter state term field
 
         let ReadFieldUnsafe (reporter : IErrorReporter) state term field =
             reporter.ConfigureState state
@@ -511,7 +511,7 @@ module API =
             | _ -> value
 
         let ReadArrayIndex state reference indices valueType =
-            CommonReadArrayIndex Memory.emptyReporter state reference indices valueType
+            CommonReadArrayIndex emptyReporter state reference indices valueType
 
         let ReadArrayIndexUnsafe (reporter : IErrorReporter) state reference indices valueType =
             reporter.ConfigureState state
@@ -540,7 +540,7 @@ module API =
 
         let Write state reference value =
             let write state reference =
-                state.memory.Write Memory.emptyReporter (transformBoxedRef reference) value
+                state.memory.Write emptyReporter (transformBoxedRef reference) value
             Branching.guardedStatedMap write state reference
 
         let WriteUnsafe (reporter : IErrorReporter) state reference value =
@@ -549,11 +549,11 @@ module API =
                 state.memory.Write reporter reference value
             Branching.guardedStatedMap write state reference
 
-        let WriteStructField structure field value = Memory.writeStruct structure field value
+        let WriteStructField structure field value = writeStruct structure field value
 
         let WriteStructFieldUnsafe (reporter : IErrorReporter) state structure field value =
             reporter.ConfigureState state
-            Memory.writeStruct structure field value
+            writeStruct structure field value
 
         let WriteClassFieldUnsafe (reporter : IErrorReporter) state reference field value =
             let write state reference =
@@ -565,7 +565,7 @@ module API =
             Branching.guardedStatedMap write state reference
 
         let WriteClassField state reference field value =
-            WriteClassFieldUnsafe Memory.emptyReporter state reference field value
+            WriteClassFieldUnsafe emptyReporter state reference field value
 
         let WriteArrayIndexUnsafe (reporter : IErrorReporter) state reference indices value valueType =
             reporter.ConfigureState state
@@ -585,6 +585,11 @@ module API =
 
         let CallStackContainsFunction state method = CallStack.containsFunc state.memory.Stack method
         let CallStackSize state = CallStack.size state.memory.Stack
+        let ClearStack state =
+            state.memory.Stack <- CallStack.empty
+            state.memory.EvaluationStack <- EvaluationStack.empty
+            state.exceptionsRegister <- exceptionRegisterStack.Initial
+
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.memory.Stack
         let EntryFunction state = CallStack.entryFunction state.memory.Stack
 
@@ -681,13 +686,13 @@ module API =
             let dim = arrayType.dimension
             let lens = List.init dim (fun dim -> state.memory.ReadLength address (makeNumber dim) arrayType)
             let lbs = List.init dim (fun dim -> state.memory.ReadLowerBound address (makeNumber dim) arrayType)
-            Memory.linearizeArrayIndex lens lbs indices
+            linearizeArrayIndex lens lbs indices
 
         let IsSafeContextCopy (srcArrayType : arrayType) (dstArrayType : arrayType) =
             Copying.isSafeContextCopy srcArrayType dstArrayType
 
         let IsSafeContextWrite actualType neededType =
-            Memory.isSafeContextWrite actualType neededType
+            isSafeContextWrite actualType neededType
 
         let CopyArray state src srcIndex srcType dst dstIndex dstType length =
             match src.term, dst.term with
