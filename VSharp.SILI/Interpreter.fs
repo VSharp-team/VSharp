@@ -793,6 +793,7 @@ type ILInterpreter() as this =
             | _ ->
                 try
                     try
+                        Logger.info $"Invoking method {method.FullName}"
                         let result = method.Invoke thisObj (List.toArray objArgs)
                         let resultType = TypeUtils.getTypeOfConcrete result
                         let returnType = method.ReturnType

@@ -203,6 +203,10 @@ module Loader =
             "System.Int32 System.Runtime.InteropServices.Marshal.GetLastPInvokeError()"
             "System.Void Microsoft.AspNetCore.Hosting.HostingApplication..ctor(this, Microsoft.AspNetCore.Http.RequestDelegate, Microsoft.Extensions.Logging.ILogger, System.Diagnostics.DiagnosticListener, System.Diagnostics.ActivitySource, System.Diagnostics.DistributedContextPropagator, Microsoft.AspNetCore.Http.IHttpContextFactory)"
             "System.Threading.Tasks.Task Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.StartAsync(this, Microsoft.AspNetCore.Hosting.Server.IHttpApplication`1[TContext], System.Threading.CancellationToken)"
+            "System.Void System.Collections.Concurrent.ConcurrentDictionary`2[TKey,TValue].ReleaseLocks(this, System.Int32, System.Int32)"
+            "System.Void System.Collections.Concurrent.ConcurrentDictionary`2[TKey,TValue].AcquireLocks(this, System.Int32, System.Int32, System.Int32&)"
+            // TODO: Delete
+            "System.Threading.Tasks.Task Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware.SetRoutingAndContinue(this, Microsoft.AspNetCore.Http.HttpContext)"
         ]
 
     let isInvocationForbidden fullMethodName =
@@ -272,6 +276,9 @@ module Loader =
             "System.RuntimeTypeHandle System.RuntimeType.get_TypeHandle(this)"
             "System.Reflection.ConstructorInfo[] System.RuntimeType.GetConstructors(this, System.Reflection.BindingFlags)"
             "System.Reflection.ConstructorInfo[] System.Type.GetConstructors(this)"
+            "System.Boolean System.RuntimeType.get_IsEnum(this)"
+            "System.Reflection.ConstructorInfo System.Type.GetConstructor(this, System.Type[])"
+            "System.Reflection.ConstructorInfo System.Type.GetConstructor(this, System.Reflection.BindingFlags, System.Reflection.Binder, System.Type[], System.Reflection.ParameterModifier[])"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
@@ -287,6 +294,7 @@ module Loader =
             "System.Collections.Generic.EqualityComparer`1[T] System.Collections.Generic.EqualityComparer`1[T].get_Default()"
             "System.Void System.Collections.Generic.NonRandomizedStringEqualityComparer+OrdinalComparer..ctor(this, System.Collections.Generic.IEqualityComparer`1[System.String])"
             "System.Void System.StringComparer..ctor(this)"
+            "System.Boolean System.Collections.Generic.ObjectEqualityComparer`1[T].Equals(this, T, T)"
 
             // Threading
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
@@ -326,9 +334,14 @@ module Loader =
             "System.Int64 System.Diagnostics.Stopwatch.QueryPerformanceCounter()"
 //            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
 //            "System.Void System.Diagnostics.StackTrace.GetStackFramesInternal(System.Diagnostics.StackFrameHelper, System.Int32, System.Boolean, System.Exception)"
+            "System.Void System.Diagnostics.DiagnosticListener.Write(this, System.String, System.Object)"
 
             // LINQ
             "System.Void System.Linq.Expressions.Expression.Validate(System.Type, System.Boolean)"
+            "System.Linq.Expressions.ParameterExpression System.Linq.Expressions.ParameterExpression.Make(System.Type, System.String, System.Boolean)"
+            "System.Reflection.PropertyInfo System.Linq.Expressions.Expression.GetProperty(System.Reflection.MethodInfo, System.String, System.Int32)"
+            "System.Linq.Expressions.MemberExpression System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression, System.Reflection.MethodInfo)"
+            "System.Linq.Expressions.Expression`1[TDelegate] System.Linq.Expressions.Expression.Lambda(System.Linq.Expressions.Expression, System.Linq.Expressions.ParameterExpression[])"
 
             // Delegates
             "System.IntPtr System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(System.Delegate)"
@@ -385,6 +398,8 @@ module Loader =
             "System.Boolean System.Reflection.Metadata.MetadataUpdater.IsApplyUpdateSupported()"
             "System.Reflection.MethodInfo System.Type.GetMethod(this, System.String, System.Reflection.BindingFlags)"
             "System.Reflection.FieldInfo System.Type.GetField(this, System.String)"
+            "System.Type System.Reflection.RuntimePropertyInfo.get_PropertyType(this)"
+            "System.Reflection.PropertyInfo[] System.RuntimeType.GetProperties(this, System.Reflection.BindingFlags)"
 
             // Activator
             "T System.Activator.CreateInstance()"
@@ -514,6 +529,9 @@ module Loader =
             "System.Boolean System.Collections.Generic.Dictionary`2[TKey,TValue].TryGetValue(this, TKey, TValue&)"
             "System.Void System.Collections.Generic.SortedDictionary`2+KeyValuePairComparer[TKey,TValue]..ctor(this, System.Collections.Generic.IComparer`1[TKey])"
 
+            // ConcurrentDictionary
+            "System.Boolean System.Collections.Concurrent.ConcurrentDictionary`2[TKey,TValue].TryAdd(this, System.Type, System.Object[])"
+
             // Hashtable
             "System.Void System.Collections.Hashtable..ctor(this)"
             "System.Void System.Collections.Hashtable.rehash(this, System.Int32)"
@@ -574,6 +592,7 @@ module Loader =
             "System.Void System.Collections.Generic.List`1[T].RemoveAt(this, System.Int32)"
             "System.Void System.Collections.Generic.List`1+Enumerator[T]..ctor(this, System.Collections.Generic.List`1[T])"
 
+
             // Span
             "System.Boolean System.MemoryExtensions.Equals(System.ReadOnlySpan`1[System.Char], System.ReadOnlySpan`1[System.Char], System.StringComparison)"
             "System.Boolean System.MemoryExtensions.SequenceEqual(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
@@ -614,18 +633,38 @@ module Loader =
             // "System.Boolean Internal.Runtime.CompilerServices.Unsafe.IsNullRef(T&)"
             // "System.Boolean System.Runtime.CompilerServices.Unsafe.IsNullRef(T&)"
 
+            // TextWriter
+            "System.Void System.IO.TextWriter..ctor(this, System.IFormatProvider)"
+
+            // StreamWriter
+            "System.Void System.IO.StreamWriter..ctor(this, System.IO.Stream, System.Text.Encoding, System.Int32, System.Boolean)"
+            "System.Void System.IO.StreamWriter..ctor(this, System.IO.Stream)"
+            "System.Void System.IO.StreamWriter.Write(this, System.String)"
+
+            // Encoder
+            "System.Text.Encoder System.Text.UTF8Encoding.GetEncoder(this)"
+            "System.Void System.IO.StreamWriter.Flush(this)"
+            "System.Void System.Text.UTF8Encoding..ctor(this, System.Boolean)"
+
+            // Encoding
+            "System.Byte[] System.Text.Encoding.GetBytes(this, System.String)"
+
+            // Task
+            "System.Void System.Threading.Tasks.TaskCompletionSource`1[Microsoft.AspNetCore.Routing.Matching.Matcher].SetResult(this, Microsoft.AspNetCore.Routing.Matching.Matcher)"
+
             // TaskWaiter
             "System.Void System.Runtime.CompilerServices.TaskAwaiter.ValidateEnd(System.Threading.Tasks.Task)"
 
             // ASP.NET Core
             // Configuration builder
             "System.Void Microsoft.Extensions.Configuration.ConfigurationManager+ConfigurationSources.Add(this, Microsoft.Extensions.Configuration.IConfigurationSource)"
-            "Microsoft.AspNetCore.Builder.WebApplicationBuilder Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(System.String[])"
+            // "Microsoft.AspNetCore.Builder.WebApplicationBuilder Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(System.String[])"
             "Microsoft.Extensions.Hosting.IHostBuilder Microsoft.AspNetCore.Hosting.BootstrapHostBuilder.ConfigureServices(this, System.Action`2[Microsoft.Extensions.Hosting.HostBuilderContext,Microsoft.Extensions.DependencyInjection.IServiceCollection])"
             "Microsoft.AspNetCore.Builder.WebApplication Microsoft.AspNetCore.Builder.WebApplicationBuilder.Build(this)"
             "Microsoft.AspNetCore.Http.RequestDelegate Microsoft.AspNetCore.Builder.ApplicationBuilder.Build(this)"
             "Microsoft.AspNetCore.Builder.IApplicationBuilder Microsoft.AspNetCore.Builder.UseMiddlewareExtensions.UseMiddleware(Microsoft.AspNetCore.Builder.IApplicationBuilder, System.Object[])"
             "Microsoft.AspNetCore.Builder.ControllerActionEndpointConventionBuilder Microsoft.AspNetCore.Builder.ControllerEndpointRouteBuilderExtensions.MapControllers(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder)"
+            "Microsoft.Extensions.DependencyInjection.IServiceCollection Microsoft.AspNetCore.Builder.WebApplicationBuilder.get_Services(this)"
 
             // ConfigurationManager
             "System.Void Microsoft.Extensions.Configuration.ConfigurationManager.ReloadSources(this)"
@@ -657,6 +696,42 @@ module Loader =
             "System.Collections.Generic.IEnumerable`1[System.Reflection.TypeInfo] Microsoft.AspNetCore.Mvc.ApplicationParts.AssemblyPart.get_Types(this)"
             "System.Collections.Generic.IEnumerable`1[System.Reflection.TypeInfo] Microsoft.AspNetCore.Mvc.ApplicationModels.ControllerActionDescriptorProvider.GetControllerTypes(this)"
             "System.Void Microsoft.AspNetCore.Mvc.Routing.ActionEndpointDataSourceBase.Subscribe(this)"
+            "Microsoft.AspNetCore.Mvc.Filters.IFilterMetadata Microsoft.AspNetCore.Mvc.Infrastructure.ClientErrorResultFilterFactory.CreateInstance(this, System.IServiceProvider)"
+            "System.Void Microsoft.AspNetCore.Mvc.Filters.DefaultFilterProvider.ProvideFilter(Microsoft.AspNetCore.Mvc.Filters.FilterProviderContext, Microsoft.AspNetCore.Mvc.Filters.FilterItem)"
+            "System.ValueTuple`2[Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvokerCacheEntry,Microsoft.AspNetCore.Mvc.Filters.IFilterMetadata[]] Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvokerCache.GetCachedResult(this, Microsoft.AspNetCore.Mvc.ControllerContext)"
+            "System.Void Microsoft.AspNetCore.Mvc.MvcCoreDiagnosticListenerExtensions.BeforeControllerActionMethod(System.Diagnostics.DiagnosticListener, Microsoft.AspNetCore.Mvc.ActionContext, System.Collections.Generic.IReadOnlyDictionary`2[System.String,System.Object], System.Object)"
+
+            // Http
+            "System.String Microsoft.AspNetCore.Http.HostString.ToUriComponent(this)"
+            "System.Void Microsoft.AspNetCore.Http.DefaultHttpContext.Initialize(this, Microsoft.AspNetCore.Http.Features.IFeatureCollection)"
+            "Microsoft.AspNetCore.Http.Endpoint Microsoft.AspNetCore.Http.EndpointHttpContextExtensions.GetEndpoint(Microsoft.AspNetCore.Http.HttpContext)"
+            "System.IServiceProvider Microsoft.AspNetCore.Http.DefaultHttpContext.get_RequestServices(this)"
+            "System.IServiceProvider Microsoft.AspNetCore.Http.Features.RequestServicesFeature.get_RequestServices(this)"
+            "System.Void Microsoft.AspNetCore.Http.DefaultHttpContext..ctor(this)"
+            "Microsoft.AspNetCore.Cors.Infrastructure.ICorsMetadata Microsoft.AspNetCore.Http.EndpointMetadataCollection.GetMetadata(this)"
+
+            // Features collection
+            "System.Object Microsoft.AspNetCore.Http.Features.FeatureCollection.get_Item(this, System.Type)"
+            "System.Void Microsoft.AspNetCore.Http.Features.FeatureCollection.set_Item(this, System.Type, System.Object)"
+            "Microsoft.AspNetCore.Http.Features.IEndpointFeature Microsoft.AspNetCore.Http.Features.FeatureCollection.Get(this)"
+
+            // Logger
+            "Microsoft.Extensions.Logging.ILogger Microsoft.Extensions.Logging.LoggerFactory.CreateLogger(this, System.String)"
+            "System.Void Microsoft.Extensions.Logging.Logger`1[Microsoft.AspNetCore.Routing.Matching.DfaMatcher]..ctor(this, Microsoft.Extensions.Logging.ILoggerFactory)"
+            "Microsoft.Extensions.Logging.ILogger Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider.CreateLogger(this, System.String)"
+            "System.Void Microsoft.Extensions.Logging.LoggerInformation..ctor(this, Microsoft.Extensions.Logging.ILoggerProvider, System.String)"
+            "Microsoft.AspNetCore.Routing.Matching.Matcher Microsoft.AspNetCore.Routing.Matching.DfaMatcherBuilder.Build(this)"
+            "Microsoft.AspNetCore.Routing.Matching.Matcher Microsoft.AspNetCore.Routing.Matching.DataSourceDependentMatcher.CreateMatcher(this, System.Collections.Generic.IReadOnlyList`1[Microsoft.AspNetCore.Http.Endpoint])"
+            "Microsoft.Extensions.Logging.ILogger`1[Microsoft.AspNetCore.Routing.Matching.DfaMatcher] Microsoft.Extensions.Logging.LoggerFactoryExtensions.CreateLogger(Microsoft.Extensions.Logging.ILoggerFactory)"
+            "System.Void Microsoft.Extensions.Hosting.Internal.HostingLoggerExtensions.Starting(Microsoft.Extensions.Logging.ILogger)"
+
+            // Middleware
+            "System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Routing.Matching.Matcher] Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware.InitializeAsync(this)"
+            "System.Collections.Generic.IList`1[Microsoft.Extensions.Primitives.StringSegment] Microsoft.AspNetCore.HostFiltering.HostFilteringMiddleware.Configure(this)"
+            "System.Threading.Tasks.Task Microsoft.AspNetCore.Routing.Matching.DataSourceDependentMatcher.MatchAsync(this, Microsoft.AspNetCore.Http.HttpContext)"
+
+            // PropertyActivator
+            "System.Object Microsoft.Extensions.Internal.PropertyActivator`1[TContext].Activate(this, System.Object, TContext)"
 
             // TODO: Classify
             "System.Void Microsoft.Extensions.Hosting.Internal.ConsoleLifetime.RegisterShutdownHandlers(this)"
@@ -670,7 +745,9 @@ module Loader =
         ]
 
     let internal isInvokeInternalCall (fullMethodName : string) =
-        concreteInvocations.Contains fullMethodName
+        let result = concreteInvocations.Contains fullMethodName
+        assert(not (isInvocationForbidden fullMethodName && result))
+        result
 
     let internal isAspNetStart (fullMethodName : string) =
         fullMethodName = "System.Void Microsoft.AspNetCore.Hosting.HostingApplication..ctor(this, Microsoft.AspNetCore.Http.RequestDelegate, Microsoft.Extensions.Logging.ILogger, System.Diagnostics.DiagnosticListener, System.Diagnostics.ActivitySource, System.Diagnostics.DistributedContextPropagator, Microsoft.AspNetCore.Http.IHttpContextFactory)"

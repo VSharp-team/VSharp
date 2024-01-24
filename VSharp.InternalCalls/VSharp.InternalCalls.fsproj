@@ -74,6 +74,8 @@
         <Compile Include="Object.fs" />
         <Compile Include="Reflection.fsi" />
         <Compile Include="Reflection.fs" />
+        <Compile Include="AspNet.fsi" />
+        <Compile Include="AspNet.fs" />
     </ItemGroup>
 
     <ItemGroup>
