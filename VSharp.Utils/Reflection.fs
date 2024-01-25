@@ -485,7 +485,7 @@ module public Reflection =
     let concretizeParameter (p : ParameterInfo) (subst : Type -> Type) =
         assert(p.Member :? MethodBase)
         let method = concretizeMethodBase (p.Member :?> MethodBase) subst
-        method.GetParameters() |> Array.find (fun pi -> pi.Name = p.Name)
+        method.GetParameters() |> Array.find (fun pi -> pi.Position = p.Position)
 
     let concretizeField (f : fieldId) (subst : Type -> Type) =
         let declaringType = concretizeType subst f.declaringType
