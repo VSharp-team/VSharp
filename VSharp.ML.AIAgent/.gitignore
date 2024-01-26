@@ -1,8 +1,0 @@
-# python cache and venv
-.env
-nvidia_env
-__pycache__/
-report**/
-ml/pretrained_models/
-*.pkl
-*.onnx
