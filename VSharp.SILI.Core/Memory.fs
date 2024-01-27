@@ -408,9 +408,13 @@ module internal Memory =
 
         let castAndSet (fieldInfo : FieldInfo) structObj v =
             let v =
-                if v <> null && v.GetType() <> fieldInfo.FieldType && fieldInfo.FieldType = typeof<IntPtr> then
-                    let gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(v)
-                    System.Runtime.InteropServices.GCHandle.ToIntPtr(gcHandle) :> obj
+                if v <> null && v.GetType() <> fieldInfo.FieldType then
+                    let fieldType = fieldInfo.FieldType
+                    if fieldType = typeof<IntPtr> then
+                        let gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(v)
+                        System.Runtime.InteropServices.GCHandle.ToIntPtr(gcHandle) :> obj
+                    elif fieldType.IsPrimitive then convert v fieldType
+                    else v
                 else v
             fieldInfo.SetValue(structObj, v)
 
