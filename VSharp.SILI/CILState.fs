@@ -504,7 +504,7 @@ module CilState =
         // -------------------- Changing inner state --------------------
 
         member x.Copy(state : state) =
-            { x with state = state }
+            { x with state = state; internalId = getNextStateId() }
 
         // This function copies cilState, instead of mutation
         member x.ChangeState state' : cilState =
