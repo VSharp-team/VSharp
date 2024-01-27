@@ -1025,6 +1025,23 @@ namespace IntegrationTests
             }
         }
 
+        public class BucketClass : IBucket
+        {
+            public object Key;
+            public object Value;
+
+            public BucketClass(object key, object value)
+            {
+                Key = key;
+                Value = value;
+            }
+
+            public object GetValue()
+            {
+                return Value;
+            }
+        }
+
         [TestSvm(91)]
         public static object ConcreteArrayChange()
         {
@@ -1239,6 +1256,25 @@ namespace IntegrationTests
             l.Add(new Bucket(2, arr2));
             arr1[0] = i;
             arr2[0] = i;
+            if (ConcreteMemoryTestHelper2(l) != i * 2 + 2 + 3 + 5 + 6)
+                return -1;
+            return 1;
+        }
+
+        [TestSvm(93)]
+        public static int ConcreteMemoryTest4(int i)
+        {
+            var arr1 = new int[] { 1, 2, 3 };
+            var arr2 = new int[] { 4, 5, 6 };
+            var l = new List<IBucket>();
+            if (l.Count != 0)
+                return -1;
+            var b1 = new BucketClass(1, arr1);
+            var b2 = new BucketClass(2, arr2);
+            arr1[0] = i;
+            arr2[0] = i;
+            l.Add(b1);
+            l.Add(b2);
             if (ConcreteMemoryTestHelper2(l) != i * 2 + 2 + 3 + 5 + 6)
                 return -1;
             return 1;
