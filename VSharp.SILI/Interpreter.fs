@@ -825,20 +825,33 @@ type ILInterpreter() as this =
     member private x.StartAspNet (cilState : cilState) args =
         Logger.trace "Starting exploration of ASP.NET application"
         cilState.ClearStack()
-        cilState.state.complete <- false
+        let state = cilState.state
+        state.complete <- false
         assert(List.length args = 6)
         let requestDelegate = args[0]
         let iHttpContextFactory = args[5]
-        let requestDelegateType = MostConcreteTypeOfRef cilState.state requestDelegate
-        let iHttpContextFactoryType = MostConcreteTypeOfRef cilState.state iHttpContextFactory
+        let requestDelegateType = MostConcreteTypeOfRef state requestDelegate
+        let iHttpContextFactoryType = MostConcreteTypeOfRef state iHttpContextFactory
         let method =
             Reflection.createAspNetStartMethod requestDelegateType iHttpContextFactoryType
             |> Application.getMethod
-        let pathArg = Memory.AllocateString "/api/get" cilState.state
-        let methodArg = Memory.AllocateString "GET" cilState.state
-        let bodyArg = Memory.AllocateString "Body" cilState.state
-        let parameters = Some [Some requestDelegate; Some iHttpContextFactory; Some pathArg; Some methodArg; Some bodyArg]
-        Memory.InitFunctionFrame cilState.state method None parameters
+        let pathArg = Memory.AllocateString "/api/get" state
+        let methodArg = Memory.AllocateString "GET" state
+        let parameters = Some [Some requestDelegate; Some iHttpContextFactory; Some pathArg; Some methodArg; None]
+        Memory.InitFunctionFrame state method None parameters
+        state.model <- Memory.EmptyModel method
+        let bodyArgRef = getArgTerm 4 method
+        let bodyArgTerm = cilState.Read bodyArgRef
+        // Adding non-null constraint for 'body' argument
+        !!(IsNullReference bodyArgTerm) |> AddConstraint state
+        // Filling model with non-null 'body' to match PC
+        let modelState =
+            match state.model with
+            | StateModel modelState -> modelState
+            | _ -> __unreachable__()
+        let bodyForModel = Memory.AllocateString " " modelState
+        let modelStates = Memory.Write modelState bodyArgRef bodyForModel
+        assert(List.length modelStates = 1 && modelStates[0] = modelState)
         Instruction(0<offsets>, method) |> cilState.PushToIp
         List.singleton cilState
 
