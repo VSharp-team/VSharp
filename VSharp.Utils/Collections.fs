@@ -32,13 +32,6 @@ module public List =
     let mappedPartition f xs =
         mappedPartitionAcc f [] [] xs
 
-    let rec map2Different f xs1 xs2 =
-        match xs1, xs2 with
-        | Seq.Empty, [] -> []
-        | Seq.Empty, x2::xs2' -> f None (Some x2) :: map2Different f xs1 xs2'
-        | Seq.Cons(x1, xs1'), [] -> f (Some x1) None :: map2Different f xs1' xs2
-        | Seq.Cons(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2Different f xs1' xs2'
-
     let append3 xs ys zs = List.append xs (List.append ys zs)
 
     let rec filterMap2 mapper xs ys =

@@ -1939,7 +1939,6 @@ module internal Memory =
             with get() = state
             and set value = state <- value
 
-
         interface IMemory with
 
             override _.AllocatedTypes
@@ -2062,7 +2061,6 @@ module internal Memory =
             member self.Write reporter reference value = self.Write reporter reference value
             member self.WriteStaticField typ field value = self.WriteStaticField typ field value
 
-
     type heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
@@ -2102,7 +2100,6 @@ module internal Memory =
                     let inst = memory.MakeArraySymbolicHeapRead x.picker key state.startingTime
                     MemoryRegion.read region key (x.picker.isDefaultKey state) inst
                 afters |> List.map (mapsnd read) |> Merging.merge
-
 
     type state with
         static member MakeEmpty complete =

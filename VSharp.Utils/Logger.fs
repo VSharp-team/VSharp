@@ -19,7 +19,6 @@ module Logger =
     let Info = 4
     let Trace = 5
 
-
     let mutable currentTextWriter = Console.Out
     let mutable writeTimestamps = true
 

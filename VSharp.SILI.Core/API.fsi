@@ -387,8 +387,3 @@ module API =
     module Print =
         val Dump : state -> string
         val PrintPC : pathCondition -> string
-
-//    module Marshalling =
-//        val Unmarshal : state -> obj -> term * state
-//        val CanBeCalledViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> bool
-//        val CallViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> (term * state -> 'a) -> 'a

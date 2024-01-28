@@ -143,7 +143,7 @@ module internal TypeCasting =
     let rec refIsType state ref typ =
         match ref.term with
         | HeapRef(addr, sightType) ->
-            let leftType = state.memory.MostConcreteTypeOfHeapRef  addr sightType
+            let leftType = state.memory.MostConcreteTypeOfHeapRef addr sightType
             addressIsType addr leftType typ
         | Ref address ->
             let leftType = address.TypeOfLocation
