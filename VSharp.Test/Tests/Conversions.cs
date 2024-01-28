@@ -45,7 +45,7 @@ namespace IntegrationTests
             return checked((sbyte) a);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static sbyte Conv_Ovf_short_sbyte_Overflow1()
         {
             short a = short.MaxValue;
@@ -84,7 +84,7 @@ namespace IntegrationTests
             return checked((long) a);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static long Conv_Ovf_Un_ulong_long_Overflow1()
         {
             ulong a = ulong.MaxValue;
@@ -104,7 +104,7 @@ namespace IntegrationTests
             return checked((ulong) a);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static ulong Conv_Ovf_long_ulong_Overflow1()
         {
             long a = -45;
@@ -137,7 +137,7 @@ namespace IntegrationTests
             return checked((IntPtr) a);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static UIntPtr Conv_Ovf_int_UNativeInt(int a)
         {
             return checked((UIntPtr) a);

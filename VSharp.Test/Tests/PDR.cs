@@ -281,12 +281,6 @@ namespace IntegrationTests
             return classWithOneField.x;
         }
 
-        [Ignore("Exceptions handling")]
-        public static void AlwaysNullReferenceException()
-        {
-            ReadFieldOfCLass(null);
-        }
-
         private static void TestRefClass(ref ClassWithOneField c)
         {
             c = new ClassWithOneField();
@@ -610,13 +604,6 @@ namespace IntegrationTests
             return result;
         }
 
-
-        [Ignore("Exceptions handling")]
-        public static int ThrowException(int x)
-        {
-            throw new Exception();
-        }
-
         public static int D(int arg)
         {
             return arg + 1;
@@ -719,9 +706,10 @@ namespace IntegrationTests
             return res;
         }
 
-        [Ignore("Exceptions handling")]
-        public static void CheckFinallyOrderForNestedTryBlocks2()
+        [TestSvm]
+        public static int CheckFinallyOrderForNestedTryBlocks2()
         {
+            var res = 0;
             try
             {
                 try
@@ -730,27 +718,29 @@ namespace IntegrationTests
                 }
                 catch (DummyException)
                 {
-                    Console.WriteLine("catch (DummyException)");
+                    res += 1;
                 }
                 finally
                 {
-                    Console.WriteLine("Inner finally");
+                    res += 2;
                 }
 
-                Console.WriteLine("Continue in outer TRY-BLOCK");
+                res += 3;
             }
             catch (Exception) when (CommonFilter("CommonFilter", false))
             {
-                Console.WriteLine("catch (Exception e) when (CommonFilter(e))");
+                res += 4;
             }
             catch (Exception)
             {
-                Console.WriteLine("catch (Exception)");
+                res += 5;
             }
             finally
             {
-                Console.WriteLine("Outer finally");
+                res += 6;
             }
+
+            return res;
         }
 
         [TestSvm(100)]

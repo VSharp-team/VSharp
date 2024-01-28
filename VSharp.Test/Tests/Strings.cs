@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using NUnit.Framework;
@@ -247,6 +248,28 @@ namespace IntegrationTests
             if (reader.ReadToEnd() != s && s != null)
                 return -1;
             return 1;
+        }
+
+        [TestSvm(88)]
+        public static int StreamReaderWriter2(string s)
+        {
+            var stream = new MemoryStream();
+            var writer = new StreamWriter(stream);
+            writer.Write(s);
+            writer.Flush();
+            if (s.Length != stream.Position)
+                return -1;
+            return 1;
+        }
+
+        [Ignore("create model for 'IcuGetAsciiCore' external method")]
+        public static int GetAscii(string s)
+        {
+            var idn = new IdnMapping();
+            var ascii = idn.GetAscii(s);
+            if (ascii != s)
+                return 1;
+            return 0;
         }
 
         [TestSvm(100)]

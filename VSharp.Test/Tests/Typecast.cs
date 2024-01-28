@@ -376,7 +376,7 @@ namespace IntegrationTests.Typecast
             return Rate;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public int RetRate(object obj)
         {
             var a = (Piece)obj;
@@ -594,7 +594,7 @@ namespace IntegrationTests.Typecast
             return arg.X + y; // arg.X should not change
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int UnboxingInt(Object obj)
         {
             return (int)obj;

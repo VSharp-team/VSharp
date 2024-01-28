@@ -77,7 +77,7 @@ namespace IntegrationTests
 
         // It's not a problem, that we got <VOID> < 5 or smth like that, because some path conditions are not achievable from program.
         // In case of TestSwitch method, we got <VOID> from dereferencing of not assigned variable.
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static bool TestSwitch(char c)
         {
             int result;
@@ -116,7 +116,7 @@ namespace IntegrationTests
             }
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int ExceptionInCondition1(NewBool nb)
         {
             int n = 0;
@@ -132,13 +132,13 @@ namespace IntegrationTests
             }
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int ExceptionInCondition2(NewBool nb)
         {
             return nb.BoolValue ? 42 : 56;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int ExceptionInCondition3(NewBool nb)
         {
             if (nb.ThrowException())
