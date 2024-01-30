@@ -137,6 +137,8 @@ module API =
         val (|UInt32T|_|) : term -> option<unit>
         val (|Int64T|_|) : term -> option<unit>
         val (|UInt64T|_|) : term -> option<unit>
+        val (|IntPtrT|_|) : term -> option<unit>
+        val (|UIntPtrT|_|) : term -> option<unit>
         val (|BoolT|_|) : term -> option<unit>
         val (|Float32T|_|) : term -> option<unit>
         val (|Float64T|_|) : term -> option<unit>

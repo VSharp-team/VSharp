@@ -22,16 +22,20 @@ type OperationType =
     | LessOrEqual_Un = 18
     | Add = 19
     | AddNoOvf = 20
-    | Subtract = 21
-    | Divide = 22
-    | Divide_Un = 23
-    | Multiply = 24
-    | MultiplyNoOvf = 25
-    | Remainder = 26
-    | Remainder_Un = 27
-    | ShiftLeft = 28
-    | ShiftRight = 29
-    | ShiftRight_Un = 30
+    | AddNoOvf_Un = 21
+    | Subtract = 22
+    | SubNoOvf = 23
+    | SubNoOvf_Un = 24
+    | Divide = 25
+    | Divide_Un = 26
+    | Multiply = 27
+    | MultiplyNoOvf = 28
+    | MultiplyNoOvf_Un = 29
+    | Remainder = 30
+    | Remainder_Un = 31
+    | ShiftLeft = 32
+    | ShiftRight = 33
+    | ShiftRight_Un = 34
 
 type StandardFunction =
     | Arccosine
@@ -106,7 +110,11 @@ module internal Operations =
         | OperationType.ShiftRight
         | OperationType.ShiftRight_Un -> maxPriority - 3
         | OperationType.AddNoOvf
+        | OperationType.AddNoOvf_Un
         | OperationType.MultiplyNoOvf
+        | OperationType.MultiplyNoOvf_Un
+        | OperationType.SubNoOvf
+        | OperationType.SubNoOvf_Un
         | OperationType.Less
         | OperationType.Less_Un
         | OperationType.LessOrEqual
@@ -128,8 +136,10 @@ module internal Operations =
     let isCommutative = function
         | OperationType.Add
         | OperationType.AddNoOvf
+        | OperationType.AddNoOvf_Un
         | OperationType.Multiply
         | OperationType.MultiplyNoOvf
+        | OperationType.MultiplyNoOvf_Un
         | OperationType.Equal
         | OperationType.BitwiseAnd
         | OperationType.BitwiseOr
@@ -169,14 +179,22 @@ module internal Operations =
         | OperationType.ShiftRight_Un -> " >> "
         | OperationType.Subtract -> " - "
         | OperationType.UnaryMinus -> "-%s"
-        | OperationType.AddNoOvf -> " + (no ovf) "
-        | OperationType.MultiplyNoOvf -> " * (no ovf) "
+        | OperationType.AddNoOvf
+        | OperationType.AddNoOvf_Un -> " + (no ovf) "
+        | OperationType.MultiplyNoOvf
+        | OperationType.MultiplyNoOvf_Un -> " * (no ovf) "
+        | OperationType.SubNoOvf
+        | OperationType.SubNoOvf_Un -> " - (no ovf) "
         | _ -> ""
 
     let deduceArithmeticBinaryExpressionTargetType op x y =
         match op with
         | OperationType.AddNoOvf
+        | OperationType.AddNoOvf_Un
         | OperationType.MultiplyNoOvf
+        | OperationType.MultiplyNoOvf_Un
+        | OperationType.SubNoOvf
+        | OperationType.SubNoOvf_Un
         | OperationType.Equal
         | OperationType.NotEqual
         | OperationType.Greater

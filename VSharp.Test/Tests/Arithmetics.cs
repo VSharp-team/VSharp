@@ -183,6 +183,12 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        public static IntPtr Mul_Ovf_IntPtr(int x)
+        {
+            return checked(unchecked((IntPtr)(uint)x) * sizeof(long));
+        }
+
+        [TestSvm]
         public static int Mul_No_OverFlow1()
         {
             int a = -1;

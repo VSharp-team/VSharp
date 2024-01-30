@@ -569,6 +569,8 @@ module TypeUtils =
             || isLong x && isULong y
             || isULong x && isLong y
         if isReal x || isReal y (* || areSameButSignedAndUnsigned *) then failDeduceBinaryTargetType op x y
+        elif isNative x then x
+        elif isNative y then y
         elif isLong x then x // DO NOT REORDER THESE elif's!
         elif isLong y then y
         elif isULong x then x

@@ -464,6 +464,10 @@ module internal Z3 =
             let left, right = x.ExtendIfNeed operands true
             ctx.MkBVAddNoOverflow(left, right, true)
 
+        member private x.MkBVAddNoOverflowUn operands : BoolExpr =
+            let left, right = x.ExtendIfNeed operands false
+            ctx.MkBVAddNoOverflow(left, right, false)
+
         member private x.MkBVMulT typ operands : BitVecExpr =
             x.ChangeSizeIfNeed operands typ |> ctx.MkBVMul
 
@@ -477,11 +481,27 @@ module internal Z3 =
             let left, right = x.ExtendIfNeed operands true
             ctx.MkBVMulNoOverflow(left, right, true)
 
+        member private x.MkBVMulNoOverflowUn operands : BoolExpr =
+            let left, right = x.ExtendIfNeed operands false
+            ctx.MkBVMulNoOverflow(left, right, false)
+
         member private x.MkBVSubT typ operands : BitVecExpr =
             x.ChangeSizeIfNeed operands typ |> ctx.MkBVSub
 
         member private x.MkBVSub operands : BitVecExpr =
             x.ExtendIfNeed operands true |> ctx.MkBVSub
+
+        member private x.MkBVSubNoUnderflow operands : BoolExpr =
+            let left, right = x.ExtendIfNeed operands true
+            ctx.MkBVSubNoUnderflow(left, right, true)
+
+        member private x.MkBVSubNoUnderflowUn operands : BoolExpr =
+            let left, right = x.ExtendIfNeed operands false
+            ctx.MkBVSubNoUnderflow(left, right, false)
+
+        member private x.MkBVSubNoOverflow operands : BoolExpr =
+            let left, right = x.ExtendIfNeed operands true
+            ctx.MkBVSubNoOverflow(left, right)
 
         member private x.MkBVSDivT typ operands : BitVecExpr =
             assert(isSigned typ)
@@ -654,12 +674,19 @@ module internal Z3 =
                 let operation (l, r) =
                     x.MkAnd(x.MkBVAddNoUnderflow(l, r), x.MkBVAddNoOverflow(l, r))
                 x.MakeBinary operation args
+            | OperationType.AddNoOvf_Un -> x.MakeBinary x.MkBVAddNoOverflowUn args
             | OperationType.Multiply -> x.MakeBinary (x.MkBVMulT typ) args
             | OperationType.MultiplyNoOvf ->
                 let operation (l, r) =
                     x.MkAnd(x.MkBVMulNoUnderflow(l, r), x.MkBVMulNoOverflow(l, r))
                 x.MakeBinary operation args
+            | OperationType.MultiplyNoOvf_Un -> x.MakeBinary x.MkBVMulNoOverflowUn args
             | OperationType.Subtract -> x.MakeBinary (x.MkBVSubT typ) args
+            | OperationType.SubNoOvf ->
+                let operation (l, r) =
+                    x.MkAnd(x.MkBVSubNoOverflow(l, r), x.MkBVSubNoUnderflow(l, r))
+                x.MakeBinary operation args
+            | OperationType.SubNoOvf_Un -> x.MakeBinary x.MkBVSubNoUnderflowUn args
             | OperationType.Divide -> x.MakeBinary (x.MkBVSDivT typ) args
             | OperationType.Divide_Un -> x.MakeBinary (x.MkBVUDivT typ) args
             | OperationType.Remainder -> x.MakeBinary (x.MkBVSRemT typ) args
