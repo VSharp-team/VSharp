@@ -241,15 +241,14 @@ let main args =
     then Directory.Delete(outputDirectory,true)
     let testsDirInfo = Directory.CreateDirectory outputDirectory
     printfn $"outputDir: {outputDirectory}"                
-    
-    let maps = loadGameMaps datasetDescription 
-    
+        
     match mode with
     | Mode.Server -> 
         startWebServer {defaultConfig with
                             logger = Targets.create Verbose [||]
                             bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app outputDirectory)
     | Mode.Generator ->
+        let maps = loadGameMaps datasetDescription
         generateDataForPretraining outputDirectory datasetBasePath maps stepsToSerialize
     | x -> failwithf $"Unexpected mode {x}."
         
