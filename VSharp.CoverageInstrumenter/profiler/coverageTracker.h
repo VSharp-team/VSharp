@@ -28,6 +28,7 @@ struct MethodInfo {
     WCHAR *assemblyName;
     ULONG moduleNameLength;
     WCHAR *moduleName;
+    std::string methodName;
 
     void serialize(std::vector<char>& buffer) const;
 };
@@ -57,8 +58,6 @@ class CoverageTracker {
 
 private:
     bool collectMainOnly;
-    std::mutex collectedMethodsMutex;
-    std::vector<MethodInfo> collectedMethods;
     std::mutex visitedMethodsMutex;
     std::set<int> visitedMethods;
     ThreadStorage<CoverageHistory*>* trackedCoverage;
@@ -67,6 +66,8 @@ private:
     std::vector<std::vector<char>> serializedCoverage;
     std::vector<int> serializedCoverageThreadIds;
 public:
+    std::mutex collectedMethodsMutex;
+    std::vector<MethodInfo> collectedMethods;
     explicit CoverageTracker(ThreadTracker* threadTracker, ThreadInfo* threadInfo, bool collectMainOnly);
     bool isCollectMainOnly() const;
     void addCoverage(OFFSET offset, CoverageEvent event, int methodId);

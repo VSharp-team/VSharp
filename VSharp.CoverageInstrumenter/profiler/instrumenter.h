@@ -19,17 +19,17 @@ private:
     char *m_signatureTokens;
     unsigned m_signatureTokensLength;
     std::mutex mutex;
-    HRESULT doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength);
+    HRESULT doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength, bool isTestRun);
 
 public:
     explicit Instrumenter(ICorProfilerInfo8 &profilerInfo);
     ~Instrumenter();
 
-    HRESULT instrument(FunctionID functionId);
+    HRESULT instrument(FunctionID functionId, std::string methodName);
 };
 
 bool IsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method);
-bool InstrumentationIsNeeded(const WCHAR *moduleName, int moduleSize, mdMethodDef method);
+bool InstrumentationIsNeeded(const WCHAR* assemblyName, int assemblySize, const WCHAR *moduleName, int moduleSize, mdMethodDef method);
 
 }
 

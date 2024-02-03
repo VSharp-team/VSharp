@@ -67,11 +67,21 @@ bool vsharp::IsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method)
     return true;
 }
 
-bool vsharp::InstrumentationIsNeeded(const WCHAR *moduleName, int moduleSize, mdMethodDef method) {
-    return IsMain(moduleName, moduleSize, method) || !profilerState->collectMainOnly;
+bool isApprovedAssembly(const WCHAR *assemblyName, int assemblyNameLength) {
+    for (auto approved : profilerState->approvedAssemblies) {
+        if (assemblyNameLength - 1 == approved.length() && std::string(assemblyName, assemblyName + assemblyNameLength - 1) == approved)
+            return true;
+    }
+    return false;
 }
 
-HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength) {
+// TODO: simplify the condition by adding two main modes as coverage tool config
+bool vsharp::InstrumentationIsNeeded(const WCHAR* assemblyName, int assemblySize, const WCHAR *moduleName, int moduleSize, mdMethodDef method) {
+    return IsMain(moduleName, moduleSize, method) || (!profilerState->isTestExpected && !profilerState->collectMainOnly)
+        || (profilerState->isTestExpected && isApprovedAssembly(moduleName, moduleSize));
+}
+
+HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength, bool isTestRun) {
     HRESULT hr;
     CComPtr<IMetaDataImport> metadataImport;
     CComPtr<IMetaDataEmit> metadataEmit;
@@ -93,13 +103,14 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, c
             m_moduleId,
             m_jittedToken,
             methodId,
-            IsMain(moduleName, moduleNameLength, m_jittedToken)
+            IsMain(moduleName, moduleNameLength, m_jittedToken),
+            isTestRun
     );
 
     return S_OK;
 }
 
-HRESULT Instrumenter::instrument(FunctionID functionId) {
+HRESULT Instrumenter::instrument(FunctionID functionId, std::string methodName) {
     HRESULT hr = S_OK;
     ModuleID newModuleId;
     ClassID classId;
@@ -119,19 +130,21 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     WCHAR *assemblyName = new WCHAR[assemblyNameLength];
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
 
+    // checking if this method was rewritten before
+    if (instrumentedMethods.find({ m_jittedToken, newModuleId }) != instrumentedMethods.end()) {
+        // LOG(tout << "repeated JIT of " << m_jittedToken << "! skipped" << std::endl);
+        return S_OK;
+    }
+
+    LOG(tout << "JIT of " << std::string(assemblyName, assemblyName + assemblyNameLength - 1) << '.' << methodName << std::endl);
+
     // skipping non-main methods
-    if (!InstrumentationIsNeeded(moduleName, moduleNameLength, m_jittedToken)) {
+    if (!InstrumentationIsNeeded(assemblyName, assemblyNameLength, moduleName, moduleNameLength, m_jittedToken)) {
         return S_OK;
     }
 
     if (profilerState->collectMainOnly) {
         profilerState->mainFunctionId = functionId;
-    }
-
-    // checking if this method was rewritten before
-    if (instrumentedMethods.find({ m_jittedToken, newModuleId }) != instrumentedMethods.end()) {
-        // LOG(tout << "repeated JIT of " << m_jittedToken << "! skipped" << std::endl);
-        return S_OK;
     }
 
     mutex.lock();
@@ -140,13 +153,14 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
             assemblyNameLength,
             assemblyName,
             moduleNameLength,
-            moduleName}
+            moduleName,
+            methodName}
         );
     instrumentedMethods.insert({m_jittedToken, newModuleId});
     mutex.unlock();
     ModuleID oldModuleId = m_moduleId;
     m_moduleId = newModuleId;
-    hr = doInstrumentation(oldModuleId, currentMethodId, moduleName, moduleNameLength);
+    hr = doInstrumentation(oldModuleId, currentMethodId, moduleName, moduleNameLength, profilerState->isTestExpected);
 
     return hr;
 }

@@ -115,7 +115,8 @@ HRESULT RewriteIL(
     ModuleID moduleID,
     mdMethodDef methodDef,
     int methodId,
-    bool isMain);
+    bool isMain,
+    bool isTestRun);
 
 bool NeedFullInstrumentation(const WCHAR *moduleName, int moduleSize, mdMethodDef method);
 

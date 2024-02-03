@@ -56,7 +56,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
     #define IfFailRet(EXPR) do { HRESULT hr = (EXPR); if(FAILED(hr)) { return (hr); } } while (0)
     IfFailRet(this->corProfilerInfo->SetEventMask(eventMask));
 
-
     profilerState = new ProfilerState((ICorProfilerInfo8*)this);
 
     LOG(tout << "Initialize finished" << std::endl);
@@ -221,7 +220,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID function
 
     UNUSED(fIsSafeToBlock);
     auto instrument = new Instrumenter(*corProfilerInfo);
-    HRESULT hr = instrument->instrument(functionId);
+    auto methodName = GetFunctionName(functionId);
+    HRESULT hr = instrument->instrument(functionId, methodName);
     delete instrument;
 
     std::atomic_fetch_sub(&shutdownBlockingRequestsCount, 1);

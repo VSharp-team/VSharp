@@ -3,21 +3,27 @@
 
 #include "threadTracker.h"
 #include "coverageTracker.h"
+#include <set>
 
 namespace vsharp {
 
 class ProfilerState {
 private:
     static const FunctionID incorrectFunctionId = 0;
+
+    void ReadTestAssemblies(const char *path);
 public:
     ThreadTracker* threadTracker;
     CoverageTracker* coverageTracker;
     ThreadInfo* threadInfo;
 
     bool isPassiveRun = false;
-    bool collectMainOnly = true;
+    bool collectMainOnly = false;
     bool isFinished = false;
+    bool isTestExpected = false;
     char *passiveResultPath = nullptr;
+    std::vector<std::string> approvedAssemblies;
+
     MethodInfo mainMethodInfo;
     FunctionID mainFunctionId;
 

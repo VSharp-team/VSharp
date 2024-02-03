@@ -35,17 +35,17 @@ CoverageProbes* vsharp::getProbes() {
 
 void vsharp::InitializeProbes() {
     auto covProbes = vsharp::getProbes();
-    covProbes->Coverage = new ProbeCall((INT_PTR) &Track_Coverage);
-    covProbes->Branch = new ProbeCall((INT_PTR) &Branch);
-    covProbes->Enter = new ProbeCall((INT_PTR) &Track_Enter);
-    covProbes->EnterMain = new ProbeCall((INT_PTR) &Track_EnterMain);
-    covProbes->Leave = new ProbeCall((INT_PTR) &Track_Leave);
-    covProbes->LeaveMain = new ProbeCall((INT_PTR) &Track_LeaveMain);
-    covProbes->Finalize_Call = new ProbeCall((INT_PTR) &Finalize_Call);
-    covProbes->Call = new ProbeCall((INT_PTR) &Track_Call);
-    covProbes->Tailcall = new ProbeCall((INT_PTR) &Track_Tailcall);
-    covProbes->Stsfld = new ProbeCall((INT_PTR) &Track_Stsfld);
-    covProbes->Throw = new ProbeCall((INT_PTR) &Track_Throw);
+    covProbes->Coverage          = new ProbeCall((INT_PTR) &Track_Coverage);
+    covProbes->Branch            = new ProbeCall((INT_PTR) &Branch);
+    covProbes->Enter             = new ProbeCall((INT_PTR) &Track_Enter);
+    covProbes->EnterMain         = new ProbeCall((INT_PTR) &Track_EnterMain);
+    covProbes->Leave             = new ProbeCall((INT_PTR) &Track_Leave);
+    covProbes->LeaveMain         = new ProbeCall((INT_PTR) &Track_LeaveMain);
+    covProbes->Finalize_Call     = new ProbeCall((INT_PTR) &Finalize_Call);
+    covProbes->Call              = new ProbeCall((INT_PTR) &Track_Call);
+    covProbes->Tailcall          = new ProbeCall((INT_PTR) &Track_Tailcall);
+    covProbes->Stsfld            = new ProbeCall((INT_PTR) &Track_Stsfld);
+    covProbes->Throw             = new ProbeCall((INT_PTR) &Track_Throw);
     LOG(tout << "probes initialized" << std::endl);
 }
 
@@ -84,12 +84,25 @@ void vsharp::Track_Tailcall(OFFSET offset, int methodId) {
     profilerState->coverageTracker->addCoverage(offset, Tailcall, methodId);
 }
 
+void printMethod(std::string message, int methodId) {
+    auto tracker = profilerState->coverageTracker;
+    LOG(
+        tracker->collectedMethodsMutex.lock();
+        auto method = tracker->collectedMethods[methodId];
+        auto wl = method.assemblyNameLength;
+        auto ws = method.assemblyName;
+        tout << message << ' ' << std::string(ws, ws + wl - 1) << '.' << method.methodName << std::endl;
+        tracker->collectedMethodsMutex.unlock();
+    );
+}
+
 void vsharp::Track_Enter(OFFSET offset, int methodId, int isSpontaneous) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
+    printMethod("Entered", methodId);
     if (profilerState->threadTracker->isPossibleStackOverflow()) {
         LOG(tout << "Possible stack overflow: " << methodId);
     }
-    LOG(tout << "Track_Enter: " << methodId);
+    // LOG(tout << "Track_Enter: " << methodId);
     if (!profilerState->coverageTracker->isCollectMainOnly())
         profilerState->coverageTracker->addCoverage(offset, Enter, methodId);
     profilerState->threadTracker->stackBalanceUp();
@@ -100,9 +113,11 @@ void vsharp::Track_EnterMain(OFFSET offset, int methodId, int isSpontaneous) {
         // Recursive enter
         LOG(tout << "(recursive) Track_EnterMain: " << methodId);
         profilerState->threadTracker->stackBalanceUp();
+        profilerState->coverageTracker->addCoverage(offset, Enter, methodId);
         return;
     }
-    LOG(tout << "Track_EnterMain: " << methodId);
+    printMethod("Entered Main", methodId);
+    // LOG(tout << "Track_EnterMain: " << methodId);
     profilerState->threadTracker->trackCurrentThread();
     profilerState->threadTracker->stackBalanceUp();
     profilerState->coverageTracker->addCoverage(offset, EnterMain, methodId);
@@ -118,8 +133,9 @@ void vsharp::Track_Leave(OFFSET offset, int methodId) {
 
 void vsharp::Track_LeaveMain(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
+    printMethod("Left Main", methodId);
     profilerState->coverageTracker->addCoverage(offset, LeaveMain, methodId);
-    LOG(tout << "Track_LeaveMain: " << methodId);
+    // LOG(tout << "Track_LeaveMain: " << methodId);
     if (profilerState->threadTracker->stackBalanceDown()) {
         // first main frame is not yet reached
         return;

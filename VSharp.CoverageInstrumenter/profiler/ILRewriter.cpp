@@ -1254,7 +1254,8 @@ HRESULT RewriteIL(
         ModuleID moduleID,
         mdMethodDef methodDef,
         int methodId,
-        bool isMain)
+        bool isMain,
+        bool isTestRun)
 {
     ILRewriter rewriter(pICorProfilerInfo, pICorProfilerFunctionControl, moduleID, methodDef);
     auto pilr = &rewriter;
@@ -1263,7 +1264,7 @@ HRESULT RewriteIL(
 
     vsharp::ProbeCall* enterMethod;
     vsharp::ProbeCall* leaveMethod;
-    if (isMain) {
+    if (isMain || isTestRun) {
         enterMethod = covProb->EnterMain;
         leaveMethod = covProb->LeaveMain;
     }

@@ -13,31 +13,51 @@ void ConvertToWCHAR(const char *str, std::u16string &result) {
     result = conv16.from_bytes(str);
 }
 
+bool IsEnvVarPresent(const char *name) {
+    return std::getenv(name) != nullptr;
+}
+
+char *CheckEnvVarAndGet(const char *name) {
+    auto str = std::getenv(name);
+    profiler_assert(str);
+    return str;
+}
+
 bool ProfilerState::isCorrectFunctionId(FunctionID id) {
     return incorrectFunctionId != id;
 }
 
 ProfilerState::ProfilerState(ICorProfilerInfo8 *corProfilerInfo) {
-    const char* isPassive = std::getenv("COVERAGE_TOOL_ENABLE_PASSIVE");
+    isPassiveRun = IsEnvVarPresent("COVERAGE_TOOL_ENABLE_PASSIVE");
+    isTestExpected = IsEnvVarPresent("COVERAGE_TOOL_EXPECT_TEST_SUITE");
+    collectMainOnly = IsEnvVarPresent("COVERAGE_TOOL_INSTRUMENT_MAIN_ONLY");
+
+    mainMethodInfo.moduleName = nullptr; // mainMethod is not yet specified
 
 #ifdef _LOGGING
-    const char* name = isPassive == nullptr ? "lastrun.log" : "lastcoverage.log";
+    const char *name = isPassiveRun ? "lastrun.log" : "lastcoverage.log";
     open_log(name);
 #endif
 
     InitializeProbes();
-    if (isPassive != nullptr) {
+
+    if (isPassiveRun) {
         LOG(tout << "WORKING IN PASSIVE MODE" << std::endl);
+        passiveResultPath = CheckEnvVarAndGet("COVERAGE_TOOL_RESULT_NAME");
+    }
 
-        isPassiveRun = true;
-        collectMainOnly = true;
+    if (isTestExpected) {
+        ReadTestAssemblies(CheckEnvVarAndGet("COVERAGE_TOOL_ASSEMBLY_PATHS_FILE"));
+        LOG(tout << "RECEIVED ASSEMBLIES TO INSTRUMENT" << std::endl);
+    }
 
+    if (IsEnvVarPresent("COVERAGE_TOOL_SPECIFY_MAIN_METHOD")) {
         std::u16string assemblyNameU16;
         std::u16string moduleNameU16;
 
-        ConvertToWCHAR(std::getenv("COVERAGE_TOOL_METHOD_ASSEMBLY_NAME"), assemblyNameU16);
-        ConvertToWCHAR(std::getenv("COVERAGE_TOOL_METHOD_MODULE_NAME"), moduleNameU16);
-        int mainToken = std::stoi(std::getenv("COVERAGE_TOOL_METHOD_TOKEN"));
+        ConvertToWCHAR(CheckEnvVarAndGet("COVERAGE_TOOL_METHOD_ASSEMBLY_NAME"), assemblyNameU16);
+        ConvertToWCHAR(CheckEnvVarAndGet("COVERAGE_TOOL_METHOD_MODULE_NAME"), moduleNameU16);
+        int mainToken = std::stoi(CheckEnvVarAndGet("COVERAGE_TOOL_METHOD_TOKEN"));
 
         size_t mainAssemblyNameLength = assemblyNameU16.size();
         auto* mainAssemblyName = new WCHAR[mainAssemblyNameLength];
@@ -54,17 +74,32 @@ ProfilerState::ProfilerState(ICorProfilerInfo8 *corProfilerInfo) {
                 (ULONG) mainModuleNameLength,
                 mainModuleName
         };
-        passiveResultPath = std::getenv("COVERAGE_TOOL_RESULT_NAME");
-    }
-
-    if (std::getenv("COVERAGE_TOOL_INSTRUMENT_MAIN_ONLY")) {
-        collectMainOnly = true;
     }
 
     mainFunctionId = -1;
     threadInfo = new ThreadInfo(corProfilerInfo);
     threadTracker = new ThreadTracker(threadInfo);
     coverageTracker = new CoverageTracker(threadTracker, threadInfo, collectMainOnly);
+}
+
+void vsharp::ProfilerState::ReadTestAssemblies(const char *path)
+{
+    std::ifstream assembliesFile;
+    assembliesFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
+    try {
+        assembliesFile.open(path, std::ios_base::in);
+        std::string assembly;
+
+        while (assembliesFile >> assembly)
+            approvedAssemblies.push_back(assembly);
+
+        assembliesFile.close();
+    }
+    catch (std::ifstream::failure e) {
+        LOG(tout << "FAILURE DURING THE READ OF ASSEMBLIES FILE! TOTAL RETRIEVED: " << approvedAssemblies.size()
+            << "\nCONTINUING WITH RETRIEVED DATA");
+    }
 }
 
 void vsharp::ProfilerState::setEntryMain(char *assemblyName, int assemblyNameLength, char *moduleName, int moduleNameLength, int methodToken) {
