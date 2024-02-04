@@ -711,6 +711,30 @@ namespace IntegrationTests
             public int x;
         }
 
+        [TestSvm(88)]
+        public static int LastRecordReachability(int[] a, int[] b, int i)
+        {
+            a[i] = 1;
+            b[1] = i;
+            if (b[1] != i)
+            {
+                throw new Exception();
+            }
+            return 0;
+        }
+        
+        [TestSvm(88)]
+        public static int LastRecordReachability1(int[] a, int[] b, int i)
+        {
+            a[i] = 1;
+            b[i] = i;
+            if (b[i] != i)
+            {
+                throw new Exception();
+            }
+            return 0;
+        }
+
         [TestSvm(90)]
         public static int ArrayElementsAreReferences(MyClass[] a, int i, int j)
         {

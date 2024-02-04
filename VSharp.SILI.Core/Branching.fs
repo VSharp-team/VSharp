@@ -106,6 +106,11 @@ module internal Branching =
                     let thenState = conditionState
                     let elseState = conditionState.Copy (PC.add pc notCondition)
                     thenState.model <- model.mdl
+                    if PC.toSeq thenPc |> conjunction |> thenState.model.Eval |> isTrue |> not then
+                        let state = thenState.model
+                        let wrong = PC.toSeq thenPc |> List.ofSeq |> List.filter (fun x -> x |> thenState.model.Eval |> isTrue |> not)
+                        let evaled = wrong |> List.map (fun x -> x |> thenState.model.Eval)
+                        internalfail "branching failed (at else)"
                     assert(PC.toSeq thenPc |> conjunction |> thenState.model.Eval |> isTrue)
                     TypeStorage.addTypeConstraint typeStorageCopy.Constraints notCondition
                     elseState.typeStorage <- typeStorageCopy

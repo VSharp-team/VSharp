@@ -61,6 +61,7 @@ module RegionTree =
                 Seq.fold splitChild (included, disjoint) intersected
 
     let localize reg tree = splitNode (always false) reg tree |> fst
+    let localizeFilter reg key tree = splitNode (key :> IRegionTreeKey<_>).Hides reg tree
 
     // NOTE: [ATTENTION] must be used only if 'reg' were not added earlier and keys are disjoint
     // NOTE: used for fast initialization of new array

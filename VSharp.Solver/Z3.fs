@@ -973,12 +973,16 @@ module internal Z3 =
             let assumptions = inRegionAssumptions @ assumptions
             let inst, instAssumptions = inst readExpr
             let assumptions = instAssumptions @ assumptions
-            let checkOneKey (updateKey, reg, value) (acc, assumptions) =
+            let checkOneKey (reg, record) (acc, assumptions) =
+                let recordGuard = Option.defaultValue (True()) record.guard
+                let {expr = recordGuardEncoded; assumptions = recordGuardAssumptions} = x.EncodeTerm recordGuard
+                let assumptions = assumptions @ recordGuardAssumptions
                 // NOTE: we need constraints on right key, because path condition may contain it
                 // EXAMPLE: a[k] = 1; if (k == 0 && a[i] == 1) {...}
-                let matchAssumptions, keysAreMatch = keysAreMatch readKey updateKey reg
+                let matchAssumptions, keysAreMatch = keysAreMatch readKey record.key reg
+                let recordReachability = x.MkAnd(recordGuardEncoded :?> BoolExpr, keysAreMatch)
                 // TODO: [style] auto append assumptions
-                let assumptions = List.append assumptions matchAssumptions
+                let assumptions =  assumptions @ matchAssumptions
                 let readFieldIfNeed term path =
                     match path with
                     | StructFieldPart field ->
@@ -990,10 +994,11 @@ module internal Z3 =
                     | PointerOffset ->
                         assert(IsPtr term)
                         Memory.ExtractPointerOffset term
-                let value = path.Fold readFieldIfNeed value
-                let valueExpr = specializeWithKey value readKey updateKey |> x.EncodeTerm
+                let value = path.Fold readFieldIfNeed record.value
+                let valueExpr = specializeWithKey value readKey record.key |> x.EncodeTerm
                 let assumptions = List.append assumptions valueExpr.assumptions
-                x.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
+                let recordGuard = Option.defaultValue (True()) record.guard
+                x.MkITE(recordReachability, valueExpr.expr, acc), assumptions
             let expr, assumptions = List.foldBack checkOneKey updates (inst, assumptions)
             encodingResult.Create(expr, assumptions)
 
@@ -1115,9 +1120,9 @@ module internal Z3 =
         member private x.StaticsReading (key : symbolicTypeKey) mo typ source path (name : string) =
             assert mo.defaultValue.IsNone
             let updates = MemoryRegion.flatten mo
-            let value = Seq.tryFind (fun (k, _, _) -> k = key) updates
+            let value = List.tryFind (fun (_, k : updateTreeKey<_, _>) -> k.key = key) updates
             match value with
-            | Some (_, _, v) -> x.EncodeTerm v
+            | Some (_, k) -> x.EncodeTerm k.value
             | None ->
                 let keyType = x.Type2Sort Types.IndexType
                 let sort = ctx.MkArraySort(keyType, x.Type2Sort typ)
