@@ -361,7 +361,7 @@ namespace VSharp.Runner
                 "Time for test generation in seconds. Negative value means no timeout.");
             var pathToModelOption = new Option<string>(
                 aliases: new[] { "--model", "-m" },
-                () => null,
+                () => defaultOptions.PathToModel,
                 "Path to ONNX file with model for AI searcher.");
             var solverTimeoutOption = new Option<int>(
                 aliases: new[] { "--solver-timeout", "-st" },
@@ -508,6 +508,7 @@ namespace VSharp.Runner
             specificMethodCommand.SetHandler(context =>
             {
                 var parseResult = context.ParseResult;
+                var pathToModel = parseResult.GetValueForOption(pathToModelOption);
                 var output = parseResult.GetValueForOption(outputOption);
                 Debug.Assert(output is not null);
                 SpecificMethodHandler(
@@ -523,7 +524,7 @@ namespace VSharp.Runner
                     parseResult.GetValueForOption(verbosityOption),
                     parseResult.GetValueForOption(recursionThresholdOption),
                     parseResult.GetValueForOption(explorationModeOption),
-                    parseResult.GetValueForOption(pathToModelOption)
+                    pathToModel
                 );
             });
 
@@ -538,6 +539,7 @@ namespace VSharp.Runner
             {
                 var parseResult = context.ParseResult;
                 var output = parseResult.GetValueForOption(outputOption);
+                var pathToModel = parseResult.GetValueForOption(pathToModelOption);
                 Debug.Assert(output is not null);
                 NamespaceHandler(
                     parseResult.GetValueForArgument(assemblyPathArgument),
@@ -551,7 +553,7 @@ namespace VSharp.Runner
                     parseResult.GetValueForOption(verbosityOption),
                     parseResult.GetValueForOption(recursionThresholdOption),
                     parseResult.GetValueForOption(explorationModeOption),
-                    parseResult.GetValueForOption(pathToModelOption)
+                    pathToModel
                 );
             });
 

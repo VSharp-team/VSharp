@@ -129,7 +129,7 @@ type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTr
                 let reward = computeReward lastCollectedStatistics statistics
                 oracle.Feedback (Feedback.MoveReward reward)
             Application.applicationGraphDelta.Clear()
-            if stepsToPlay = stepsPlayed
+            if aiAgentTrainingOptions.IsSome && stepsToPlay = stepsPlayed
             then None
             else
                 let stateId = oracle.Predict gameState.Value
@@ -144,7 +144,6 @@ type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTr
                     incorrectPredictedStateId <- true
                     oracle.Feedback (Feedback.IncorrectPredictedStateId stateId)
                     None
-    
     new (pathToONNX:string) =
         let numOfVertexAttributes = 7
         let numOfStateAttributes = 7
@@ -155,8 +154,8 @@ type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTr
             let feedback (x:Feedback) = ()            
             let predict (gameState:GameState) =
                 let stateIds = Dictionary<uint<stateId>,int>()
+                let verticesIds = Dictionary<uint<basicBlockGlobalId>,int>()
                 let networkInput =
-                    let verticesIds = Dictionary<uint<basicBlockGlobalId>,int>()
                     let res = Dictionary<_,_>()
                     let gameVertices =
                         let shape = [| int64 gameState.GraphVertices.Length; numOfVertexAttributes |]                    
@@ -165,13 +164,13 @@ type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTr
                             let v = gameState.GraphVertices.[i]
                             verticesIds.Add(v.Id,i)
                             let i = i*numOfVertexAttributes
-                            attributes.[i] <- if v.InCoverageZone then 1u else 0u
-                            attributes.[i + 1] <- v.BasicBlockSize
-                            attributes.[i + 2] <- if v.CoveredByTest then 1u else 0u
-                            attributes.[i + 3] <- if v.VisitedByState then 1u else 0u
-                            attributes.[i + 4] <- if v.TouchedByState then 1u else 0u
-                            attributes.[i + 5] <- if v.ContainsCall then 1u else 0u
-                            attributes.[i + 6] <- if v.ContainsThrow then 1u else 0u
+                            attributes.[i] <- float32 <| if v.InCoverageZone then 1u else 0u
+                            attributes.[i + 1] <- float32 <| v.BasicBlockSize
+                            attributes.[i + 2] <- float32 <| if v.CoveredByTest then 1u else 0u
+                            attributes.[i + 3] <- float32 <| if v.VisitedByState then 1u else 0u
+                            attributes.[i + 4] <- float32 <| if v.TouchedByState then 1u else 0u
+                            attributes.[i + 5] <- float32 <| if v.ContainsCall then 1u else 0u
+                            attributes.[i + 6] <- float32 <| if v.ContainsThrow then 1u else 0u                         
                         OrtValue.CreateTensorValueFromMemory(attributes, shape)
                     
                     let states, numOfParentOfEdges, numOfHistoryEdges =
@@ -185,30 +184,30 @@ type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTr
                             numOfParentOfEdges <- numOfParentOfEdges + v.Children.Length
                             stateIds.Add(v.Id,i)
                             let i = i*numOfStateAttributes
-                            attributes.[i] <- uint v.Position
-                            attributes.[i + 1] <- uint v.PathConditionSize
-                            attributes.[i + 2] <- uint v.VisitedAgainVertices
-                            attributes.[i + 3] <- uint v.VisitedNotCoveredVerticesInZone
-                            attributes.[i + 4] <- uint v.VisitedNotCoveredVerticesOutOfZone
-                            attributes.[i + 5] <- uint v.InstructionsVisitedInCurrentBlock
-                            attributes.[i + 6] <- uint v.StepWhenMovedLastTime
+                            attributes.[i] <- float32 v.Position
+                            attributes.[i + 1] <- float32 v.PathConditionSize
+                            attributes.[i + 2] <- float32 v.VisitedAgainVertices
+                            attributes.[i + 3] <- float32 v.VisitedNotCoveredVerticesInZone
+                            attributes.[i + 4] <- float32 v.VisitedNotCoveredVerticesOutOfZone
+                            attributes.[i + 6] <- float32 v.StepWhenMovedLastTime
+                            attributes.[i + 5] <- float32 v.InstructionsVisitedInCurrentBlock
                         OrtValue.CreateTensorValueFromMemory(attributes, shape)
                         ,numOfParentOfEdges
                         ,numOfHistoryEdges
                     
                     let vertexToVertexEdgesIndex,vertexToVertexEdgesAttributes =
                         let shapeOfIndex = [| 2L; gameState.Map.Length |]
-                        let shapeOfAttributes = [| 1L; gameState.Map.Length |]
+                        let shapeOfAttributes = [| int64 gameState.Map.Length |]
                         let index = Array.zeroCreate (2 * gameState.Map.Length)
                         let attributes = Array.zeroCreate gameState.Map.Length
                         gameState.Map
                         |> Array.iteri (
                             fun i e ->
-                              index[i * 2] <- verticesIds[e.VertexFrom]
-                              index[i * 2 + 1] <- verticesIds[e.VertexTo]
-                              attributes[i] <- e.Label.Token
+                              index[i] <- int64 verticesIds[e.VertexFrom]
+                              index[gameState.Map.Length + i] <- int64 verticesIds[e.VertexTo]
+                              attributes[i] <- int64 e.Label.Token
                             )
-                            
+                                                
                         OrtValue.CreateTensorValueFromMemory(index, shapeOfIndex)
                         , OrtValue.CreateTensorValueFromMemory(attributes, shapeOfAttributes)
                     
@@ -217,7 +216,7 @@ type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTr
                         let parentOf = Array.zeroCreate (2 * numOfParentOfEdges)
                         let shapeOfHistory = [|2L; numOfHistoryEdges|]
                         let historyIndex_vertexToState = Array.zeroCreate (2 * numOfHistoryEdges)
-                        let shapeOfHistoryAttributes = [| int64 numOfHistoryEdgeAttributes; numOfHistoryEdges |]
+                        let shapeOfHistoryAttributes = [| int64 numOfHistoryEdges; int64 numOfHistoryEdgeAttributes |]
                         let historyAttributes = Array.zeroCreate (2 * numOfHistoryEdges)
                         let mutable firstFreePositionInParentsOf = 0
                         let mutable firstFreePositionInHistoryIndex = 0
@@ -226,23 +225,25 @@ type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTr
                         |> Array.iter (fun v ->
                                 v.Children
                                 |> Array.iteri (fun i s ->
-                                    let i = firstFreePositionInParentsOf + 2 * i
-                                    parentOf[i] <- stateIds[v.Id]
-                                    parentOf[i + 1] <- stateIds[s]
+                                    let i = firstFreePositionInParentsOf + i
+                                    parentOf[i] <- int64 stateIds[v.Id]
+                                    parentOf[numOfParentOfEdges + i] <- int64 stateIds[s]
                                     )
-                                firstFreePositionInParentsOf <- firstFreePositionInParentsOf + 2 * v.Children.Length
+                                firstFreePositionInParentsOf <- firstFreePositionInParentsOf + v.Children.Length
                                 v.History
                                 |> Array.iteri (fun i s ->
-                                    let j = firstFreePositionInHistoryIndex + 2 * i
-                                    historyIndex_vertexToState[j] <- verticesIds[s.GraphVertexId]
-                                    historyIndex_vertexToState[j + 1] <- stateIds[v.Id]
-                                    let j = firstFreePositionInHistoryAttributes + numOfHistoryEdgeAttributes * i
-                                    historyAttributes[j] <- s.NumOfVisits
-                                    historyAttributes[j] <- uint s.StepWhenVisitedLastTime
+                                    let j = firstFreePositionInHistoryIndex + i
+                                    historyIndex_vertexToState[j] <- int64 verticesIds[s.GraphVertexId] 
+                                    historyIndex_vertexToState[numOfHistoryEdges + j] <- int64 stateIds[v.Id]
+                                    
+                                    let j = firstFreePositionInHistoryAttributes + i 
+                                    historyAttributes[j] <- int64 s.NumOfVisits
+                                    historyAttributes[j + 1] <- int64 s.StepWhenVisitedLastTime                                    
                                     )
-                                firstFreePositionInHistoryIndex <- firstFreePositionInHistoryIndex + 2 * v.History.Length
+                                firstFreePositionInHistoryIndex <- firstFreePositionInHistoryIndex + v.History.Length
                                 firstFreePositionInHistoryAttributes <- firstFreePositionInHistoryAttributes + numOfHistoryEdgeAttributes * v.History.Length
-                            )
+                            )                        
+                        
                         OrtValue.CreateTensorValueFromMemory(historyIndex_vertexToState, shapeOfHistory)
                         , OrtValue.CreateTensorValueFromMemory(historyAttributes, shapeOfHistoryAttributes)
                         , OrtValue.CreateTensorValueFromMemory(parentOf, shapeOfParentOf)
@@ -257,31 +258,36 @@ type internal AISearcher(oracle:Oracle, aiAgentTrainingOptions: Option<AIAgentTr
                             fun v ->
                                 v.States
                                 |> Array.iteri (fun i s ->
-                                    let startPos = firstFreePosition + i * 2
+                                    let startPos = firstFreePosition + i
                                     let s = stateIds[s]
-                                    let v= verticesIds[v.Id]
-                                    data_stateToVertex[startPos] <- s 
-                                    data_stateToVertex[startPos + 1] <- v
+                                    let v' = verticesIds[v.Id]
+                                    data_stateToVertex[startPos] <- int64 s 
+                                    data_stateToVertex[stateIds.Count + i] <- int64 v'
                                     
-                                    data_vertexToState[startPos] <- v
-                                    data_vertexToState[startPos + 1] <- s
+                                    data_vertexToState[i] <- int64 v'
+                                    data_vertexToState[stateIds.Count + i] <- int64 s
                                     )
-                                firstFreePosition <- firstFreePosition + 2 * v.States.Length
+                                firstFreePosition <- firstFreePosition + v.States.Length
                             )
                         OrtValue.CreateTensorValueFromMemory(data_stateToVertex, shape)
                         ,OrtValue.CreateTensorValueFromMemory(data_vertexToState, shape)
-                             
+   
                     res.Add ("game_vertex", gameVertices)
-                    res.Add ("state_vertex", states)
-                    res.Add ("game_vertex to game_vertex", vertexToVertexEdgesIndex)
-                    res.Add ("game_vertex history state_vertex index", historyEdgesIndex_vertexToState)
-                    res.Add ("game_vertex history state_vertex attrs", historyEdgesAttributes)
-                    res.Add ("game_vertex in state_vertex", statePosition_vertexToState)
-                    res.Add ("state_vertex parent_of state_vertex", parentOfEdges)
+                    res.Add ("state_vertex", states)                    
+                    
+                    res.Add ("gamevertex_to_gamevertex_index", vertexToVertexEdgesIndex)
+                    res.Add ("gamevertex_to_gamevertex_type", vertexToVertexEdgesAttributes)
+                    
+                    res.Add ("gamevertex_history_statevertex_index", historyEdgesIndex_vertexToState)
+                    res.Add ("gamevertex_history_statevertex_attrs", historyEdgesAttributes)
+                    
+                    res.Add ("gamevertex_in_statevertex", statePosition_vertexToState)
+                    res.Add ("statevertex_parentof_statevertex", parentOfEdges)
+                    
                     res
                     
                 let output = session.Run(runOptions, networkInput, session.OutputNames)
-                let weighedStates = output[0].GetTensorDataAsSpan<float>().ToArray()
+                let weighedStates = output[0].GetTensorDataAsSpan<float32>().ToArray()
 
                 let id =
                     weighedStates
