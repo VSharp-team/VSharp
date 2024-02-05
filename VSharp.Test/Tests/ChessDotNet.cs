@@ -93,7 +93,6 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        //[TestSvm(100,serialize:"ApplyMoveAndCheckOtherValidMoves_guided:true_coverage_zone:class")]
         public static bool ApplyMoveAndCheckOtherValidMoves()
         {
             var game = new ChessGame();

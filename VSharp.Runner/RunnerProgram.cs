@@ -90,13 +90,7 @@ namespace VSharp.Runner
                         var t = methodArgumentValue.Split('.');
                         var className = t.Length == 1 ? "" : t[t.Length - 2];
                         var methodName = t.Last(); 
-                        //method = type.GetMethod(t.Last(), Reflection.allBindingFlags);
-                        //method = type.GetMethod(methodArgumentValue, Reflection.allBindingFlags);
                         var x = type.GetMethods(Reflection.allBindingFlags);
-                        //foreach (var m in x)
-                        //{
-                        //    Console.WriteLine($"{type.FullName}.{m.Name}");
-                        //}
                         method ??= x
                             .Where(m => type.FullName.Split('.').Last().Contains(className) && m.Name.Contains(methodName))
                             .MinBy(m => m.Name.Length);

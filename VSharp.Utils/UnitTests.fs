@@ -20,8 +20,8 @@ type UnitTests(outputDir : string) =
             let name = testPrefix + i.ToString()
             if testDirs.Contains name then None else Some name)
         currentDir <- rootDir.CreateSubdirectory(uniqueName)
-        //let linkName = $"%s{rootDir.FullName}%c{Path.DirectorySeparatorChar}%s{testPrefix}last"
-        //FileSystem.createSymlink currentDir.FullName linkName
+        let linkName = $"%s{rootDir.FullName}%c{Path.DirectorySeparatorChar}%s{testPrefix}last"
+        FileSystem.createSymlink currentDir.FullName linkName
 
     let generateTest (test : UnitTest) (name : string) =
         test.Serialize $"%s{currentDir.FullName}%c{Path.DirectorySeparatorChar}%s{name}%s{testExtension}"
@@ -30,7 +30,7 @@ type UnitTests(outputDir : string) =
         override x.Dispose() =
             ()
 
-    member x.GenerateTest (test : UnitTest) =        
+    member x.GenerateTest (test : UnitTest) =
         testNumber <- testNumber + 1u
         generateTest test (test.Method.Name + ".test" + testNumber.ToString())
 

@@ -350,7 +350,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
             | a -> action <- a; true
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
-        while not isStopped && not <| isStepsLimitReached() && not <| isTimeoutReached() && pick() do            
+        while not isStopped && not <| isStepsLimitReached() && not <| isTimeoutReached() && pick() do
             if shouldReleaseBranches() then
                 releaseBranches()
             match action with
@@ -362,15 +362,14 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                         firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1
                     x.Forward(s)
                 with
-                | e ->
-                    reportStateInternalFail s e
+                | e -> reportStateInternalFail s e
             | GoBack(s, p) ->
                 try
                     x.Backward p s
                 with
                 | e -> reportStateInternalFail s e
             | Stop -> __unreachable__()
-            
+
     member private x.AnswerPobs initialStates =
         statistics.ExplorationStarted()
 

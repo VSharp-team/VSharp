@@ -238,18 +238,3 @@ VSharp.CoverageInstrumenter/host/*
 
 # Rendered tests
 VSharp.Test/GeneratedTests/**
-
-# VisualStudioCode settings
-.vscode
-
-#Pytjon environments
-**/.env/**
-/torch_venv/**
-
-#Python caches
-**/__pycache__/**
-
-#logs
-**/logs_full*/**
-/output/**
-/References/*.dll

@@ -178,8 +178,8 @@ namespace VSharp
                 new SVMOptions(
                     explorationMode: explorationMode.NewTestCoverageMode(
                         coverageZone,
-                        //timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
-                        baseSearchMode
+                        options.Timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
+                        
                     ),
                     recThreshold: options.RecursionThreshold,
                     solverTimeout: options.SolverTimeout,
@@ -330,7 +330,7 @@ namespace VSharp
 
             if (options.RenderTests)
                 Render(statistics, method.DeclaringType, outputDir: options.RenderedTestsDirectoryInfo);
-            
+
             return statistics;
         }
 
