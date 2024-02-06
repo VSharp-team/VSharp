@@ -85,7 +85,7 @@ module TypeStorage =
                 // Adding super types from testing function info
                 add supertypeConstraints term source.TypeOfLocation |> next
             | _ -> into ()
-        iterSeq addConstraints conditions
+        iterList addConstraints conditions
 
         let toList (d : Dictionary<term, HashSet<Type>>) address =
             let set = ref null

@@ -1332,7 +1332,7 @@ module internal Arithmetics =
             | Mul(x, y, t) -> acc &&& (if isSigned t then simplifyMultiplyNoOvf x y else simplifyMultiplyNoOvfUn x y) |> next
             | {term = Expression _ } -> into acc
             | _ -> next acc
-        Seq.singleton expr |> fold collectConditions (True())
+        List.singleton expr |> fold collectConditions (True())
 
 // ------------------------------- Standard functions -------------------------------
 
