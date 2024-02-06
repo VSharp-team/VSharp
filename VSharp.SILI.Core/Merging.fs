@@ -25,7 +25,7 @@ module internal Merging =
         let rec loop gvs out =
             match gvs with
             | [] -> out
-            | (True, _ as gv)::_ -> [gv]
+            | True, _ as gv::_ -> [gv]
             | (False, _)::gvs' -> loop gvs' out
             | (g, Unguard us)::gvs' ->
                 let guarded = us |> List.map (fun (g', v) -> (g &&& g', v))
@@ -52,7 +52,7 @@ module internal Merging =
 
     and private typedMerge = function
         | Bool -> boolMerge
-        | StructType _ as typ-> structMerge typ
+        | StructType _ as typ -> structMerge typ
         | _ -> id
 
     and private compress = function
@@ -128,13 +128,12 @@ module internal Merging =
 // ----------------------------------------------------------------------------------------------------
 
     let genericSimplify gvs : (term * 'a) list =
-        let rec loop gvs out =
-            match gvs with
-            | [] -> out
-            | (True, _ as gv)::_ -> [gv]
-            | (False, _)::gvs' -> loop gvs' out
-            | gv::gvs' -> loop gvs' (gv::out)
-        loop gvs [] |> mergeSame
+        let folder acc (g, _ as gv) k =
+            match g with
+            | True -> List.singleton gv
+            | False -> k acc
+            | _ -> k (gv :: acc)
+        Cps.List.foldlk folder gvs List.empty id |> mergeSame
 
     let rec private genericGuardedCartesianProductRec mapper gacc xsacc = function
         | x::xs ->
@@ -143,17 +142,21 @@ module internal Merging =
                 genericGuardedCartesianProductRec mapper (gacc &&& g) (List.append xsacc [v]) xs)
             |> genericSimplify
         | [] -> [(gacc, xsacc)]
+
     let genericGuardedCartesianProduct mapper xs =
         genericGuardedCartesianProductRec mapper (True()) [] xs
 
-    let rec private guardedCartesianProductRec mapper ctor gacc xsacc = function
+    let rec private guardedCartesianProductRecK mapper ctor gacc xsacc terms k =
+        match terms with
         | x::xs ->
-            mapper x
-            |> List.collect (fun (g, v) ->
+            let cartesian (g, v) k =
                 let g' = gacc &&& g
-                guardedCartesianProductRec mapper ctor g' (List.append xsacc [v]) xs)
-            |> genericSimplify
-        | [] -> [(gacc, ctor xsacc)]
+                guardedCartesianProductRecK mapper ctor g' (xsacc @ [v]) xs k
+            mapper x (fun gvs ->
+            Cps.List.mapk cartesian gvs (fun cartesian ->
+            let gvs = List.concat cartesian
+            genericSimplify gvs |> k))
+        | [] -> List.singleton (gacc, ctor xsacc) |> k
 
-    let guardedCartesianProduct mapper terms ctor =
-        guardedCartesianProductRec mapper ctor (True()) [] terms
+    let guardedCartesianProductK mapper terms ctor k =
+        guardedCartesianProductRecK mapper ctor (True()) [] terms k
