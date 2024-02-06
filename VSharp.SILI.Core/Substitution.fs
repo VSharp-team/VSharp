@@ -4,73 +4,114 @@ open VSharp
 
 module Substitution =
 
-    let rec substituteAddress termSubst typeSubst = function
-        | PrimitiveStackLocation _ as sl -> sl
-        | ClassField(addr, field) -> ClassField(termSubst addr, field)
+    let rec private substituteAddress termSubst typeSubst address k =
+        match address with
+        | PrimitiveStackLocation _ as sl -> k sl
+        | ClassField(addr, field) ->
+            termSubst addr (fun addr' ->
+            ClassField(addr', field) |> k)
         | ArrayIndex(addr, index, ({elemType = elementType} as arrayType)) ->
             let arrayType = { arrayType with elemType = typeSubst elementType }
-            ArrayIndex(termSubst addr, List.map termSubst index, arrayType)
-        | StructField(addr, field) -> StructField(substituteAddress termSubst typeSubst addr, field)
-        | StaticField(typ, field) -> StaticField(typeSubst typ, field)
+            termSubst addr (fun addr' ->
+            Cps.List.mapk termSubst index (fun index' ->
+            ArrayIndex(addr', index', arrayType) |> k))
+        | StructField(addr, field) ->
+            substituteAddress termSubst typeSubst addr (fun addr' ->
+            StructField(addr', field) |> k)
+        | StaticField(typ, field) -> StaticField(typeSubst typ, field) |> k
         | ArrayLength(addr, dim, ({elemType = elementType} as arrayType)) ->
             let arrayType = { arrayType with elemType = typeSubst elementType }
-            ArrayLength(termSubst addr, termSubst dim, arrayType)
-        | BoxedLocation(addr, typ) -> BoxedLocation(termSubst addr, typeSubst typ)
-        | StackBufferIndex(key, index)  -> StackBufferIndex(key, termSubst index)
+            termSubst addr (fun addr' ->
+            termSubst dim (fun dim' ->
+            ArrayLength(addr', dim', arrayType) |> k))
+        | BoxedLocation(addr, typ) ->
+            termSubst addr (fun addr' ->
+            BoxedLocation(addr', typeSubst typ) |> k)
+        | StackBufferIndex(key, index)  ->
+            termSubst index (fun index' ->
+            StackBufferIndex(key, index') |> k)
         | ArrayLowerBound(addr, dim, ({elemType = elementType} as arrayType)) ->
             let arrayType = { arrayType with elemType = typeSubst elementType }
-            ArrayLowerBound(termSubst addr, termSubst dim, arrayType)
+            termSubst addr (fun addr' ->
+            termSubst dim (fun dim' ->
+            ArrayLowerBound(addr', dim', arrayType) |> k))
 
-    let substitutePointerBase termSubst typeSubst = function
-        | HeapLocation(loc, typ) -> HeapLocation(termSubst loc, typeSubst typ)
-        | StaticLocation loc -> StaticLocation (typeSubst loc)
-        | StackLocation _ as sl -> sl
+    let private substitutePointerBase termSubst typeSubst pointerBase k =
+        match pointerBase with
+        | HeapLocation(loc, typ) ->
+            termSubst loc (fun loc' ->
+            HeapLocation(loc', typeSubst typ) |> k)
+        | StaticLocation loc -> StaticLocation (typeSubst loc) |> k
+        | StackLocation _ as sl -> k sl
 
     // TODO: get rid of union unnesting to avoid the exponential blow-up!
-    let rec substitute termSubst typeSubst timeSubst term =
-        let recur = substitute termSubst typeSubst timeSubst
+    let rec private substituteK termSubst typeSubst timeSubst term k =
+        let recur = substituteK termSubst typeSubst timeSubst
         match term.term with
         | Expression(op, args, t) ->
             let t' = typeSubst t
-            substituteMany termSubst typeSubst timeSubst args (fun args' ->
-            if args = args' then term
-            else
-                match op with
-                | Operator op ->
-                    let term = simplifyOperation op args' id
-                    primitiveCast term t'
-                | Cast(_, targetType) ->
-                    assert(List.length args' = 1)
-                    let arg = List.head args'
-                    primitiveCast arg (typeSubst targetType)
-                | Application f -> standardFunction args' f
-                | Combine -> combine args' t')
-            |> Merging.merge
+            let ctor args' =
+                if args = args' then term
+                else
+                    match op with
+                    | Operator op ->
+                        let term = simplifyOperation op args' id
+                        primitiveCast term t'
+                    | Cast(_, targetType) ->
+                        assert(List.length args' = 1)
+                        let arg = List.head args'
+                        primitiveCast arg (typeSubst targetType)
+                    | Application f -> standardFunction args' f
+                    | Combine -> combine args' t'
+            substituteManyK termSubst typeSubst timeSubst args ctor (fun gvs ->
+            Merging.merge gvs |> k)
         | Union gvs ->
-            let gvs' = gvs |> List.choose (fun (g, v) ->
-                let ggs = recur g |> Merging.unguardMerge
-                if isFalse ggs then None else Some (ggs, recur v))
-            if gvs' = gvs then term else Merging.merge gvs'
+            let tryAdd (g, v) k =
+                recur g (fun g' ->
+                let ggs = Merging.unguardMerge g'
+                if isFalse ggs then k None
+                else
+                    recur v (fun v' ->
+                    Some (ggs, v') |> k))
+            Cps.List.choosek tryAdd gvs (fun gvs' ->
+            if gvs' = gvs then k term else Merging.merge gvs' |> k)
         | HeapRef(address, typ) ->
-            let addr' = recur address
+            recur address (fun addr' ->
             let typ' = typeSubst typ
-            HeapRef addr' typ'
+            HeapRef addr' typ' |> k)
         | Struct(contents, typ) ->
-            let contents' = PersistentDict.map id recur contents
+            let contents = PersistentDict.toSeq contents
+            let substContents (key, value) k =
+                recur value (fun value' ->
+                k (key, value'))
+            Cps.Seq.mapk substContents contents (fun contents' ->
+            let contents' = PersistentDict.ofSeq contents'
             let typ' = typeSubst typ
-            Struct contents' typ'
-        | ConcreteHeapAddress addr -> ConcreteHeapAddress (timeSubst addr)
-        | Ref address -> substituteAddress recur typeSubst address |> Ref
+            Struct contents' typ' |> k)
+        | ConcreteHeapAddress addr -> ConcreteHeapAddress (timeSubst addr) |> k
+        | Ref address ->
+            substituteAddress recur typeSubst address (fun address' ->
+            Ref address' |> k)
         | Ptr(address, typ, shift) ->
-            let address' = substitutePointerBase recur typeSubst address
-            Ptr address' (typeSubst typ) (recur shift)
+            substitutePointerBase recur typeSubst address (fun address' ->
+            recur shift (fun shift' ->
+            Ptr address' (typeSubst typ) shift' |> k))
         | Slice(part, slices) ->
-            let slices' = List.map (fun (s, e, pos) -> recur s, recur e, recur pos) slices
-            createSlice (recur part) slices'
-        | _ -> termSubst term
+            let substSlices (s, e, pos) k =
+                recur s (fun s' ->
+                recur e (fun e' ->
+                recur pos (fun pos' ->
+                k (s', e', pos'))))
+            Cps.List.mapk substSlices slices (fun slices' ->
+            recur part (fun part' ->
+            createSlice part' slices' |> k))
+        | _ -> termSubst term |> k
 
-    and private substituteMany termSubst typeSubst timeSubst terms ctor =
-        Merging.guardedCartesianProduct (substitute termSubst typeSubst timeSubst >> Merging.unguard) terms ctor
+    and private substituteManyK termSubst typeSubst timeSubst terms ctor k =
+        let subst term k =
+            substituteK termSubst typeSubst timeSubst term (fun term' ->
+            Merging.unguard term' |> k)
+        Merging.guardedCartesianProductK subst terms ctor k
 
-    and private substituteAndMap subst addressSubst typeSubst mapper =
-        substitute subst addressSubst typeSubst >> Merging.unguard >> Merging.guardedMapWithoutMerge mapper
+    and substitute termSubst typeSubst timeSubst term =
+        substituteK termSubst typeSubst timeSubst term id
