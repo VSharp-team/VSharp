@@ -115,10 +115,10 @@ module private MemoryKeyUtils =
         let checkInOne acc (first, second) = acc &&& (keyInFst first) &&& (keyInSnd second)
         List.fold checkInOne (True()) region.products
 
-    let rec keysInListProductRegion keys (region : int points listProductRegion) =
+    let rec keysInListProductRegion (keys : term list) (region : int points listProductRegion) =
         match region, keys with
-        | NilRegion, Seq.Empty -> True()
-        | ConsRegion products, Seq.Cons(curr, rest) ->
+        | NilRegion, [] -> True()
+        | ConsRegion products, curr :: rest ->
             let keyInPoints = keyInIntPoints curr
             let keyInProduct = keysInListProductRegion rest
             keyInProductRegion keyInPoints keyInProduct products

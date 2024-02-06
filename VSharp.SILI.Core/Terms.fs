@@ -282,7 +282,7 @@ and
 
 and
     ISymbolicConstantSource =
-        abstract SubTerms : term seq
+        abstract SubTerms : term list
         abstract Time : vectorTime
         abstract TypeOfLocation : Type
 
@@ -1029,19 +1029,20 @@ module internal Terms =
     and private foldChildren folder state term k =
         match term.term with
         | Constant(_, source, _) ->
-            foldSeq folder source.SubTerms state k
+            foldList folder source.SubTerms state k
         | Expression(_, args, _) ->
-            foldSeq folder args state k
+            foldList folder args state k
         | Struct(fields, _) ->
-            foldSeq folder (PersistentDict.values fields) state k
+            let values = PersistentDict.values fields |> List.ofSeq
+            foldList folder values state k
         | Ref address ->
             foldAddress folder state address k
         | Ptr(address, _, indent) ->
             foldPointerBase folder state address (fun state ->
             doFold folder state indent k)
         | GuardedValues(gs, vs) ->
-            foldSeq folder gs state (fun state ->
-            foldSeq folder vs state k)
+            foldList folder gs state (fun state ->
+            foldList folder vs state k)
         | Slice(t, slices) ->
             let foldSlice state (s, e, pos) k =
                 doFold folder state s (fun state ->
@@ -1063,7 +1064,7 @@ module internal Terms =
         | ClassField(addr, _) -> doFold folder state addr k
         | ArrayIndex(addr, indices, _) ->
             doFold folder state addr (fun state ->
-            foldSeq folder indices state k)
+            foldList folder indices state k)
         | StructField(addr, _) -> foldAddress folder state addr k
         | ArrayLength(addr, idx, _)
         | ArrayLowerBound(addr, idx, _) ->
@@ -1077,17 +1078,17 @@ module internal Terms =
         | StackLocation _
         | StaticLocation _ -> k state
 
-    and private foldSeq folder terms state k =
-        Cps.Seq.foldlk (doFold folder) state terms k
+    and private foldList folder (terms : term list) state k =
+        Cps.List.foldlk (doFold folder) state terms k
 
     and fold folder state terms =
-        foldSeq folder terms state id
+        foldList folder terms state id
 
     and iter action term =
         doFold action () term id
 
-    and iterSeq action terms =
-        Cps.Seq.foldlk (doFold action) () terms id
+    and iterList action terms =
+        Cps.List.foldlk (doFold action) () terms id
 
     and discoverConstants terms =
         let result = HashSet<term>()

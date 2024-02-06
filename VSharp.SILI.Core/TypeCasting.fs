@@ -24,7 +24,12 @@ module internal TypeCasting =
     type private symbolicSubtypeSource =
         {left : subtypeElement; right : subtypeElement}
         interface IStatedSymbolicConstantSource with
-            override x.SubTerms = optCons (optCons [] x.left.SubTerm) x.right.SubTerm :> term seq
+            override x.SubTerms =
+                match x.left.SubTerm, x.right.SubTerm with
+                | Some left, Some right -> [left; right]
+                | None, Some right -> List.singleton right
+                | Some left, None -> List.singleton left
+                | None, None -> List.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<bool>
 

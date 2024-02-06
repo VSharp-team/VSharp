@@ -220,7 +220,7 @@ module internal Memory =
     type private hashCodeSource =
         {object : term}
         interface INonComposableSymbolicConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<int32>
 
@@ -268,7 +268,7 @@ module internal Memory =
     type private stackReading =
         {key : stackKey; time : vectorTime}
         interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = x.time
             override x.TypeOfLocation = x.key.TypeOfLocation
 
@@ -276,7 +276,7 @@ module internal Memory =
     type private heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
         {picker : regionPicker<'key, 'reg>; key : 'key; memoryObject : memoryRegion<'key, 'reg>; time : vectorTime}
         interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
 
@@ -289,7 +289,7 @@ module internal Memory =
             time : vectorTime
         }
         interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
 
@@ -399,7 +399,7 @@ module internal Memory =
     type private typeInitialized =
         {typ : Type; matchingTypes : symbolicTypeSet}
         interface IStatedSymbolicConstantSource  with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<bool>
 
