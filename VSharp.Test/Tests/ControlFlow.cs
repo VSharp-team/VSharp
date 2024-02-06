@@ -375,6 +375,21 @@ namespace IntegrationTests
 
             return res;
         }
+        
+        [TestSvm(100, strat: SearchStrategy.AI)]
+        public static int NestedForsSimple_AI(int x)
+        {
+            int res = 0;
+            for (int i = 0; i < x; i++)
+            {
+                for (int j = 0; j < x; j++)
+                {
+                    res++;
+                }
+            }
+
+            return res;
+        }
 
         [Ignore("Looping due to non-terminating paths")]
         public static int NestedForsHard(int x)

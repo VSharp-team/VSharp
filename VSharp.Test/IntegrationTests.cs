@@ -29,7 +29,8 @@ namespace VSharp.Test
         ContributedCoverage,
         ExecutionTree,
         ExecutionTreeContributedCoverage,
-        Interleaved
+        Interleaved,
+        AI
     }
 
     public enum CoverageZone
@@ -149,7 +150,7 @@ namespace VSharp.Test
             ExplorationMode explorationMode = ExplorationMode.Sili,
             int randomSeed = 0,
             uint stepsLimit = 0,
-            string pathToModel = null)
+            string pathToModel = "models/model.onnx")
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -282,6 +283,7 @@ namespace VSharp.Test
                     SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
                     SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                     SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
+                    SearchStrategy.AI => searchMode.AIMode,
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
 
@@ -485,6 +487,7 @@ namespace VSharp.Test
                     );
 
                     using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
+                    Application.reset();
                     explorer.StartExploration(
                         new [] { exploredMethodInfo },
                         global::System.Array.Empty<Tuple<MethodBase, string[]>>()
