@@ -546,7 +546,10 @@ module private UpdateTree =
                 assert(sameKey |> List.forall (fun (_, k) -> k.value = (List.head sameKey |> snd).value))
                 (sameKey |> List.head |> snd).value
             else
-                if key.IsRange then makeSymbolic (Node d) None
+                if key.IsRange || List.length otherKeys = 1 && (List.head otherKeys |> snd).key.IsRange then
+                    match PersistentDict.tryFind d reg with
+                    | Some(value, _) -> makeSymbolic (Node d) (Some value)
+                    | _ -> makeSymbolic (Node d) None
                 else splitRead d key None predicate makeSymbolic
 
     let memset (keyAndValues : seq<'key * 'value>) (tree : updateTree<'key, 'value, 'reg>) =
@@ -562,8 +565,11 @@ module private UpdateTree =
                     Option.defaultValue (True()) treeKey.guard
             let hangUnderSplittingSubtree acc stReg (stUtKey, st) =
                 let modifiedSubtree = hangRecordUnderSplittingTree utKey stReg predicate st
-                let guardedStUtKey = {stUtKey with guard = Some(keyGuard stUtKey)}
-                PersistentDict.add stReg (guardedStUtKey, Node(modifiedSubtree)) acc
+                let updatedGuard = keyGuard stUtKey
+                if updatedGuard = False() then acc
+                else
+                    let guardedStUtKey = {stUtKey with guard = Some(updatedGuard)}
+                    PersistentDict.add stReg (guardedStUtKey, Node(modifiedSubtree)) acc
             let splittingTree = PersistentDict.fold hangUnderSplittingSubtree PersistentDict.empty splittingTree
             let restRegion = PersistentDict.fold (fun acc r _ -> (acc :> IRegion<_>).Subtract r) region splittingTree
             if restRegion.IsEmpty then splittingTree
@@ -577,11 +583,14 @@ module private UpdateTree =
             let included = hangRecordUnderSplittingTree utKey region predicate (Node(included))
             PersistentDict.append included disjoint |> Node
 
-    let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue (tree : updateTree<'key, 'value, 'reg>) =
+    let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue mapGuard (tree : updateTree<'key, 'value, 'reg>) =
         let mapper reg {key=k; value=v; guard = g; time = t} =
             let reg', k' = mapKey reg k
-            reg', k'.Region, {key=k'; value=mapValue v; guard=g; time=t}
-        RegionTree.map mapper tree
+            let g' = Option.map mapGuard g
+            match g' with
+            | Some(g) when g = False() -> None
+            | _ -> Some(reg', k'.Region, {key=k'; value=mapValue v; guard=g'; time=t})
+        RegionTree.choose mapper tree
 
     let compose (earlier : updateTree<'key, 'value, 'reg>) (later : updateTree<'key, 'value, 'reg>) predicate =
         later |> RegionTree.foldr (fun reg key trees ->
@@ -672,12 +681,12 @@ module MemoryRegion =
 
     let map (mapTerm : term -> term) (mapType : Type -> Type) (mapTime : vectorTime -> vectorTime) mr =
         let typ = mapType mr.typ
-        let updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates
+        let updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mapTerm mr.updates
         let defaultValue = Option.map mapTerm mr.defaultValue
         {typ = typ; updates = updates; defaultValue = defaultValue; nextUpdateTime = mr.nextUpdateTime }
 
     let mapKeys<'reg, 'key when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> (mapKey : 'reg -> 'key -> 'reg * 'key) mr =
-        {mr with updates = UpdateTree.map mapKey id mr.updates }
+        {mr with updates = UpdateTree.map mapKey id id mr.updates }
 
     let deterministicCompose earlier later =
         assert later.defaultValue.IsNone
