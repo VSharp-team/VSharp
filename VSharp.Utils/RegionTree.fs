@@ -96,13 +96,20 @@ module RegionTree =
     let filter reg predicate tree =
         filterRec reg predicate tree |> snd
 
-    let rec map (mapper : 'a -> 'key -> 'a * 'a * 'key when 'a :> IRegion<'a>) tree =
+    let map (mapper : 'a -> 'key -> 'a * 'a * 'key when 'a :> IRegion<'a>) tree =
         let folder reg k acc =
             let reg, reg', k' = mapper reg k
             if reg'.CompareTo reg = Disjoint then acc
             else write (reg.Intersect reg') k' acc
         foldr folder empty tree
 
+    let choose (mapper : 'a -> 'key -> option<'a * 'a * 'key> when 'a :> IRegion<'a>) tree =
+        let folder reg k acc =
+            match mapper reg k with
+            | Some(reg, reg', k') when reg'.CompareTo reg = Disjoint -> acc
+            | Some(reg, reg', k') -> write (reg.Intersect reg') k' acc
+            | None -> acc
+        foldr folder empty tree
     let rec append baseTree appendix =
         foldr write baseTree appendix
 

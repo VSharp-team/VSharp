@@ -997,7 +997,6 @@ module internal Z3 =
                 let value = path.Fold readFieldIfNeed record.value
                 let valueExpr = specializeWithKey value readKey record.key |> x.EncodeTerm
                 let assumptions = List.append assumptions valueExpr.assumptions
-                let recordGuard = Option.defaultValue (True()) record.guard
                 x.MkITE(recordReachability, valueExpr.expr, acc), assumptions
             let expr, assumptions = List.foldBack checkOneKey updates (inst, assumptions)
             encodingResult.Create(expr, assumptions)

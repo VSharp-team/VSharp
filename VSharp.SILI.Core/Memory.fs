@@ -425,26 +425,32 @@ module internal Memory =
                     else v
                 else v
             fieldInfo.SetValue(structObj, v)
+        let idKeyExtractor key _ = key
+        let rangeValueKeyExtractor value =
+            match value.term with
+            | HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(_, srcA, srcFrom, srcTo, _, _)), _)}, _) 
+            | Constant(_, ArrayRangeReading(_, srcA, srcFrom, srcTo, _, _), _) -> Some(srcA, srcFrom, srcTo)
+            | _ -> None
 
         let writeLowerBoundSymbolic address dimension arrayType value =
             ensureConcreteType arrayType.elemType
             let mr = accessRegion lowerBounds arrayType lengthType
             let key = {address = address; index = dimension}
-            let mr' = MemoryRegion.write mr key value
+            let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
             lowerBounds <- PersistentDict.add arrayType mr' lowerBounds
 
         let writeLengthSymbolic address dimension arrayType value =
             ensureConcreteType arrayType.elemType
             let mr = accessRegion lengths arrayType lengthType
             let key = {address = address; index = dimension}
-            let mr' = MemoryRegion.write mr key value
+            let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
             lengths <- PersistentDict.add arrayType mr' lengths
 
         let writeArrayKeySymbolic key arrayType value =
             let elementType = arrayType.elemType
             ensureConcreteType elementType
             let mr = accessRegion arrays arrayType elementType
-            let mr' = MemoryRegion.write mr key value
+            let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
             let newArrays = PersistentDict.add arrayType mr' arrays
             arrays <- newArrays
 
@@ -460,7 +466,7 @@ module internal Memory =
             ensureConcreteType field.typ
             let mr = accessRegion classFields field field.typ
             let key = {address = address}
-            let mr' = MemoryRegion.write mr key value
+            let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
             classFields <- PersistentDict.add field mr' classFields
 
         let writeArrayRangeSymbolic address fromIndices toIndices arrayType value =
@@ -481,14 +487,14 @@ module internal Memory =
         let writeStackBuffer stackKey index value =
             let mr = accessRegion stackBuffers stackKey typeof<int8>
             let key : stackBufferIndexKey = {index = index}
-            let mr' = MemoryRegion.write mr key value
+            let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
             stackBuffers <- PersistentDict.add stackKey mr' stackBuffers
 
         let writeBoxedLocationSymbolic (address : term) value typ =
             ensureConcreteType typ
             let mr = accessRegion boxedLocations typ typ
             let key = {address = address}
-            let mr' = MemoryRegion.write mr key value
+            let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
             boxedLocations <- PersistentDict.add typ mr' boxedLocations
 
         let writeAddressUnsafe (reporter : IErrorReporter) address startByte value =
@@ -784,7 +790,7 @@ module internal Memory =
             Seq.map prepareData data |> MemoryRegion.memset region
 
         member private self.ArrayRegionFromData concreteAddress data regionType =
-            let region = MemoryRegion.empty regionType
+            let region = MemoryRegion.emptyWithExplicit regionType
             self.ArrayRegionMemsetData concreteAddress data regionType region
 
         member private self.ReadRangeFromConcreteArray concreteAddress arrayData fromIndices toIndices arrayType =
@@ -808,6 +814,7 @@ module internal Memory =
             ensureConcreteType elemType
             let region = accessRegion arrays arrayType elemType
             let region' = self.ArrayRegionMemsetData concreteAddress data elemType region
+            let region' = MemoryRegion.addExplicitAddress concreteAddress region'
             arrays <- PersistentDict.add arrayType region' arrays
 
         member private self.MakeSymbolicStackRead key typ time =

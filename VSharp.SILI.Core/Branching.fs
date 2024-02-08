@@ -110,7 +110,7 @@ module internal Branching =
                         let state = thenState.model
                         let wrong = PC.toSeq thenPc |> List.ofSeq |> List.filter (fun x -> x |> thenState.model.Eval |> isTrue |> not)
                         let evaled = wrong |> List.map (fun x -> x |> thenState.model.Eval)
-                        internalfail "branching failed (at else)"
+                        internalfail $"branching failed (at else) {evaled}"
                     assert(PC.toSeq thenPc |> conjunction |> thenState.model.Eval |> isTrue)
                     TypeStorage.addTypeConstraint typeStorageCopy.Constraints notCondition
                     elseState.typeStorage <- typeStorageCopy

@@ -265,7 +265,7 @@ module internal Propositional =
             let filterDisjunction d =
                 match d.term with
                 | Disjunction xs ->
-                    let filtered = List.filter (fun x -> List.contains (simplifyNegation x id) literals |> not ) xs
+                    let filtered = List.filter (fun x -> List.contains !!x literals |> not ) xs
                     if List.length filtered = 0 then False() else makeNAry OperationType.LogicalOr filtered bool
                 | _ -> __unreachable__()
             let simplifiedDisjunctions = List.map filterDisjunction disjunctions

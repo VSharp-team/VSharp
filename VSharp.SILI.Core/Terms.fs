@@ -375,7 +375,7 @@ module internal Terms =
         | Struct(fields, _) -> fields
         | term -> internalfail $"struct or class expected, {term} received"
 
-    let private typeOfUnion getType gvs =
+    let private typeOfUnion (getType : 'a -> Type)  gvs =
         let types = List.map (snd >> getType) gvs
         match types with
         | [] -> __unreachable__()
@@ -383,7 +383,8 @@ module internal Terms =
             let allSame =
                 List.forall ((=) t) ts
             if allSame then t
-            else internalfail $"evaluating type of unexpected union {gvs}!"
+            else
+                types |> List.fold (fun acc t -> if t.IsAssignableTo(acc) then acc else t) t
 
     let commonTypeOf getType term =
         match term.term with
