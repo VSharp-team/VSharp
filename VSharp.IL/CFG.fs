@@ -588,9 +588,6 @@ type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:Applicatio
             
             let added = callTo.IncomingCallEdges.Add callFrom
             assert added
-            //if callFrom <> returnTo then
-            //    let removed = callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge //CallGraph.dummyTerminalForCallShortcut
-            //    assert removed
         else ()
 
     let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
