@@ -355,7 +355,7 @@ namespace VSharp.Runner
                 "Time for test generation in seconds. Negative value means no timeout.");
             var pathToModelOption = new Option<string>(
                 aliases: new[] { "--model", "-m" },
-                () => defaultOptions.PathToModel,
+                () => defaultOptions.GetDefaultPathToModel(),
                 "Path to ONNX file with model for AI searcher.");
             var solverTimeoutOption = new Option<int>(
                 aliases: new[] { "--solver-timeout", "-st" },

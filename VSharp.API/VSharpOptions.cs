@@ -170,4 +170,9 @@ public readonly record struct VSharpOptions
     /// </summary>
     public DirectoryInfo RenderedTestsDirectoryInfo =>
         Directory.Exists(RenderedTestsDirectory) ? new DirectoryInfo(RenderedTestsDirectory) : null;
+
+    public string GetDefaultPathToModel()
+    {
+        return DefaultPathToModel;
+    }
 }
