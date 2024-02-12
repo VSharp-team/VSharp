@@ -149,9 +149,12 @@ type internal AISearcher(oracle: Oracle, aiAgentTrainingOptions: Option<AIAgentT
         let numOfStateAttributes = 7
         let numOfHistoryEdgeAttributes = 2
         let createOracle (pathToONNX: string) =
-            let session = new InferenceSession(pathToONNX)
+            let sessionOptions = new SessionOptions()
+            sessionOptions.ExecutionMode <- ExecutionMode.ORT_PARALLEL
+            sessionOptions.GraphOptimizationLevel <- GraphOptimizationLevel.ORT_ENABLE_ALL
+            let session = new InferenceSession(pathToONNX, sessionOptions)
             let runOptions = new RunOptions()
-            let feedback (x:Feedback) = ()            
+            let feedback (x:Feedback) = ()
             let predict (gameState:GameState) =
                 let stateIds = Dictionary<uint<stateId>,int>()
                 let verticesIds = Dictionary<uint<basicBlockGlobalId>,int>()
