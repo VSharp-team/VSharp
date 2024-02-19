@@ -80,7 +80,7 @@ let loadGameMaps (datasetDescriptionFilePath:string) =
         maps.Add map        
     maps
 
-let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
+let ws port outputDirectory (webSocket : WebSocket) (context: HttpContext) =
   let mutable loop = true
   
   socket {
@@ -144,6 +144,7 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
                 match message with
                 | ServerStop -> loop <- false
                 | Start gameMap ->
+                    printfn $"Start map {gameMap.MapName}, port {port}"
                     let aiTrainingOptions =
                             {
                                 stepsToSwitchToAI = gameMap.StepsToStart
@@ -164,6 +165,7 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
                     API.Reset()
                     HashMap.hashMap.Clear()
                     do! sendResponse (GameOver (explorationResult.ActualCoverage, explorationResult.TestsCount, explorationResult.ErrorsCount))
+                    printfn $"Finish map {gameMap.MapName}, port {port}"
                 | x -> failwithf $"Unexpected message: %A{x}"
                 
         | (Close, _, _) ->
@@ -173,9 +175,9 @@ let ws outputDirectory (webSocket : WebSocket) (context: HttpContext) =
         | _ -> ()
     }
   
-let app port : WebPart =
+let app port outputDirectory : WebPart =
     choose [
-        path "/gameServer" >=> handShake (ws port)
+        path "/gameServer" >=> handShake (ws port outputDirectory)
     ]
 
 let generateDataForPretraining outputDirectory datasetBasePath (maps:ResizeArray<GameMap>) stepsToSerialize =
@@ -243,10 +245,15 @@ let main args =
     printfn $"outputDir: {outputDirectory}"                
         
     match mode with
-    | Mode.Server -> 
-        startWebServer {defaultConfig with
-                            logger = Targets.create Verbose [||]
-                            bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app outputDirectory)
+    | Mode.Server ->
+        try 
+            startWebServer {defaultConfig with
+                                logger = Targets.create Verbose [||]
+                                bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app port outputDirectory)
+        with
+        | e ->
+            printfn $"Failed on port {port}"
+            printfn $"{e.Message}"
     | Mode.Generator ->
         let maps = loadGameMaps datasetDescription
         generateDataForPretraining outputDirectory datasetBasePath maps stepsToSerialize
