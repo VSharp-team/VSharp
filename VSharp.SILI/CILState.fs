@@ -6,16 +6,17 @@ open System.Collections.Generic
 open VSharp.Core
 open VSharp.Interpreter.IL
 open IpOperations
+open VSharp.ML.GameServer.Messages
 
 module CilState =
 
     type prefix =
         | Constrained of System.Type
 
-    let mutable currentStateId = 0u
+    let mutable currentStateId = 0u<VSharp.ML.GameServer.Messages.stateId>
     let getNextStateId() =
         let nextId = currentStateId
-        currentStateId <- currentStateId + 1u
+        currentStateId <- currentStateId + 1u<VSharp.ML.GameServer.Messages.stateId>
         nextId
 
     type public ErrorReporter internal (cilState : cilState) =
@@ -104,11 +105,18 @@ module CilState =
             /// <summary>
             /// Deterministic state id.
             /// </summary>
-            internalId : uint
+            mutable internalId : uint<stateId>
+            mutable visitedAgainVertices: uint
+            mutable visitedNotCoveredVerticesInZone: uint
+            mutable visitedNotCoveredVerticesOutOfZone: uint
+            mutable stepWhenMovedLastTime: uint<step>
+            mutable instructionsVisitedInCurrentBlock: uint<instruction>
+            mutable _history: Dictionary<BasicBlock,StateHistoryElem>
+            mutable children: list<cilState>
         }
 
         static member CreateInitial (m : Method) (state : state) =
-            let ip = Instruction(0<offsets>, m)
+            let ip = Instruction(0<byte_offset>, m)
             let approximateLoc = ip.ToCodeLocation() |> Option.get
             {
                 ipStack = List.singleton ip
@@ -128,6 +136,13 @@ module CilState =
                 history = Set.empty
                 entryMethod = Some m
                 internalId = getNextStateId()
+                visitedAgainVertices = 0u
+                visitedNotCoveredVerticesInZone = 0u
+                visitedNotCoveredVerticesOutOfZone = 0u
+                stepWhenMovedLastTime = 0u<step>
+                instructionsVisitedInCurrentBlock = 0u<instruction>
+                _history = Dictionary()
+                children = []
             }
 
         member private x.ErrorReporter = lazy ErrorReporter(x)
@@ -140,7 +155,7 @@ module CilState =
 
         member x.StartsFromMethodBeginning with get() =
             match x.startingIP with
-            | Instruction (0<offsets>, _) -> true
+            | Instruction (0<byte_offset>, _) -> true
             | _ -> false
 
         member x.SetCurrentTime time = x.state.currentTime <- time
@@ -442,6 +457,7 @@ module CilState =
             let mkCilState state' =
                 if LanguagePrimitives.PhysicalEquality state' x.state then x
                 else clone.Copy(state')
+                    
             StatedConditionalExecution x.state conditionInvocation
                 (fun state k -> thenBranch (mkCilState state) k)
                 (fun state k -> elseBranch (mkCilState state) k)
@@ -477,7 +493,14 @@ module CilState =
         // -------------------- Changing inner state --------------------
 
         member x.Copy(state : state) =
-            { x with state = state }
+            let historyCopy = Dictionary<_,_>()
+            for kvp in x._history do historyCopy.Add(kvp.Key, kvp.Value)            
+            { x with state = state
+                     internalId = getNextStateId()
+                     children = []
+                     _history = historyCopy
+                     stepWhenMovedLastTime = x.stepWhenMovedLastTime
+            }
 
         // This function copies cilState, instead of mutation
         member x.ChangeState state' : cilState =
@@ -496,6 +519,17 @@ module CilState =
         interface IGraphTrackableState with
             override this.CodeLocation = this.approximateLoc
             override this.CallStack = Memory.StackTrace this.state.stack |> List.map (fun m -> m :?> Method)
+            override this.Id = this.internalId
+            override this.PathConditionSize with get () = PersistentSet.cardinality this.state.pc |> uint32
+            override this.VisitedAgainVertices with get () = this.visitedAgainVertices
+            override this.VisitedNotCoveredVerticesInZone with get () = this.visitedNotCoveredVerticesInZone
+            override this.VisitedNotCoveredVerticesOutOfZone with get () = this.visitedNotCoveredVerticesOutOfZone
+            override this.StepWhenMovedLastTime with get () = this.stepWhenMovedLastTime
+            override this.InstructionsVisitedInCurrentBlock
+                with get() = this.instructionsVisitedInCurrentBlock
+                and set v =  this.instructionsVisitedInCurrentBlock <- v
+            override this.History with get () = this._history
+            override this.Children with get () = this.children |> Seq.cast<_> |> Array.ofSeq
 
 module CilStateOperations =
     open CilState

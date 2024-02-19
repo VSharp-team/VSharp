@@ -2,6 +2,7 @@ namespace VSharp.Explorer
 
 open System.Diagnostics
 open System.IO
+open VSharp.ML.GameServer.Messages
 
 type searchMode =
     | DFSMode
@@ -12,6 +13,7 @@ type searchMode =
     | ExecutionTreeMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
+    | AIMode
 
 type coverageZone =
     | MethodZone
@@ -30,6 +32,31 @@ type FuzzerOptions = {
     coverageZone: coverageZone
 }
 
+[<Struct>]
+type Oracle =
+    val Predict: GameState -> uint<stateId>
+    val Feedback: Feedback -> unit
+    new (predict, feedback) = {Predict=predict; Feedback = feedback}
+
+/// <summary>
+/// Options used in AI agent training.
+/// </summary>
+/// <param name="stepsToSwitchToAI">Number of steps of default searcher prior to switch to AI mode.</param>
+/// <param name="stepsToPlay">Number of steps to play in AI mode.</param>
+/// <param name="defaultSearchStrategy">Default searcher that will be used to play few initial steps.</param>
+/// <param name="serializeSteps">Determine whether steps should be serialized.</param>
+/// <param name="mapName">Name of map to play.</param>
+/// <param name="mapName">Name of map to play.</param>
+type AIAgentTrainingOptions =
+    {
+        stepsToSwitchToAI: uint<step>
+        stepsToPlay: uint<step>
+        defaultSearchStrategy: searchMode
+        serializeSteps: bool
+        mapName: string
+        oracle: Option<Oracle>
+    }
+    
 type SVMOptions = {
     explorationMode : explorationMode
     recThreshold : uint
@@ -42,6 +69,8 @@ type SVMOptions = {
     stopOnCoverageAchieved : int
     randomSeed : int
     stepsLimit : uint
+    aiAgentTrainingOptions: Option<AIAgentTrainingOptions>
+    pathToModel: Option<string>
 }
 
 type explorationModeOptions =

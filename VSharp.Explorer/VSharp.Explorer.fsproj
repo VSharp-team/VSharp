@@ -32,7 +32,11 @@
         <Compile Include="GuidedSearcher.fs" />
         <Compile Include="FairSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
+        <Compile Include="AISearcher.fs" />
         <Compile Include="Explorer.fs" />
+        <Content Include="models\model.onnx">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>
@@ -45,5 +49,7 @@
 
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="7.0.*" />
+        <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.16.3" />
+        <PackageReference Include="System.Numerics.Tensors" Version="8.0.0" />
     </ItemGroup>
 </Project>

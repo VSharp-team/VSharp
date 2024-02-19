@@ -9,6 +9,7 @@ open CilState
 
 type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearcher, targeted : ITargetedSearcher) =
 
+    member this.ForwardSearcher = forward
 //    let starts = Queue<MethodBase>()
 //    let addedStarts = HashSet<MethodBase>()
 //    let mutable inverseReachability : Dictionary<MethodBase, HashSet<MethodBase>> = null

@@ -92,7 +92,9 @@ internal static class Benchmarks
             checkAttributes: false,
             stopOnCoverageAchieved: -1,
             randomSeed: randomSeed,
-            stepsLimit: stepsLimit
+            stepsLimit: stepsLimit,
+            aiAgentTrainingOptions: null,
+            pathToModel: null
         );
 
         var fuzzerOptions = new FuzzerOptions(

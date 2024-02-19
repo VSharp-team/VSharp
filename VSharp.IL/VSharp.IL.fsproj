@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net7.0</TargetFramework>
@@ -20,14 +20,17 @@
       <Compile Include="MethodBody.fs" />
       <Compile Include="CFG.fs" />
       <Compile Include="DotVisualizer.fs" />
+      <Compile Include="Serializer.fs" />
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\VSharp.ML.GameServer\VSharp.ML.GameServer.fsproj" />
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
       <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
       <PackageReference Update="FSharp.Core" Version="7.0.*" />
     </ItemGroup>
 

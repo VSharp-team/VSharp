@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Microsoft.FSharp.Core;
 using VSharp.CoverageTool;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
@@ -178,6 +179,7 @@ namespace VSharp
                     explorationMode: explorationMode.NewTestCoverageMode(
                         coverageZone,
                         options.Timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
+                        
                     ),
                     recThreshold: options.RecursionThreshold,
                     solverTimeout: options.SolverTimeout,
@@ -188,8 +190,9 @@ namespace VSharp
                     checkAttributes: true,
                     stopOnCoverageAchieved: 100,
                     randomSeed: options.RandomSeed,
-                    stepsLimit: options.StepsLimit
-                );
+                    stepsLimit: options.StepsLimit,
+                    aiAgentTrainingOptions: options.AIAgentTrainingOptions == null ? FSharpOption<AIAgentTrainingOptions>.None :FSharpOption<AIAgentTrainingOptions>.Some(options.AIAgentTrainingOptions),
+                    pathToModel: options.PathToModel == null ? FSharpOption<string>.None : FSharpOption<string>.Some(options.PathToModel));
 
             var fuzzerOptions =
                 new FuzzerOptions(
@@ -278,6 +281,7 @@ namespace VSharp
                 SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
                 SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                 SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
+                SearchStrategy.AI => searchMode.AIMode,
                 _ => throw new UnreachableException("Unknown search strategy")
             };
         }

@@ -1,6 +1,7 @@
 namespace VSharp.Explorer
 
 open System
+open System.IO
 open System.Reflection
 open System.Threading
 open System.Threading.Tasks
@@ -11,7 +12,9 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 open CilState
 open VSharp.Explorer
+open VSharp.ML.GameServer.Messages
 open VSharp.Solver
+open VSharp.IL.Serializer
 
 type IReporter =
     abstract member ReportFinished: UnitTest -> unit
@@ -25,9 +28,11 @@ type private IExplorer =
     abstract member StartExploration: (Method * state) list -> (Method * string[] * state) list -> Task
 
 type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVMStatistics, reporter: IReporter) =
-
-    let options = explorationOptions.svmOptions
-
+    let options = explorationOptions.svmOptions 
+    let folderToStoreSerializationResult =
+        match options.aiAgentTrainingOptions with
+        | None -> ""
+        | Some options -> getFolderToStoreSerializationResult (Path.GetDirectoryName explorationOptions.outputDirectory.FullName) options.mapName    
     let hasTimeout = explorationOptions.timeout.TotalMilliseconds > 0
 
     let solverTimeout =
@@ -76,6 +81,16 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
     let rec mkForwardSearcher mode =
         let getRandomSeedOption() = if options.randomSeed < 0 then None else Some options.randomSeed
         match mode with
+        | AIMode ->
+            match options.aiAgentTrainingOptions with
+            | Some aiOptions ->
+                match aiOptions.oracle with 
+                | Some oracle -> AISearcher(oracle, options.aiAgentTrainingOptions) :> IForwardSearcher
+                | None -> failwith "Empty oracle for AI searcher."           
+            | None ->
+                match options.pathToModel with
+                | Some s -> AISearcher s
+                | None -> failwith "Empty model for AI searcher."
         | BFSMode -> BFSSearcher() :> IForwardSearcher
         | DFSMode -> DFSSearcher() :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
@@ -299,7 +314,9 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                 goodStates @ iieStates @ errors
             | _ ->
                 sIsStopped <- true
-                goodStates @ iieStates @ errors
+                goodStates @ iieStates @ errors        
+
+        s.children <- s.children @ newStates
         Application.moveState loc s (Seq.cast<_> newStates)
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
@@ -324,7 +341,9 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
 
     member private x.BidirectionalSymbolicExecution() =
+        
         let mutable action = Stop
+        
         let pick() =
             match searcher.Pick() with
             | Stop -> false
@@ -337,6 +356,10 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
             match action with
             | GoFront s ->
                 try
+                    if options.aiAgentTrainingOptions.IsSome && options.aiAgentTrainingOptions.Value.serializeSteps
+                    then
+                        dumpGameState (System.IO.Path.Combine(folderToStoreSerializationResult, string firstFreeEpisodeNumber)) s.internalId
+                        firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1
                     x.Forward(s)
                 with
                 | e -> reportStateInternalFail s e

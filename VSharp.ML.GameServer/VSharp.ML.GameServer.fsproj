@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Messages.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
+    </ItemGroup>
+    
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="7.0.*" />
+    </ItemGroup>
+
+</Project>

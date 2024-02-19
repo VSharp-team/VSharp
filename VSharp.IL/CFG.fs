@@ -2,6 +2,7 @@ namespace VSharp
 
 open System.Collections.Concurrent
 open VSharp.GraphUtils
+open VSharp.ML.GameServer.Messages
 open global.System
 open System.Reflection
 open System.Collections.Generic
@@ -14,29 +15,63 @@ type ICallGraphNode =
 type IReversedCallGraphNode =
     inherit IGraphNode<IReversedCallGraphNode>
 
-module CallGraph =
-    let callGraphDistanceFrom = Dictionary<Assembly, distanceCache<ICallGraphNode>>()
-    let callGraphDistanceTo = Dictionary<Assembly, distanceCache<IReversedCallGraphNode>>()
+type coverageType =
+    | ByTest
+    | ByEntryPointTest
 
 type [<Measure>] terminalSymbol
 
-type ICfgNode =
-    inherit IGraphNode<ICfgNode>
-    abstract Offset : offset
+module CallGraph =
+    let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<ICallGraphNode>>()
+    let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<IReversedCallGraphNode>>()
+    let dummyTerminalForCallShortcut = 3<terminalSymbol>
 
+
+type ICfgNode =
+        inherit IGraphNode<ICfgNode>
+        abstract Offset : offset 
+
+type IInterproceduralCfgNode =
+        inherit IGraphNode<IInterproceduralCfgNode>        
+        abstract IsCovered : bool with get
+        abstract IsVisited : bool with get
+        abstract IsTouched : bool with get
+        abstract IsGoal : bool with get
+        abstract IsSink : bool with get
+
+
+[<RequireQualifiedAccess>]
+type EdgeType =
+    | CFG
+    | ShortcutForCall
+    | Call of int<terminalSymbol>
+    | Return of int<terminalSymbol>
+    
+[<Struct>]
+type EdgeLabel =
+    val EdgeType: EdgeType
+    val IsCovered: bool
+    val IsVisited: bool 
+    
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
-type BasicBlock (method: MethodWithBody, startOffset: offset) =
+type BasicBlock (method: MethodWithBody, startOffset: offset, id:uint<basicBlockGlobalId>) =
     let mutable finalOffset = startOffset
+    let mutable containsCall = false
+    let mutable containsThrow = false
     let mutable startOffset = startOffset
     let mutable isGoal = false
     let mutable isCovered = false
+    let mutable isVisited = false
+    let mutable isSink = false
+    let mutable visitedInstructions = 0u
     let associatedStates = HashSet<IGraphTrackableState>()
     let incomingCFGEdges = HashSet<BasicBlock>()
     let incomingCallEdges = HashSet<BasicBlock>()
     let outgoingEdges = Dictionary<int<terminalSymbol>, HashSet<BasicBlock>>()
 
+    member this.Id = id
     member this.StartOffset
         with get () = startOffset
         and internal set v = startOffset <- v
@@ -45,12 +80,23 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     member this.IncomingCFGEdges = incomingCFGEdges
     member this.IncomingCallEdges = incomingCallEdges
     member this.AssociatedStates = associatedStates
+    member this.VisitedInstructions
+        with get () = visitedInstructions
+        and set v = visitedInstructions <- v
     member this.IsCovered
         with get () = isCovered
         and set v = isCovered <- v
+    member this.IsVisited
+        with get () = isVisited
+        and set v = isVisited <- v
     member this.IsGoal
         with get () = isGoal
         and set v = isGoal <- v
+    member this.IsTouched
+        with get () = visitedInstructions > 0u    
+    member this.IsSink
+        with get () = isSink
+        and set v = isSink <- v
     member this.HasSiblings
         with get () =
             let siblings = HashSet<BasicBlock>()
@@ -60,10 +106,18 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
             siblings.Count > 1
 
     member this.FinalOffset
-        with get () = finalOffset
-        and internal set (v : offset) = finalOffset <- v
+        with get () = finalOffset 
+        and set (v: offset) = finalOffset <- v
 
-    member private this.GetInstructions() =
+    member this.ContainsCall
+        with get () = containsCall 
+        and set (v: bool) = containsCall <- v    
+    
+    member this.ContainsThrow
+        with get () = containsThrow 
+        and set (v: bool) = containsThrow <- v
+    
+    member this.GetInstructions() =
         let parsedInstructions = method.ParsedInstructions
         let mutable instr = parsedInstructions[this.StartOffset]
         assert(Offset.from (int instr.offset) = this.StartOffset)
@@ -83,16 +137,34 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
 
     member this.BlockSize with get() =
         this.GetInstructions() |> Seq.length
-
+        
     interface ICfgNode with
         member this.OutgoingEdges
             with get () =
-                let exists, cfgEdges = outgoingEdges.TryGetValue CfgInfo.TerminalForCFGEdge
-                if exists
-                then cfgEdges |> Seq.cast<ICfgNode>
-                else Seq.empty
+                let exists1,cfgEdges = outgoingEdges.TryGetValue CfgInfo.TerminalForCFGEdge
+                let exists2,cfgSpecialEdges = outgoingEdges.TryGetValue CallGraph.dummyTerminalForCallShortcut
+                seq{
+                    if exists1
+                    then yield! cfgEdges |> Seq.cast<ICfgNode>
+                    if exists2
+                    then yield! cfgSpecialEdges |> Seq.cast<ICfgNode>
+                }
         member this.Offset = startOffset
-
+        
+    interface IInterproceduralCfgNode with
+        member this.OutgoingEdges
+            with get () =
+                seq{
+                    for kvp in outgoingEdges do
+                        if kvp.Key <> CallGraph.dummyTerminalForCallShortcut
+                        then yield! kvp.Value |> Seq.cast<IInterproceduralCfgNode>
+                }
+        member this.IsCovered with get() = this.IsCovered
+        member this.IsVisited with get() = this.IsVisited
+        member this.IsTouched with get() = this.IsTouched
+        member this.IsGoal with get() = this.IsGoal
+        member this.IsSink with get() = this.IsSink
+        
 and [<Struct>] CallInfo =
     val Callee: Method
     val CallFrom: offset
@@ -102,10 +174,10 @@ and [<Struct>] CallInfo =
             Callee = callee
             CallFrom = callFrom
             ReturnTo = returnTo
-        }
+        }        
 
-and CfgInfo internal (method : MethodWithBody) =
-    let () = assert method.HasBody
+and CfgInfo internal (method : MethodWithBody, getNextBasicBlockGlobalId: unit -> uint<basicBlockGlobalId>) =
+    let () = assert method.HasBody    
     let ilBytes = method.ILBytes
     let exceptionHandlers = method.ExceptionHandlers
     let sortedBasicBlocks = ResizeArray<BasicBlock>()
@@ -142,7 +214,7 @@ and CfgInfo internal (method : MethodWithBody) =
 
         let splitBasicBlock (block : BasicBlock) intermediatePoint =
 
-            let newBlock = BasicBlock(method, block.StartOffset)
+            let newBlock = BasicBlock(method, block.StartOffset, getNextBasicBlockGlobalId())
             addBasicBlock newBlock
             block.StartOffset <- intermediatePoint
 
@@ -170,7 +242,7 @@ and CfgInfo internal (method : MethodWithBody) =
         let makeNewBasicBlock startVertex =
             match vertexToBasicBlock[int startVertex] with
             | None ->
-                let newBasicBlock = BasicBlock(method, startVertex)
+                let newBasicBlock = BasicBlock(method, startVertex, getNextBasicBlockGlobalId())
                 vertexToBasicBlock[int startVertex] <- Some newBasicBlock
                 addBasicBlock newBasicBlock
                 newBasicBlock
@@ -213,6 +285,7 @@ and CfgInfo internal (method : MethodWithBody) =
                 let processCall (callee : MethodWithBody) callFrom returnTo k =
                     calls.Add(currentBasicBlock, CallInfo(callee :?> Method, callFrom, returnTo))
                     currentBasicBlock.FinalOffset <- callFrom
+                    currentBasicBlock.ContainsThrow <- true
                     let newBasicBlock = makeNewBasicBlock returnTo
                     addEdge currentBasicBlock newBasicBlock
                     dfs' newBasicBlock returnTo k
@@ -273,7 +346,7 @@ and CfgInfo internal (method : MethodWithBody) =
             if i.Value <> infinity then
                 distFromNode.Add(i.Key, i.Value)
         distFromNode)
-
+        
     let resolveBasicBlockIndex offset =
         let rec binSearch (sortedOffsets : ResizeArray<BasicBlock>) offset l r =
             if l >= r then l
@@ -290,11 +363,11 @@ and CfgInfo internal (method : MethodWithBody) =
         binSearch sortedBasicBlocks offset 0 (sortedBasicBlocks.Count - 1)
 
     let resolveBasicBlock offset = sortedBasicBlocks[resolveBasicBlockIndex offset]
-
+        
     do
         let startVertices =
             [|
-             yield 0<offsets>
+             yield 0<byte_offset>
              for handler in exceptionHandlers do
                  yield handler.handlerOffset
                  match handler.ehcType with
@@ -322,12 +395,12 @@ and CfgInfo internal (method : MethodWithBody) =
         let basicBlock = resolveBasicBlock offset
         basicBlock.HasSiblings
 
-and Method internal (m : MethodBase) as this =
+and Method internal (m : MethodBase,getNextBasicBlockGlobalId) as this =
     inherit MethodWithBody(m)
     let cfg = lazy(
         if this.HasBody then
             Logger.trace $"Add CFG for {this}."
-            let cfg = CfgInfo this
+            let cfg = CfgInfo(this, getNextBasicBlockGlobalId)
             Method.ReportCFGLoaded this
             cfg
         else internalfailf $"Getting CFG of method {this} without body (extern or abstract)")
@@ -445,14 +518,38 @@ and
 and IGraphTrackableState =
     abstract member CodeLocation: codeLocation
     abstract member CallStack: list<Method>
+    abstract member Id: uint<stateId>
+    abstract member PathConditionSize: uint    
+    abstract member VisitedNotCoveredVerticesInZone: uint with get
+    abstract member VisitedNotCoveredVerticesOutOfZone: uint with get
+    abstract member VisitedAgainVertices: uint with get
+    abstract member InstructionsVisitedInCurrentBlock : uint<instruction>  with get, set
+    abstract member History:  Dictionary<BasicBlock,StateHistoryElem>
+    abstract member Children: array<IGraphTrackableState>
+    abstract member StepWhenMovedLastTime: uint<step> with get
 
 module public CodeLocation =
 
     let hasSiblings (blockStart : codeLocation) =
         blockStart.method.CFG.HasSiblings blockStart.offset
 
-type ApplicationGraph() =
-
+type ApplicationGraphDelta() =
+    let loadedMethods = ResizeArray<Method>()
+    let touchedBasicBlocks = HashSet<BasicBlock>()
+    let touchedStates = HashSet<IGraphTrackableState>()
+    let removedStates = HashSet<IGraphTrackableState>()
+    member this.LoadedMethods = loadedMethods
+    member this.TouchedBasicBlocks = touchedBasicBlocks
+    member this.TouchedStates = touchedStates
+    member this.RemovedStates = removedStates
+    member this.Clear() =
+        loadedMethods.Clear()
+        touchedBasicBlocks.Clear()
+        touchedStates.Clear()
+        removedStates.Clear()
+    
+type ApplicationGraph(getNextBasicBlockGlobalId,applicationGraphDelta:ApplicationGraphDelta) =
+    
     let dummyTerminalForCallEdge = 1<terminalSymbol>
     let dummyTerminalForReturnEdge = 2<terminalSymbol>
 
@@ -462,43 +559,90 @@ type ApplicationGraph() =
         let callFrom = callSource.BasicBlock
         let callTo = calledMethodCfgInfo.EntryPoint
         let exists, location = callerMethodCfgInfo.Calls.TryGetValue callSource.BasicBlock
+        
         if not <| callTo.IncomingCallEdges.Contains callFrom then
             let mutable returnTo = callFrom
             // if not exists then it should be from exception mechanism
-            if not callTarget.method.IsStaticConstructor && exists then
+            if (not callTarget.method.IsStaticConstructor) && exists then
                 returnTo <- callerMethodCfgInfo.ResolveBasicBlock location.ReturnTo
-                let exists, callEdges = callFrom.OutgoingEdges.TryGetValue dummyTerminalForCallEdge
-                if exists then
-                    let added = callEdges.Add callTo
-                    assert added
-                else callFrom.OutgoingEdges.Add(dummyTerminalForCallEdge, Seq.singleton callTo |> HashSet)
-
-            for returnFrom in calledMethodCfgInfo.Sinks do
-                let outgoingEdges = returnFrom.OutgoingEdges
-                let exists, returnEdges = outgoingEdges.TryGetValue dummyTerminalForReturnEdge
-                if exists then
+                
+            let exists, callEdges = callFrom.OutgoingEdges.TryGetValue dummyTerminalForCallEdge
+            if exists then
+                let added = callEdges.Add callTo
+                assert added
+            else
+                callFrom.OutgoingEdges.Add(dummyTerminalForCallEdge, HashSet [|callTo|])
+            
+            for returnFrom in calledMethodCfgInfo.Sinks do            
+                let exists,returnEdges = returnFrom.OutgoingEdges.TryGetValue dummyTerminalForReturnEdge
+                if exists
+                then
                     let added = returnEdges.Add returnTo
                     assert added
-                else outgoingEdges.Add(dummyTerminalForReturnEdge, Seq.singleton returnTo |> HashSet)
+                else
+                    returnFrom.OutgoingEdges.Add(dummyTerminalForReturnEdge, HashSet [|returnTo|])
                 let added = returnTo.IncomingCallEdges.Add returnFrom
                 assert added
+                let added = applicationGraphDelta.TouchedBasicBlocks.Add returnFrom
+                ()
+            
+            let added = callTo.IncomingCallEdges.Add callFrom
+            assert added
+        else ()
 
-            // 'returnFrom' may be equal to 'callFrom'
-            callTo.IncomingCallEdges.Add callFrom |> ignore
-
-    let moveState (initialPosition : codeLocation) (stateWithNewPosition : IGraphTrackableState) =
-        // Not implemented yet
-        ()
-
-    let addStates (parentState : Option<IGraphTrackableState>) (states : array<IGraphTrackableState>) =
-        // Not implemented yet
-        ()
+    let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
+        let added = applicationGraphDelta.TouchedBasicBlocks.Add initialPosition.BasicBlock
+        let added = applicationGraphDelta.TouchedBasicBlocks.Add stateWithNewPosition.CodeLocation.BasicBlock
+        let removed = initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition
+        if removed        
+        then
+            let added = stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
+            assert added 
+        if stateWithNewPosition.History.ContainsKey stateWithNewPosition.CodeLocation.BasicBlock
+        then
+             if initialPosition.BasicBlock <> stateWithNewPosition.CodeLocation.BasicBlock
+             then
+                let history = stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock]     
+                stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock]
+                    <- StateHistoryElem(stateWithNewPosition.CodeLocation.BasicBlock.Id, history.NumOfVisits + 1u, stateWithNewPosition.StepWhenMovedLastTime)
+             else stateWithNewPosition.InstructionsVisitedInCurrentBlock <- stateWithNewPosition.InstructionsVisitedInCurrentBlock + 1u<instruction> 
+        else stateWithNewPosition.History.Add(stateWithNewPosition.CodeLocation.BasicBlock, StateHistoryElem(stateWithNewPosition.CodeLocation.BasicBlock.Id, 1u, stateWithNewPosition.StepWhenMovedLastTime))
+        stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions <-
+            max
+                stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions
+                (uint ((stateWithNewPosition.CodeLocation.BasicBlock.GetInstructions()
+                      |> Seq.findIndex (fun instr -> Offset.from (int instr.offset) = stateWithNewPosition.CodeLocation.offset)) + 1))       
+        stateWithNewPosition.CodeLocation.BasicBlock.IsVisited <-
+            stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
+            || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
+    
+    let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) = 
+        //Option.iter (applicationGraphDelta.TouchedStates.Add >> ignore) parentState
+        parentState |> Option.iter (fun v -> applicationGraphDelta.TouchedBasicBlocks.Add v.CodeLocation.BasicBlock |> ignore) 
+        for newState in states do
+            //let added = applicationGraphDelta.TouchedStates.Add newState
+            let added = applicationGraphDelta.TouchedBasicBlocks.Add newState.CodeLocation.BasicBlock
+            let added = newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
+            if newState.History.ContainsKey newState.CodeLocation.BasicBlock             
+            then
+                let history = newState.History[newState.CodeLocation.BasicBlock]
+                newState.History[newState.CodeLocation.BasicBlock] <- StateHistoryElem(newState.CodeLocation.BasicBlock.Id, history.NumOfVisits + 1u, newState.StepWhenMovedLastTime)
+            else newState.History.Add(newState.CodeLocation.BasicBlock, StateHistoryElem(newState.CodeLocation.BasicBlock.Id, 1u, newState.StepWhenMovedLastTime))
+            newState.CodeLocation.BasicBlock.VisitedInstructions <-
+                max
+                    newState.CodeLocation.BasicBlock.VisitedInstructions
+                    (uint ((newState.CodeLocation.BasicBlock.GetInstructions()
+                          |> Seq.findIndex (fun instr -> Offset.from (int instr.offset) = newState.CodeLocation.offset)) + 1))
+            newState.CodeLocation.BasicBlock.IsVisited <-
+                newState.CodeLocation.BasicBlock.IsVisited
+                || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset
 
     let getShortestDistancesToGoals (states : array<codeLocation>) =
         __notImplemented__()
 
     member this.RegisterMethod (method : Method) =
         assert method.HasBody
+        applicationGraphDelta.LoadedMethods.Add method
 
     member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
         addCallEdge sourceLocation targetLocation
@@ -540,16 +684,27 @@ type NullVisualizer() =
         override x.VisualizeStep _ _ _ = ()
 
 module Application =
+    let applicationGraphDelta = ApplicationGraphDelta()
+    let mutable basicBlockGlobalCount = 0u<basicBlockGlobalId>
+    let getNextBasicBlockGlobalId () =
+        let r = basicBlockGlobalCount
+        basicBlockGlobalCount <- basicBlockGlobalCount + 1u<basicBlockGlobalId>
+        r
     let private methods = ConcurrentDictionary<methodDescriptor, Method>()
     let private _loadedMethods = ConcurrentDictionary<Method, unit>()
     let loadedMethods = _loadedMethods :> seq<_>
-    let graph = ApplicationGraph()
-    // TODO: if visualizer is not set, decline all 'ApplicationGraph' calls
+    let mutable graph = ApplicationGraph(getNextBasicBlockGlobalId, applicationGraphDelta)
     let mutable visualizer : IVisualizer = NullVisualizer()
 
+    let reset () =
+        applicationGraphDelta.Clear()
+        basicBlockGlobalCount <- 0u<basicBlockGlobalId>
+        graph <- ApplicationGraph(getNextBasicBlockGlobalId, applicationGraphDelta)
+        methods.Clear()
+        _loadedMethods.Clear()
     let getMethod (m : MethodBase) : Method =
         let desc = Reflection.getMethodDescriptor m
-        Dict.getValueOrUpdate methods desc (fun () -> Method(m))
+        Dict.getValueOrUpdate methods desc (fun () -> Method(m,getNextBasicBlockGlobalId))
 
     let setCoverageZone (zone : Method -> bool) =
         Method.CoverageZone <- zone
@@ -570,8 +725,12 @@ module Application =
         graph.AddForkedStates toState forked
         visualizer.VisualizeStep fromLoc toState forked
 
-    let terminateState state =
+    let terminateState (state: IGraphTrackableState) =
         // TODO: gsv: propagate this into application graph
+        let removed = state.CodeLocation.BasicBlock.AssociatedStates.Remove state
+        let added = applicationGraphDelta.TouchedBasicBlocks.Add state.CodeLocation.BasicBlock
+        //let added = applicationGraphDelta.TouchedStates.Add state
+        //let added = applicationGraphDelta.RemovedStates state
         visualizer.TerminateState state
 
     let addCallEdge = graph.AddCallEdge

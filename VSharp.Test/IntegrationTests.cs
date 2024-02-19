@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using Microsoft.FSharp.Collections;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -28,7 +29,8 @@ namespace VSharp.Test
         ContributedCoverage,
         ExecutionTree,
         ExecutionTreeContributedCoverage,
-        Interleaved
+        Interleaved,
+        AI
     }
 
     public enum CoverageZone
@@ -130,6 +132,7 @@ namespace VSharp.Test
         private readonly ExplorationMode _explorationMode;
         private readonly int _randomSeed;
         private readonly uint _stepsLimit;
+        private readonly string _pathToModel;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -140,13 +143,14 @@ namespace VSharp.Test
             SearchStrategy strat = SearchStrategy.BFS,
             CoverageZone coverageZone = CoverageZone.Class,
             TestsCheckerMode testsCheckerMode = TestsCheckerMode.RenderAndRun,
-            bool checkAttributes = true,
             bool hasExternMocking = false,
+            bool checkAttributes = true,
             OsType supportedOs = OsType.All,
             FuzzerIsolation fuzzerIsolation = FuzzerIsolation.Process,
             ExplorationMode explorationMode = ExplorationMode.Sili,
             int randomSeed = 0,
-            uint stepsLimit = 0)
+            uint stepsLimit = 0,
+            string pathToModel = "models/model.onnx")
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -160,12 +164,14 @@ namespace VSharp.Test
             _strat = strat;
             _coverageZone = coverageZone;
             _testsCheckerMode = testsCheckerMode;
+            _hasExternMocking = hasExternMocking;
             _checkAttributes = checkAttributes;
             _hasExternMocking = hasExternMocking;
             _supportedOs = supportedOs;
             _fuzzerIsolation = fuzzerIsolation;
             _explorationMode = explorationMode;
             _randomSeed = randomSeed;
+            _pathToModel = pathToModel;
             _stepsLimit = stepsLimit;
         }
 
@@ -182,12 +188,13 @@ namespace VSharp.Test
                 _coverageZone,
                 _testsCheckerMode,
                 _checkAttributes,
-                _hasExternMocking,
                 _supportedOs,
                 _fuzzerIsolation,
                 _explorationMode,
                 _randomSeed,
-                _stepsLimit
+                _stepsLimit,
+                _pathToModel,
+                _hasExternMocking
             );
         }
 
@@ -211,6 +218,7 @@ namespace VSharp.Test
             private readonly ExplorationMode _explorationMode;
             private readonly int _randomSeed;
             private readonly uint _stepsLimit;
+            private readonly string _pathToModel;
 
             private class Reporter: IReporter
             {
@@ -239,12 +247,13 @@ namespace VSharp.Test
                 CoverageZone coverageZone,
                 TestsCheckerMode testsCheckerMode,
                 bool checkAttributes,
-                bool hasExternMocking,
                 OsType supportedOs,
                 FuzzerIsolation fuzzerIsolation,
                 ExplorationMode explorationMode,
                 int randomSeed,
-                uint stepsLimit) : base(innerCommand)
+                uint stepsLimit,
+                string pathToModel,
+                bool hasExternMocking) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
                 _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
@@ -274,6 +283,7 @@ namespace VSharp.Test
                     SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
                     SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                     SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
+                    SearchStrategy.AI => searchMode.AIMode,
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
 
@@ -296,6 +306,7 @@ namespace VSharp.Test
                 _explorationMode = explorationMode;
                 _randomSeed = randomSeed;
                 _stepsLimit = stepsLimit;
+                _pathToModel = pathToModel;
             }
 
             private TestResult IgnoreTest(TestExecutionContext context)
@@ -451,7 +462,9 @@ namespace VSharp.Test
                         checkAttributes: _checkAttributes,
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
                         randomSeed: _randomSeed,
-                        stepsLimit: _stepsLimit
+                        stepsLimit: _stepsLimit,
+                        aiAgentTrainingOptions:null,
+                        pathToModel: _pathToModel
                     );
 
                     var fuzzerOptions = new FuzzerOptions(
@@ -474,6 +487,7 @@ namespace VSharp.Test
                     );
 
                     using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
+                    Application.reset();
                     explorer.StartExploration(
                         new [] { exploredMethodInfo },
                         global::System.Array.Empty<Tuple<MethodBase, string[]>>()
