@@ -478,7 +478,7 @@ module internal Memory =
             let key = key.Specialize key' srcA srcF srcT
             let inst = makeArraySymbolicHeapRead state p key state.startingTime
             MemoryRegion.read mo key (p.isDefaultKey state) inst
-        | Some { key = key'; value = value } when key'.Includes key -> value
+        | Some {key = key'; value = value} when key'.Includes key -> value
         | _ ->
             let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
             let name = picker.mkName key
@@ -787,7 +787,7 @@ module internal Memory =
         Seq.map prepareData data |> MemoryRegion.memset region
 
     let private arrayRegionFromData state concreteAddress data regionType =
-        let region = MemoryRegion.empty regionType
+        let region = MemoryRegion.emptySolid regionType
         arrayRegionMemsetData state concreteAddress data regionType region
 
     let private readRangeFromConcreteArray state concreteAddress arrayData fromIndices toIndices arrayType =
@@ -829,26 +829,35 @@ module internal Memory =
 
     let private ensureConcreteType typ =
         if isOpenType typ then __insufficientInformation__ $"Cannot write value of generic type {typ}"
+    type valueExtractionResult =
+        | Success of heapArrayKey
+        | Fail
+    let idKeyExtractor key _ = key
+    let rangeValueKeyExtractor value =
+        match value.term with
+        | HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(_, srcA, srcFrom, srcTo, _, _)), _)}, _) 
+        | Constant(_, ArrayRangeReading(_, srcA, srcFrom, srcTo, _, _), _) -> Some(srcA, srcFrom, srcTo)
+        | _ -> None
 
     let private writeLowerBoundSymbolic (state : state) address dimension arrayType value =
         ensureConcreteType arrayType.elemType
         let mr = accessRegion state.lowerBounds arrayType lengthType
         let key = {address = address; index = dimension}
-        let mr' = MemoryRegion.write mr key value
+        let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
         state.lowerBounds <- PersistentDict.add arrayType mr' state.lowerBounds
 
     let writeLengthSymbolic (state : state) address dimension arrayType value =
         ensureConcreteType arrayType.elemType
         let mr = accessRegion state.lengths arrayType lengthType
         let key = {address = address; index = dimension}
-        let mr' = MemoryRegion.write mr key value
+        let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
         state.lengths <- PersistentDict.add arrayType mr' state.lengths
 
     let private writeArrayKeySymbolic state key arrayType value =
         let elementType = arrayType.elemType
         ensureConcreteType elementType
         let mr = accessRegion state.arrays arrayType elementType
-        let mr' = MemoryRegion.write mr key value
+        let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
         let newArrays = PersistentDict.add arrayType mr' state.arrays
         state.arrays <- newArrays
 
@@ -1373,7 +1382,7 @@ module internal Memory =
         ensureConcreteType field.typ
         let mr = accessRegion state.classFields field field.typ
         let key = {address = address}
-        let mr' = MemoryRegion.write mr key value
+        let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
         state.classFields <- PersistentDict.add field mr' state.classFields
 
     let private writeArrayRangeSymbolic state address fromIndices toIndices arrayType value =
@@ -1405,7 +1414,7 @@ module internal Memory =
             else field.typ
         let mr = accessRegion state.staticFields field fieldType
         let key = {typ = typ}
-        let mr' = MemoryRegion.write mr key value
+        let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
         state.staticFields <- PersistentDict.add field mr' state.staticFields
         let currentMethod = CallStack.getCurrentFunc state.stack
         if not currentMethod.IsStaticConstructor then
@@ -1423,14 +1432,14 @@ module internal Memory =
     let writeStackBuffer state stackKey index value =
         let mr = accessRegion state.stackBuffers stackKey typeof<int8>
         let key : stackBufferIndexKey = {index = index}
-        let mr' = MemoryRegion.write mr key value
+        let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
         state.stackBuffers <- PersistentDict.add stackKey mr' state.stackBuffers
 
     let writeBoxedLocationSymbolic state (address : term) value typ =
         ensureConcreteType typ
         let mr = accessRegion state.boxedLocations typ typ
         let key = {address = address}
-        let mr' = MemoryRegion.write mr key value
+        let mr' = MemoryRegion.write mr key value rangeValueKeyExtractor
         state.boxedLocations <- PersistentDict.add typ mr' state.boxedLocations
 
     let writeBoxedLocation state (address : term) value =
