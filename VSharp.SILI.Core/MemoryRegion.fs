@@ -16,8 +16,8 @@ type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract InRegionCondition : 'reg -> term
     abstract IntersectionCondition : 'a -> term
     abstract MatchCondition : 'a -> 'reg -> term
-    abstract ReverseSpecialize: 'a -> 'a
-    abstract ExtractRangeValueKey<'value> : 'value -> ('value -> Option<term * term list * term list>) -> 'a Option
+    abstract ReverseSpecialize: 'a -> 'a -> 'a
+    abstract IsUnmarshalled: vectorTime pset -> bool
     abstract IsRange : bool
 
 type regionSort =
@@ -152,9 +152,12 @@ type heapAddressKey =
             let addressesAreEqual = (x :> IHeapAddressKey).IntersectionCondition key
             let xInKeyRegion = (x :> IHeapAddressKey).InRegionCondition keyIndexingRegion
             addressesAreEqual &&& xInKeyRegion
-        override x.ReverseSpecialize _ =
+        override x.ReverseSpecialize _ _ =
             internalfailf $"ReverseSpecialize is not implemented for {x}"
-        override x.ExtractRangeValueKey _ _ = None
+        override x.IsUnmarshalled explicitAddresses =
+            match x.address.term with
+            | ConcreteHeapAddress addr -> PersistentSet.contains addr explicitAddresses
+            | _ -> false
         override x.IsRange = false
     interface IComparable with
         override x.CompareTo y =
@@ -294,19 +297,19 @@ type heapArrayKey =
                 let xInKeyRegion = (x :> IHeapArrayKey).InRegionCondition keyIndexingRegion
                 keysAreEqual &&& xInKeyRegion
             | _ -> keysAreEqual &&& (key :> IHeapArrayKey).InRegionCondition keyIndexingRegion
-        override x.ReverseSpecialize writeKey  =
-            match x, writeKey with
-            | OneArrayIndexKey(addr, i), RangeArrayIndexKey(_, srcI, dstI) ->
+        override x.ReverseSpecialize key valueKey  =
+            match x, key, valueKey with
+            | OneArrayIndexKey(addr, i), RangeArrayIndexKey(_, srcI, _), RangeArrayIndexKey(_, dstI, _) ->
                 let newI = List.map3 (fun i srcI dstI -> sub (add i dstI) srcI) i srcI dstI
                 OneArrayIndexKey(addr, newI)
             | _ -> __unreachable__()
-         override x.ExtractRangeValueKey value extractor =
+        override x.IsUnmarshalled explicitAddresses =
             match x with
-            | RangeArrayIndexKey _ ->
-                match extractor value with
-                | Some(addr, lbs, ubs) -> RangeArrayIndexKey(addr, lbs, ubs) |> Some
-                | _ -> __unreachable__()
-            | _ -> None
+            | OneArrayIndexKey(a, _)
+            | RangeArrayIndexKey(a, _, _) ->
+                match a.term with
+                | ConcreteHeapAddress addr -> PersistentSet.contains addr explicitAddresses
+                | _ -> false
         override x.IsRange = match x with | OneArrayIndexKey _ -> false | RangeArrayIndexKey _ -> true
 
     interface IComparable with
@@ -377,9 +380,12 @@ type heapVectorIndexKey =
             let keysAreEqual = (x :> IHeapVectorIndexKey).IntersectionCondition key
             let xInKeyRegion = (x :> IHeapVectorIndexKey).InRegionCondition keyIndexingRegion
             keysAreEqual &&& xInKeyRegion
-        override x.ReverseSpecialize _ =
+        override x.ReverseSpecialize _ _=
             internalfailf $"ReverseSpecialize is not implemented for {x}"
-        override x.ExtractRangeValueKey _ _ = None
+        override x.IsUnmarshalled explicitAddresses =
+            match x.address.term with
+            | ConcreteHeapAddress addr -> PersistentSet.contains addr explicitAddresses
+            | _ -> false
         override x.IsRange = false
     interface IComparable with
         override x.CompareTo y =
@@ -423,9 +429,12 @@ type stackBufferIndexKey =
             let keysAreEqual = (x :> IStackBufferIndexKey).IntersectionCondition key
             let xInKeyRegion = (x :> IStackBufferIndexKey).InRegionCondition keyIndexingRegion
             keysAreEqual &&& xInKeyRegion
-        override x.ReverseSpecialize _ =
+        override x.ReverseSpecialize _ _ =
             internalfailf $"ReverseSpecialize is not implemented for {x}"
-        override x.ExtractRangeValueKey _ _ = None
+        override x.IsUnmarshalled explicitAddresses =
+            match x.index.term with
+            | ConcreteHeapAddress addr -> PersistentSet.contains addr explicitAddresses
+            | _ -> false
         override x.IsRange = false
     interface IComparable with
         override x.CompareTo y =
@@ -476,9 +485,9 @@ type symbolicTypeKey =
             __unreachable__()
         override x.MatchCondition key _ =
             Concrete (x.typ = key.typ) typeof<bool>
-        override x.ReverseSpecialize _ =
+        override x.ReverseSpecialize _ _ =
             internalfailf $"ReverseSpecialize is not implemented for {x}"
-        override x.ExtractRangeValueKey _ _ = None
+        override x.IsUnmarshalled explicitAddresses = __unreachable__()
         override x.IsRange = false
     override x.ToString() = x.typ.ToString()
     override x.GetHashCode() = x.typ.GetDeterministicHashCode()
@@ -508,15 +517,15 @@ module private UpdateTree =
 
     let isEmpty tree = RegionTree.isEmpty tree
 
-    let private getSplittingAndSymbolicTree tree key predicate =
+    let private getSplittingAndSymbolicTree tree readKey predicate =
         let rec recReading tree nonEqualityKeys =
             match tree with
             Node d ->
                 let splittingTree, symbolicTree = PersistentDict.partition (fun _ (k, _) -> predicate k) d
-                let notMatchPath = List.fold (fun acc k -> acc &&& !!((key :> IMemoryKey<_,_>).IntersectionCondition k)) (True()) nonEqualityKeys
+                let notMatchPath = List.fold (fun acc k -> acc &&& !!((readKey :> IMemoryKey<_,_>).IntersectionCondition k)) (True()) nonEqualityKeys
                 let collectSplittingAndSymbolicTree (splitting, symbolic) stReg (stUtKey, st) =
                     let stSplitting, stSymbolic = recReading st (stUtKey.key::nonEqualityKeys)
-                    let keysAreMatch = key.MatchCondition stUtKey.key stReg
+                    let keysAreMatch = readKey.MatchCondition stUtKey.key stReg
                     let guard = simplifyAndWithDisjunctions notMatchPath keysAreMatch
                     let guard = guard &&& Option.defaultValue (True()) stUtKey.guard
                     let modifiedSymbolic = PersistentDict.append symbolic stSymbolic
@@ -555,9 +564,9 @@ module private UpdateTree =
         match tree with
         Node d ->
             let branches = PersistentDict.toSeq d
-            let branchesHeads = Seq.map (fun (r, (k, _)) -> (r, k) |> Seq.singleton) branches
-            let overlappingNodes = branches |> Seq.map (fun (_, (k, t)) -> collectBranchTopNodes t predicate k.time)
-            Seq.map2 (fun head topNodes -> if Seq.isEmpty topNodes then head else topNodes) branchesHeads overlappingNodes |> Seq.concat
+            let branchHeads = Seq.map (fun (r, (k, _)) -> (r, k) |> Seq.singleton) branches
+            let topNodes = branches |> Seq.map (fun (_, (k, t)) -> collectBranchTopNodes t predicate k.time)
+            Seq.map2 (fun head brTopNode -> if Seq.isEmpty brTopNode then head else brTopNode) branchHeads topNodes |> Seq.concat
 
     let read (key : 'key) (tree : updateTree<'key, term, 'reg>) predicate isDefault makeSymbolic makeDefault =
         let reg = key.Region
@@ -565,7 +574,7 @@ module private UpdateTree =
         if PersistentDict.isEmpty d then
             if isDefault key then makeDefault() else makeSymbolic (Node d) None
         else
-            let sameKey, otherKeys = collectTreeTopNodes (Node d) predicate |> List.ofSeq |> List.partition (fun (r, k) -> k.key = key)
+            let sameKey, otherKeys = collectTreeTopNodes (Node d) predicate |> List.ofSeq |> List.partition (fun (_, k) -> k.key = key)
             let keyRegion = List.fold (fun acc (r, _) -> (acc :> IRegion<_>).Subtract r) reg otherKeys
             if reg = keyRegion then
                 assert(sameKey |> List.forall (fun (_, k) -> k.value = (List.head sameKey |> snd).value))
@@ -617,15 +626,15 @@ module private UpdateTree =
             if PersistentDict.isEmpty valueSymbolic then included |> hangRangeIfNeed // value is range without symbolic values
             else hangRecordUnderSplittingTree utKey.key.Region utKey (Node included) predicate // value is range with symbolic values
         let included = RegionTree.foldr (fun _ k acc ->
-                let dstKey = {k with key=(k.key :> IMemoryKey<_,_>).ReverseSpecialize valueKey; guard=valueKey.IntersectionCondition k.key &&& Option.defaultValue (True()) k.guard |> Some}
-                let dstReg = dstKey.key.Region
-                RegionTree.write dstReg dstKey acc) (Node included) (Node valueSplitting)
+            let dstKey = {k with key=(k.key :> IMemoryKey<_,_>).ReverseSpecialize utKey.key valueKey; guard=valueKey.IntersectionCondition k.key &&& Option.defaultValue (True()) k.guard |> Some}
+            let dstReg = dstKey.key.Region
+            RegionTree.write dstReg dstKey acc) (Node included) (Node valueSplitting)
         match included with Node d -> PersistentDict.append d disjoint |> Node
 
-    let solidRegionWriteRange region utKey tree valueKey predicate =
+    let explicitWriteRange region utKey tree valueKey predicate =
         commonWriteRange region utKey tree valueKey predicate id
         
-    let nonSolidRegionWriteRange region utKey tree valueKey predicate =
+    let implicitWriteRange region utKey tree valueKey predicate =
         let hangRange tree = hangRecordUnderSplittingTree region utKey (Node tree) predicate
         commonWriteRange region utKey tree valueKey predicate hangRange
 
@@ -663,7 +672,7 @@ module private UpdateTree =
 
 [<CustomEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
-    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : term option; nextUpdateTime : vectorTime; isSolid : bool}
+    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : term option; nextUpdateTime : vectorTime; explicitAddresses : vectorTime pset}
     with
     override x.Equals(other : obj) =
         match other with
@@ -686,23 +695,25 @@ type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, '
 
 module MemoryRegion =
 
-    let empty typ = {typ = typ; updates = UpdateTree.empty; defaultValue = None; nextUpdateTime = [1]; isSolid = false }
-    let emptySolid typ = {typ = typ; updates = UpdateTree.empty; defaultValue = None; nextUpdateTime = [1]; isSolid = true }
+    let empty typ = {typ = typ; updates = UpdateTree.empty; defaultValue = None; nextUpdateTime = [1]; explicitAddresses =  PersistentSet.empty}
+    let emptyWithExplicit typ addr = {typ = typ; updates = UpdateTree.empty; defaultValue = None; nextUpdateTime = [1]; explicitAddresses = PersistentSet.add PersistentSet.empty addr}
+    let addExplicitAddress addr mr = {mr with explicitAddresses = PersistentSet.add mr.explicitAddresses addr}
 
     let rec valueIsConcrete key =
-        match key.value.term with
-        | Concrete _ -> true
-        | HeapRef(address, _) when isConcreteHeapAddress address -> true
-        | _ -> false
+        if (key.key :> IMemoryKey<_,_>).IsRange then false
+        else
+            match key.value.term with
+            | Concrete _  when not key.key.IsRange -> true
+            | HeapRef(address, _) when isConcreteHeapAddress address -> true
+            | _ -> false
 
     let fillRegion defaultValue (region : memoryRegion<_,_>) =
         { region with defaultValue = Some defaultValue }
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
-
     let read mr key isDefault instantiate =
-        let makeSymbolic tree = instantiate mr.typ { typ = mr.typ; updates = tree; defaultValue = mr.defaultValue; nextUpdateTime = mr.nextUpdateTime; isSolid = mr.isSolid}
+        let makeSymbolic tree = instantiate mr.typ { typ = mr.typ; updates = tree; defaultValue = mr.defaultValue; nextUpdateTime = mr.nextUpdateTime; explicitAddresses =  mr.explicitAddresses}
         let makeDefault () =
             match mr.defaultValue with
             | Some d -> d
@@ -714,27 +725,27 @@ module MemoryRegion =
         canCastImplicitly typ cellType || isPointer typ && isIntegral cellType
 
     let memset mr keysAndValues =
-        {typ = mr.typ; updates = UpdateTree.memset keysAndValues mr.updates; defaultValue = mr.defaultValue; nextUpdateTime = [Seq.length keysAndValues]; isSolid = mr.isSolid } // multiple enumeration attention
+        {typ = mr.typ; updates = UpdateTree.memset keysAndValues mr.updates; defaultValue = mr.defaultValue
+         nextUpdateTime = [1 + Seq.length keysAndValues]; explicitAddresses =  mr.explicitAddresses} // multiple enumeration attention
 
     let write mr key value rangeValueKeyExtractor =
         assert(validateWrite value mr.typ)
         let utKey = {key = key; value = value; guard = None; time = mr.nextUpdateTime}
         let updates =
-            match (key :> IMemoryKey<_,_>).ExtractRangeValueKey value rangeValueKeyExtractor with
+            match rangeValueKeyExtractor value with
             | Some valueKey ->
-                if mr.isSolid then
-                    UpdateTree.solidRegionWriteRange utKey.key.Region utKey mr.updates valueKey valueIsConcrete
+                if (valueKey :> IMemoryKey<_,_>).IsUnmarshalled mr.explicitAddresses then
+                    UpdateTree.explicitWriteRange (utKey.key :> IMemoryKey<_,_>).Region utKey mr.updates valueKey valueIsConcrete
                 else
-                    UpdateTree.nonSolidRegionWriteRange utKey.key.Region utKey mr.updates valueKey valueIsConcrete
+                    UpdateTree.implicitWriteRange utKey.key.Region utKey mr.updates valueKey valueIsConcrete
             | None -> UpdateTree.write utKey.key.Region utKey mr.updates valueIsConcrete
-        {typ = mr.typ; updates = updates; defaultValue = mr.defaultValue
-         nextUpdateTime = VectorTime.next mr.nextUpdateTime; isSolid = mr.isSolid }
+        {mr with updates = updates; nextUpdateTime = VectorTime.next mr.nextUpdateTime }
 
     let map (mapTerm : term -> term) (mapType : Type -> Type) (mapTime : vectorTime -> vectorTime) mr =
         let typ = mapType mr.typ
         let updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mapTerm mr.updates
         let defaultValue = Option.map mapTerm mr.defaultValue
-        {typ = typ; updates = updates; defaultValue = defaultValue; nextUpdateTime = mr.nextUpdateTime; isSolid = mr.isSolid}
+        {typ = typ; updates = updates; defaultValue = defaultValue; nextUpdateTime = mr.nextUpdateTime; explicitAddresses = mr.explicitAddresses }
 
     let mapKeys<'reg, 'key when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> (mapKey : 'reg -> 'key -> 'reg * 'key) mr =
         {mr with updates = UpdateTree.map mapKey id id mr.updates }
@@ -744,7 +755,8 @@ module MemoryRegion =
         if earlier.typ = later.typ then
             if UpdateTree.isEmpty earlier.updates then { later with defaultValue = earlier.defaultValue }
             else {typ = earlier.typ; updates = UpdateTree.deterministicCompose earlier.updates later.updates; defaultValue = earlier.defaultValue
-                  nextUpdateTime = VectorTime.singletonsSum earlier.nextUpdateTime earlier.nextUpdateTime; isSolid = earlier.isSolid}
+                  nextUpdateTime = VectorTime.singletonsSum earlier.nextUpdateTime earlier.nextUpdateTime
+                  explicitAddresses = PersistentDict.append earlier.explicitAddresses later.explicitAddresses}
         else internalfail "Composing two incomparable memory objects!"
 
     let compose earlier later =
@@ -754,7 +766,7 @@ module MemoryRegion =
         elif earlier.typ = later.typ then
             UpdateTree.compose earlier.updates later.updates valueIsConcrete earlier.nextUpdateTime
             |> List.map (fun (g, t, tree) -> (g, {typ=earlier.typ; updates = tree; defaultValue = earlier.defaultValue;
-                nextUpdateTime = t; isSolid = earlier.isSolid}))
+                nextUpdateTime = t; explicitAddresses = PersistentDict.append earlier.explicitAddresses later.explicitAddresses}))
         else internalfail "Composing two incomparable memory objects!"
 
     let toString indent mr = UpdateTree.print indent toString mr.updates
@@ -765,7 +777,7 @@ module MemoryRegion =
     let localizeArray address dimension mr =
         let anyIndexRegion = List.replicate dimension points<int>.Universe |> listProductRegion<points<int>>.OfSeq
         let reg = productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress address) anyIndexRegion
-        {typ=mr.typ; updates = UpdateTree.localize reg mr.updates; defaultValue = mr.defaultValue; nextUpdateTime = mr.nextUpdateTime; isSolid = mr.isSolid}
+        {mr with updates = UpdateTree.localize reg mr.updates}
 
     // TODO: merging!
 

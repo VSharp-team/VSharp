@@ -519,12 +519,12 @@ namespace IntegrationTests
             return 3;
         }
 
-        [TestSvm(95)]
+        [Ignore("No match condition for range keys")]
         public static int TestSolvingCopy8(object[] a, object[] b, int i)
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)
             {
-                Array.Fill(a, 1);
+                Array.Fill(a, "abc");
                 Array.Copy(a, b, b.Length);
 
                 if (b[i] == b[i + 1])

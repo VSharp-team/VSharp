@@ -140,6 +140,7 @@ module PersistentSet =
 
     let public fold folder state (d : pset<'a>) =
         d |> toSeq |> Seq.fold folder state
+    let public append d1 d2 = fold add d1 d2
     let public forall predicate (d : pset<'a>) =
         d |> toSeq |> Seq.forall predicate
     let public map (mapper : 'a -> 'a) (d : pset<'a>) : pset<'a> =
