@@ -521,27 +521,30 @@ module private UpdateTree =
 
     let isEmpty tree = RegionTree.isEmpty tree
 
-    let private getSplittingAndSymbolicTree tree readKey predicate =
+    let private getSplittingAndSymbolicTree tree readKey predicate additionalGuard =
         let rec recReading tree keysPath =
             match tree with
             Node d ->
                 let splittingTree, symbolicTree = PersistentDict.partition (fun _ (k, _) -> predicate k) d
-                let notMatchPath = List.fold (fun acc k -> acc &&& !!((UpdateTreeKey.guard k) &&& (readKey :> IMemoryKey<_,_>).IntersectionCondition k.key)) (True()) keysPath
                 let collectSplittingAndSymbolicTree (splitting, symbolic) stReg (stUtKey, st) =
+                    let oldGuard = stUtKey.guard
+                    let finalGuard = (UpdateTreeKey.guard stUtKey) &&& additionalGuard stReg stUtKey keysPath
                     let stSplitting, stSymbolic = recReading st (stUtKey::keysPath)
                     let modifiedSymbolic = PersistentDict.append symbolic stSymbolic
-                    let keysAreMatch = readKey.MatchCondition stUtKey.key stReg
-                    let guard = keysAreMatch &&& notMatchPath &&& UpdateTreeKey.guard stUtKey
-                    if guard = False() then
+                    if finalGuard = False() then
                         PersistentDict.append splitting stSplitting, modifiedSymbolic
                     else
-                        let modifiedSplitting = PersistentDict.add stReg ({stUtKey with guard = Some guard}, Node stSplitting) splitting
+                        let modifiedSplitting = PersistentDict.add stReg ({stUtKey with guard = if isTrue finalGuard then None else Some finalGuard}, Node stSplitting) splitting
                         modifiedSplitting, modifiedSymbolic
                 PersistentDict.fold collectSplittingAndSymbolicTree (PersistentDict.empty, symbolicTree) splittingTree
         recReading tree []
 
     let private splitRead d key value predicate makeSymbolic =
-        let splitting, symbolic = getSplittingAndSymbolicTree (Node d) key predicate
+        let additionalGuard stReg stKey path =
+            let notMatchPath = List.fold (fun acc k -> acc &&& !!((UpdateTreeKey.guard k) &&& (key :> IMemoryKey<_,_>).IntersectionCondition k.key)) (True()) path
+            let keysAreMatch = key.MatchCondition stKey.key stReg
+            notMatchPath &&& keysAreMatch
+        let splitting, symbolic = getSplittingAndSymbolicTree (Node d) key predicate additionalGuard
         let gvs = RegionTree.foldl (fun acc _ utKey -> (utKey.guard.Value, utKey.value)::acc) [] (Node splitting)
         let symbolicCase = makeSymbolic (Node symbolic) value
         let symbolicGuard = List.map (fun (g, _) -> !!g) gvs |> conjunction
@@ -623,20 +626,17 @@ module private UpdateTree =
         assert (utKey.key :> IMemoryKey<_,_>).IsRange
         let included, disjoint = RegionTree.localizeFilter region utKey tree
         let valueIncluded = RegionTree.localize (valueKey :> IMemoryKey<_, _>).Region valueSource
-        // TODO get rid of false symbolic
-        let valueSplitting, valueSymbolic = getSplittingAndSymbolicTree (Node valueIncluded) valueKey predicate
+        // dont need read conditions since they will be considered in reading
+        let additionalGuard _ _ _ = True()
+        let valueSplitting, valueSymbolic = getSplittingAndSymbolicTree (Node valueIncluded) valueKey predicate additionalGuard
         let included =
             if PersistentDict.isEmpty valueSymbolic then included |> hangRangeIfNeed // value is range without symbolic values
             else hangRecordUnderSplittingTree utKey.key.Region utKey (Node included) predicate // value is range with symbolic values
         let included = RegionTree.foldr (fun r k acc ->
             let dstKey = {k with key=(k.key :> IMemoryKey<_,_>).ReverseSpecialize utKey.key valueKey; guard=valueKey.IntersectionCondition k.key &&& UpdateTreeKey.guard k |> Some}
-            assert not dstKey.key.IsRange
             let dstReg = dstKey.key.Region
-            let nonOverlappingCondition = !!(k.key.MatchCondition utKey.key r) // current record is not overlapping previous
-            let dstKeyGuard = simplifyAndWithDisjunctions nonOverlappingCondition (UpdateTreeKey.guard dstKey)
-            if dstKeyGuard = False() then acc else
-                let guardedDstKey = {dstKey with guard = Some(dstKeyGuard)}
-                RegionTree.write dstReg guardedDstKey acc) (Node included) (Node valueSplitting)
+            assert not dstKey.key.IsRange
+            RegionTree.write dstReg dstKey acc) (Node included) (Node valueSplitting)
         match included with Node d -> PersistentDict.append d disjoint |> Node
 
     let explicitWriteRange region utKey tree valueKey valueSource predicate =

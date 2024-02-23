@@ -1344,7 +1344,7 @@ namespace IntegrationTests
             string[] arr = {"a", "b", "c", "d", "e"};
             var a = new string[5];
             Array.Copy(arr, srcI, a, dstI, len);
-            if (a[2] != null && a[2].Length == 3)
+            if (a[2] != null)
                 return -1;
             return 1;
         }
