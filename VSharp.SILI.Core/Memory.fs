@@ -829,17 +829,13 @@ module internal Memory =
 
     let private ensureConcreteType typ =
         if isOpenType typ then __insufficientInformation__ $"Cannot write value of generic type {typ}"
-    type valueExtractionResult =
-        | Success of heapArrayKey
-        | Fail
-    let idKeyExtractor key _ = key
+
     let rangeValueKeyExtractor value =
         match value.term with
-        | HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(_, srcA, srcFrom, srcTo, _, _)), _)}, _) 
-        | Constant(_, ArrayRangeReading(_, srcA, srcFrom, srcTo, _, _), _) -> RangeArrayIndexKey(srcA, srcFrom, srcTo) |> Some
+        | HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(mo, srcA, srcFrom, srcTo, _, _)), _)}, _) 
+        | Constant(_, ArrayRangeReading(mo, srcA, srcFrom, srcTo, _, _), _) -> (mo, RangeArrayIndexKey(srcA, srcFrom, srcTo)) |> Some
         | _ -> None
-    let noneExtractor value = None
-    
+    let noneExtractor _ = None
 
     let private writeLowerBoundSymbolic (state : state) address dimension arrayType value =
         ensureConcreteType arrayType.elemType

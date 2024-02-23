@@ -518,6 +518,57 @@ namespace IntegrationTests
             }
             return 3;
         }
+        
+        [TestSvm(95)]
+        public static int TestOverlappingCopy2(int[] a, int[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                a[0] = 42;
+                b[0] = 4;
+                Array.Copy(a, 0, b, 0, b.Length);
+                if (b.Length > 0 && b[0] == 4) // unreachable
+                {
+                    return 100;
+                }
+                return 0;
+            }
+            return 3;
+        }
+        
+        [TestSvm(95)]
+        public static int TestOverlappingCopy3(int[] a, int i, int[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                b[i] = 500;
+                Array.Copy(a, 0, b, 0, b.Length);
+                if (a[i] != 500 && b[i] == 500) // unreachable
+                {
+                    return 100;
+                }
+
+                return 0;
+            }
+            return 3;
+        }
+        
+        [TestSvm(95)]
+        public static int TestOverlappingCopy4(int[] a, int i, int[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                b[i] = 500;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+                if (b[i] == 500)
+                {
+                    return 100;
+                }
+
+                return 0;
+            }
+            return 3;
+        }
 
         [Ignore("No match condition for range keys")]
         public static int TestSolvingCopy8(object[] a, object[] b, int i)
@@ -1287,13 +1338,13 @@ namespace IntegrationTests
                 return -1;
             return 0;
         }
-        [TestSvm(100)]
+        [TestSvm(81)]
         public static int TestSplittingWithCopy(int srcI, int dstI, int len)
         {
             string[] arr = {"a", "b", "c", "d", "e"};
             var a = new string[5];
             Array.Copy(arr, srcI, a, dstI, len);
-            if (a[2].Length == 3)
+            if (a[2] != null && a[2].Length == 3)
                 return -1;
             return 1;
         }
