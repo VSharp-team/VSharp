@@ -353,7 +353,7 @@ namespace IntegrationTests
             return $"int = {x}";
         }
 
-        [Ignore("fix composition with concrete memory regions")]
+        [TestSvm(100)]
         public int LengthOfIntToString(int x)
         {
             if (x == 0)
