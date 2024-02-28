@@ -1339,14 +1339,14 @@ namespace IntegrationTests
         [TestSvm(90)]
         public static int TestSplittingWithCopyRegionsImportance(int[] a, int i)
         {
-            a[i] = 0;
+            a[i] = 6;
             a[1] = 1;
             var b = new int[a.Length];
             Array.Copy(a, 0, b, 0, a.Length);
-            if (i == 1 && b[i] == 0) // unreachable
+            if (i == 1 && b[i] == 6) // unreachable
                 // record b[i], 0 exists only if i != 1
                 return -1;
-            if (i != 1 && b[i] != 0) // unreachable
+            if (i != 1 && b[i] != 6) // unreachable
             {
                 return -2;
             }
