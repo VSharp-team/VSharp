@@ -68,9 +68,13 @@ module RegionTree =
     let memset regionsAndKeys (Node tree) =
         regionsAndKeys |> Seq.fold (fun acc (reg, k) -> PersistentDict.add reg (k, Node PersistentDict.empty) acc) tree |> Node
 
-    let write reg key tree =
-        let included, disjoint = splitNode (key :> IRegionTreeKey<_>).Hides reg tree
+    let private commonWrite reg key tree filter =
+        let included, disjoint = splitNode filter reg tree
         Node(PersistentDict.add reg (key, Node included) disjoint)
+    let write reg key tree =
+        commonWrite reg key tree (key :> IRegionTreeKey<_>).Hides
+    let guardedWrite reg key tree =
+        commonWrite reg key tree (always false)
 
     let rec foldl folder acc (Node d) =
         PersistentDict.fold (fun acc reg (k, t) -> let acc = folder acc reg k in foldl folder acc t) acc d
@@ -103,7 +107,7 @@ module RegionTree =
             else write (reg.Intersect reg') k' acc
         foldr folder empty tree
 
-    let choose (mapper : 'a -> 'key -> option<'a * 'a * 'key> when 'a :> IRegion<'a>) tree =
+    let choose (mapper : 'a -> 'key -> option<'a * 'a * 'key> when 'a :> IRegion<'a>) tree write =
         let folder reg k acc =
             match mapper reg k with
             | Some(reg, reg', k') when reg'.CompareTo reg = Disjoint -> acc

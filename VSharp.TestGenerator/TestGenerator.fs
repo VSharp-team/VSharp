@@ -168,10 +168,11 @@ module TestGenerator =
                     let indicesWithValues = SortedDictionary<int list, obj>()
                     let addOneKey _ (k : updateTreeKey<heapArrayKey, term>) () =
                         let value = k.value
-                        match k.key with
+                        match k.key, k.guard with
                         // Filtering wrong store from SMT-model
                         | _ when isSuitableElem value |> not -> ()
-                        | OneArrayIndexKey(address, keyIndices) ->
+                        | _, Some g when model.Eval g = False() -> ()
+                        | OneArrayIndexKey(address, keyIndices), _ ->
                             let heapAddress = model.Eval address
                             match heapAddress with
                             | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
@@ -180,7 +181,7 @@ module TestGenerator =
                                 if checkArrayIndex i then
                                     indicesWithValues[i] <- v
                             | _ -> ()
-                        | RangeArrayIndexKey(address, fromIndices, toIndices) ->
+                        | RangeArrayIndexKey(address, fromIndices, toIndices), _ ->
                             let heapAddress = model.Eval address
                             match heapAddress with
                             | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
