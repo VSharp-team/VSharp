@@ -41,7 +41,7 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
         callResults.AddRange rets
         outResults.AddRange outs
 
-    member private x.GenSymbolicVal this retType args =
+    member private x.GenSymbolicVal (memory : IMemory) this retType args =
         let src : functionResultConstantSource = {
             mock = x
             constIndex = constIndex
@@ -50,7 +50,7 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
             t = retType
         }
         constIndex <- constIndex + 1
-        Memory.makeSymbolicValue src (toString src) retType
+        memory.MakeSymbolicValue src (toString src) retType
 
     interface IMethodMock with
         override x.BaseMethod =
@@ -61,11 +61,12 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
         override x.MockingType = mockingType
 
         override x.Call state this args =
+            let memory = state.memory
             let genOutParam (values : term list) (p : ParameterInfo) (arg : term) =
                 if not <| p.IsOut then values
                 else
-                    let newVal = x.GenSymbolicVal this (typeOfRef arg) []
-                    Memory.write Memory.emptyReporter state arg newVal |> ignore
+                    let newVal = x.GenSymbolicVal memory this (typeOfRef arg) []
+                    memory.Write Memory.emptyReporter arg newVal |> ignore
                     newVal :: values
 
             if hasOutParams then
@@ -74,7 +75,7 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
 
             if method.ReturnType = typeof<Void> then None
             else
-                let result = x.GenSymbolicVal this method.ReturnType args
+                let result = x.GenSymbolicVal memory this method.ReturnType args
                 callResults.Add result
                 Some result
 

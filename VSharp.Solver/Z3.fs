@@ -148,7 +148,7 @@ module internal Z3 =
 
     type private Z3Builder(ctx : Context) =
         let mutable encodingCache = freshCache()
-        let emptyState = Memory.EmptyState()
+        let emptyState = Memory.EmptyIsolatedState()
         let mutable maxBufferSize = 128
 
         let typeOfLocation (regionSort : regionSort) (path : path) =
@@ -1290,7 +1290,8 @@ module internal Z3 =
             try
                 let stackEntries = Dictionary<stackKey, term ref>()
                 // TODO: compose memory region with concrete memory
-                let state = { Memory.EmptyState() with complete = true; memoryMode = SymbolicMode }
+                let state = Memory.EmptyCompleteState()
+                state.memory.MemoryMode <- SymbolicMode
                 let primitiveModel = Dictionary<ISymbolicConstantSource, term ref>()
 
                 for KeyValue(key, value) in encodingCache.t2e do

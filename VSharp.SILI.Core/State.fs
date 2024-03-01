@@ -3,9 +3,13 @@ namespace VSharp.Core
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Text
 open VSharp
 open VSharp.Core
+open VSharp.TypeUtils
 open VSharp.Utils
+
+#nowarn "69"
 
 type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
@@ -95,11 +99,6 @@ type exceptionRegisterStack =
     static member singleton x = { stack = Stack.singleton x }
     static member map f stack = { stack = Stack.map (exceptionRegister.map f) stack.stack }
 
-type arrayCopyInfo =
-    {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : Type; dstSightType : Type} with
-        override x.ToString() =
-            sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
-
 type memoryMode =
     | ConcreteMode
     | SymbolicMode
@@ -158,32 +157,157 @@ and IMethodMock =
     abstract GetOutClauses : unit -> term array array
     abstract Copy : unit -> IMethodMock
 
+and IMemory =
+
+    abstract EvaluationStack : evaluationStack with get, set
+
+    abstract Stack : callStack
+
+    abstract StackBuffers : pdict<stackKey, stackBufferRegion> with get, set
+
+    abstract ClassFields : pdict<fieldId, heapRegion> with get, set
+
+    abstract Arrays : pdict<arrayType, arrayRegion> with get, set
+
+    abstract Lengths : pdict<arrayType, vectorRegion> with get, set
+
+    abstract LowerBounds : pdict<arrayType, vectorRegion> with get, set
+
+    abstract StaticFields : pdict<fieldId, staticsRegion> with get, set
+
+    abstract BoxedLocations : pdict<Type, heapRegion> with get, set
+
+    abstract ConcreteMemory : ConcreteMemory
+
+    abstract AllocatedTypes : pdict<concreteHeapAddress, symbolicType> with get, set
+
+    abstract InitializedAddresses : pset<term>
+
+    abstract Delegates : pdict<concreteHeapAddress, term>
+
+    abstract MemoryMode : memoryMode with get, set
+
+    abstract NewStackFrame : IMethod option -> (stackKey * term option * Type) list -> unit
+
+    abstract PopFrame : unit -> unit
+
+    abstract ForcePopFrames : int -> unit
+
+    abstract ReadStackLocation : stackKey -> term
+
+    abstract TypeOfHeapLocation : heapAddress -> Type
+
+    abstract MostConcreteTypeOfHeapRef : heapAddress -> Type -> Type
+
+    abstract MostConcreteTypeOfRef : term -> Type
+
+    abstract BaseTypeOfAddress : address -> Type
+
+    abstract ArrayIndicesToOffset : term -> arrayType -> term list -> term
+
+    abstract ReadFieldUnsafe : IErrorReporter -> term -> fieldId -> term
+
+    abstract TryPtrToRef : pointerBase -> Type -> term -> address option
+
+    abstract ReferenceField : term -> fieldId -> term
+
+    abstract ReadLowerBound : term -> term -> arrayType -> term
+
+    abstract ReadLength : term -> term -> arrayType -> term
+
+    abstract ReadArrayIndex : term -> term list -> arrayType -> term
+
+    abstract ReadArrayRange : term -> term list -> term list -> arrayType -> term
+
+    abstract ReadStaticField : Type -> fieldId -> term
+
+    abstract Read : IErrorReporter -> term -> term
+
+    abstract ObjToTerm : Type -> obj -> term
+
+    abstract TryTermToObj : term -> obj option
+
+    abstract TryTermToFullyConcreteObj : term -> obj option
+
+    abstract StringArrayInfo : term -> term option -> term * arrayType
+
+    abstract ReadStruct : IErrorReporter -> term -> fieldId -> term
+
+    abstract MakeSymbolicValue : ISymbolicConstantSource -> string -> Type -> term
+
+    abstract MakeSymbolicThis : IMethod -> term
+
+    abstract FillModelWithParametersAndThis : IMethod -> unit
+
+    abstract AllocateConcreteType : Type -> vectorTime
+
+    abstract AllocateMockType : ITypeMock -> vectorTime
+
+    abstract Unmarshall : concreteHeapAddress -> unit
+
+    abstract InitializeArray : heapAddress -> seq<term list * term> -> arrayType -> unit
+
+    abstract WriteArrayIndex : term -> term list -> arrayType -> term -> unit
+
+    abstract WriteArrayRange : term -> term list -> term list -> arrayType -> term -> unit
+
+    abstract WriteStaticField : Type -> fieldId -> term -> unit
+
+    abstract WriteStackLocation : stackKey -> term -> unit
+
+    abstract WriteClassField : term -> fieldId -> term -> unit
+
+    abstract Write : IErrorReporter -> term -> term -> state
+
+    abstract AllocateOnStack : stackKey -> term -> unit
+
+    abstract AllocateClass : Type -> term
+
+    abstract AllocateArray : Type -> term list -> term list -> term
+
+    abstract AllocateVector : Type -> term -> term
+
+    abstract AllocateConcreteVector<'a> : Type -> term -> seq<'a> -> term
+
+    abstract AllocateEmptyString : term -> term
+
+    abstract AllocateString : string -> term
+
+    abstract CreateStringFromChar : term -> term
+
+    abstract AllocateBoxedLocation : term -> term
+
+    abstract AllocateConcreteObject : obj -> Type -> term
+
+    abstract AllocateTemporaryLocalVariableOfType: string -> int -> Type -> term
+
+    abstract LengthOfString : term -> term
+
+    abstract ReadDelegate : term -> term option
+
+    abstract AllocateDelegate : MethodInfo -> term -> Type -> term
+
+    abstract AllocateCombinedDelegate : concreteHeapAddress -> term list -> Type -> unit
+
+    abstract CombineDelegates : term list -> Type -> term
+
+    abstract RemoveDelegate : term -> term -> Type -> term
+
+    abstract Copy : unit -> IMemory
+
 and
     [<ReferenceEquality>]
     state = {
         mutable pc : pathCondition
         mutable typeStorage : typeStorage
-        mutable evaluationStack : evaluationStack
-        mutable stack : callStack                                          // Arguments and local variables
-        mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc
-        mutable classFields : pdict<fieldId, heapRegion>                   // Fields of classes in heap
-        mutable arrays : pdict<arrayType, arrayRegion>                     // Contents of arrays in heap
-        mutable lengths : pdict<arrayType, vectorRegion>                   // Lengths by dimensions of arrays in heap
-        mutable lowerBounds : pdict<arrayType, vectorRegion>               // Lower bounds by dimensions of arrays in heap
-        mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
-        mutable boxedLocations : pdict<Type, heapRegion>                   // Value types boxed in heap
         mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
-        concreteMemory : ConcreteMemory                                    // Fully concrete objects
-        mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
-        mutable initializedAddresses : pset<term>                          // Addresses, which invariants were initialized
         mutable typeVariables : typeVariables                              // Type variables assignment in the current state
-        mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
         mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
         mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
         mutable exceptionsRegister : exceptionRegisterStack                // Heap-address of exception objects, multiple if nested 'try' blocks
         mutable model : model                                              // Concrete valuation of symbolics
+        memory : IMemory
         complete : bool                                                    // If true, reading of undefined locations would result in default values
-        memoryMode : memoryMode                                            // If 'ConcreteMode', allocating concrete .NET objects inside 'ConcreteMemory'
         methodMocks : IDictionary<IMethod, IMethodMock>
     }
     with override x.ToString() = String.Empty
@@ -191,3 +315,218 @@ and
 and IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
     abstract Compose : state -> term
+
+module internal State =
+
+    let addConstraint (s : state) cond =
+        s.pc <- PC.add s.pc cond
+
+// ------------------------------- Types -------------------------------
+
+    let pushTypeVariablesSubstitution state subst =
+        assert (subst <> [])
+        let oldMappedStack, oldStack = state.typeVariables
+        let newStack = subst |> List.unzip |> fst |> Stack.push oldStack
+        let newMappedStack = subst |> List.fold (fun acc (k, v) -> MappedStack.push {t=k} v acc) oldMappedStack
+        state.typeVariables <- (newMappedStack, newStack)
+
+    let popTypeVariablesSubstitution state =
+        let oldMappedStack, oldStack = state.typeVariables
+        let toPop, newStack = Stack.pop oldStack
+        let newMappedStack = List.fold MappedStack.remove oldMappedStack (List.map (fun t -> {t=t}) toPop)
+        state.typeVariables <- (newMappedStack, newStack)
+
+    let commonTypeVariableSubst state (t : Type) noneCase =
+        match MappedStack.tryFind {t=t} (fst state.typeVariables) with
+        | Some typ -> typ
+        | None -> noneCase
+
+    let rec substituteTypeVariables (state : state) typ =
+        let substituteTypeVariables = substituteTypeVariables state
+        match typ with
+        | Bool
+        | AddressType
+        | Numeric _ -> typ
+        | StructType(t, args)
+        | ClassType(t, args)
+        | InterfaceType(t, args) ->
+            let args' = Array.map substituteTypeVariables args
+            if args = args' then typ
+            else
+                t.MakeGenericType args'
+        | TypeVariable t -> commonTypeVariableSubst state t typ
+        | ArrayType(t, dim) ->
+            let t' = substituteTypeVariables t
+            if t = t' then typ
+            else
+                match dim with
+                | Vector -> t'.MakeArrayType()
+                | ConcreteDimension d -> t'.MakeArrayType(d)
+                | SymbolicDimension -> __unreachable__()
+        | Pointer t ->
+            let t' = substituteTypeVariables t
+            if t = t' then typ else t'.MakePointerType()
+        | ByRef t ->
+            let t' = substituteTypeVariables t
+            if t = t' then typ else t'.MakeByRefType()
+        | _ -> __unreachable__()
+
+    let substituteTypeVariablesIntoArrayType state ({elemType = et} as arrayType) : arrayType =
+        { arrayType with elemType = substituteTypeVariables state et }
+
+    let typeVariableSubst state (t : Type) = commonTypeVariableSubst state t t
+
+    let substituteTypeVariablesIntoField state (f : fieldId) =
+        Reflection.concretizeField f (typeVariableSubst state)
+
+    let initializeStaticMembers state typ =
+        if typ = typeof<string> then
+            let memory = state.memory
+            let reference = memory.AllocateString ""
+            memory.WriteStaticField typeof<string> Reflection.emptyStringField reference
+        state.initializedTypes <- SymbolicSet.add {typ=typ} state.initializedTypes
+
+    let markTypeInitialized state typ =
+        state.initializedTypes <- SymbolicSet.add {typ=typ} state.initializedTypes
+
+    let private merge2StatesInternal state1 state2 =
+        if state1.memory.Stack <> state2.memory.Stack then None
+        else
+            // TODO: implement it! See InterpreterBase::interpret::merge
+            None
+
+    let merge2States state1 state2 =
+        match merge2StatesInternal state1 state2 with
+        | Some state -> [state]
+        | None -> [state1; state2]
+
+    let merge2Results (term1 : term, state1) (term2, state2) =
+        match merge2StatesInternal state1 state2 with
+        | Some _ -> __notImplemented__()
+        | None -> [(term1, state1); (term2, state2)]
+
+    let mergeStates states =
+        // TODO: implement merging by calling merge2StatesInternal one-by-one for each state
+        states
+
+    let mergeResults (results : (term * state) list) =
+        // TODO
+        results
+
+    // ------------------------------- Composition -------------------------------
+
+    let private skipSuffixWhile predicate ys =
+        let skipIfNeed y acc k =
+            if predicate (y::acc) then k (y::acc)
+            else List.take (List.length ys - List.length acc) ys
+        Cps.List.foldrk skipIfNeed [] ys (always [])
+
+    let composeTime state time =
+        if time = [] then state.currentTime
+        elif VectorTime.less VectorTime.zero time |> not then time
+        elif state.complete then time
+        else state.currentTime @ time
+
+    let rec private fillHole state term =
+        match term.term with
+        | Constant(_, source, _) ->
+            match source with
+            | :? IStatedSymbolicConstantSource as source -> source.Compose state
+            | :? INonComposableSymbolicConstantSource ->
+                match state.model with
+                | PrimitiveModel dict ->
+                    // Case for model state, so using eval from substitution dict for non composable constants
+                    let typ = typeOf term
+                    model.EvalDict dict source term typ true
+                | _ -> term
+            | _ -> internalfail $"fillHole: unexpected term {term}"
+        | _ -> term
+
+    and fillHoles state term =
+        Substitution.substitute (fillHole state) (substituteTypeVariables state) (composeTime state) term
+
+    let composeRaisedExceptionsOf (state : state) (exceptionRegister : exceptionRegisterStack) =
+        let elem, rest = state.exceptionsRegister.Pop()
+        match elem with
+        | NoException ->
+            rest.Push exceptionRegister.Peek
+            |> exceptionRegisterStack.map (fillHoles state)
+        | _ -> __unreachable__()
+
+    let composeInitializedTypes state initializedTypes =
+        let it' = SymbolicSet.map (fun _ -> __unreachable__()) (substituteTypeVariables state) (fun _ -> __unreachable__()) initializedTypes
+        SymbolicSet.union state.initializedTypes it'
+
+    [<StructuralEquality;NoComparison>]
+    type typeInitialized =
+        {typ : Type; matchingTypes : symbolicTypeSet}
+        interface IStatedSymbolicConstantSource with
+            override x.SubTerms = Seq.empty
+            override x.Time = VectorTime.zero
+            override x.TypeOfLocation = typeof<bool>
+
+    let isTypeInitialized state (typ : Type) =
+        let key : symbolicTypeKey = {typ=typ}
+        let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
+        match matchingTypes with
+        | [x] when x = key -> True()
+        | _ ->
+            let name = $"{typ}_initialized"
+            let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
+            Constant name source typeof<bool>
+
+    type typeInitialized with
+        interface IStatedSymbolicConstantSource with
+            override x.Compose state =
+                let typ = substituteTypeVariables state x.typ
+                let newTypes = composeInitializedTypes state x.matchingTypes
+                isTypeInitialized {state with initializedTypes = newTypes} typ
+
+    // ------------------------------- Pretty-printing -------------------------------
+
+    let private dumpStack (sb : StringBuilder) stack =
+        let stackString = CallStack.toString stack
+        if String.IsNullOrEmpty stackString then sb
+        else
+            let sb = PrettyPrinting.dumpSection "Stack" sb
+            PrettyPrinting.appendLine sb stackString
+
+    let private dumpDict section sort keyToString valueToString (sb : StringBuilder) d =
+        if PersistentDict.isEmpty d then sb
+        else
+            let sb = PrettyPrinting.dumpSection section sb
+            PersistentDict.dump d sort keyToString valueToString |> PrettyPrinting.appendLine sb
+
+    let private dumpInitializedTypes (sb : StringBuilder) initializedTypes =
+        if SymbolicSet.isEmpty initializedTypes then sb
+        else sprintf "Initialized types = %s" (SymbolicSet.print initializedTypes) |> PrettyPrinting.appendLine sb
+
+    let private dumpEvaluationStack (sb : StringBuilder) evaluationStack =
+        if EvaluationStack.length evaluationStack = 0 then sb
+        else
+            let sb = PrettyPrinting.dumpSection "Operation stack" sb
+            EvaluationStack.toString evaluationStack |> PrettyPrinting.appendLine sb
+
+    let private arrayTypeToString arrayType = (arrayTypeToSymbolicType arrayType).FullName
+
+    let private sortVectorTime<'a> : seq<vectorTime * 'a> -> seq<vectorTime * 'a> =
+        Seq.sortWith (fun (k1, _ ) (k2, _ ) -> VectorTime.compare k1 k2)
+
+    let dump (s : state) =
+        // TODO: print lower bounds?
+        let sortBy sorter = Seq.sortBy (fst >> sorter)
+        let memory = s.memory
+        let sb = StringBuilder()
+        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.toString |> sprintf "Path condition: %s" |> PrettyPrinting.appendLine sb
+        let sb = dumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb memory.ClassFields
+        let sb = dumpDict "Array contents" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb memory.Arrays
+        let sb = dumpDict "Array lengths" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb memory.Lengths
+        let sb = dumpDict "Types tokens" sortVectorTime VectorTime.print toString sb memory.AllocatedTypes
+        let sb = dumpDict "Static fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb memory.StaticFields
+        let sb = dumpDict "Delegates" sortVectorTime VectorTime.print toString sb memory.Delegates
+        let sb = dumpStack sb memory.Stack
+        let sb = dumpInitializedTypes sb s.initializedTypes
+        let sb = dumpEvaluationStack sb memory.EvaluationStack
+        if sb.Length = 0 then "<Empty>"
+        else
+            System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "");

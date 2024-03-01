@@ -255,7 +255,8 @@ module API =
         val EmptyStack : evaluationStack
 
     module public Memory =
-        val EmptyState : unit -> state
+        val EmptyIsolatedState : unit -> state
+        val EmptyCompleteState : unit -> state
         val EmptyModel : IMethod -> model
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
@@ -304,7 +305,7 @@ module API =
 
         val DefaultOf : Type -> term
 
-        val MakeSymbolicThis : IMethod -> term
+        val MakeSymbolicThis : state -> IMethod -> term
 
         val CallStackContainsFunction : state -> IMethod -> bool
         val CallStackSize : state -> int
@@ -362,7 +363,6 @@ module API =
         val StringCtorOfCharArrayAndLen : state -> term -> term -> term -> state list
 
         // TODO: get rid of all unnecessary stuff below!
-        val ComposeStates : state -> state -> state list
         val WLP : state -> pathCondition -> pathCondition
 
         val Merge2States : state -> state -> state list

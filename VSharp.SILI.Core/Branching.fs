@@ -23,7 +23,7 @@ module internal Branching =
                     f state v (fun r ->
                     r::results |> mergeResults |> k)))
         | _ -> f state term (List.singleton >> k)
-    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term Memory.mergeResults k
+    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term State.mergeResults k
     let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
 
     let guardedStatedMap mapper state term =
@@ -117,6 +117,6 @@ module internal Branching =
         else __unreachable__())
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
-        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch Memory.merge2Results k
+        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch State.merge2Results k
     let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
         statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id

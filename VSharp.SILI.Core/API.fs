@@ -104,8 +104,8 @@ module API =
         let TypeOf term = typeOf term
         // NOTE: returns type of location, referenced by 'ref'
         let TypeOfLocation ref = typeOfRef ref
-        let MostConcreteTypeOfRef state ref = Memory.mostConcreteTypeOfRef state ref
-        let TypeOfAddress state address = Memory.typeOfHeapLocation state address
+        let MostConcreteTypeOfRef state ref = state.memory.MostConcreteTypeOfRef ref
+        let TypeOfAddress state address = state.memory.TypeOfHeapLocation address
 
         let IsStruct term = isStruct term
         let IsReference term = isReference term
@@ -124,12 +124,12 @@ module API =
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
 
         let TryPtrToRef state pointerBase sightType offset =
-            Memory.tryPtrToRef state pointerBase sightType offset
+            state.memory.TryPtrToRef pointerBase sightType offset
 
         let PtrToRefFork state pointerBase sightType offset =
             let zero = MakeNumber 0
             let ptrToRef sightType offset state k =
-                let ref = Memory.tryPtrToRef state pointerBase sightType offset
+                let ref = state.memory.TryPtrToRef pointerBase sightType offset
                 k (ref, state)
             let fork state condition sightType offset =
                 StatedConditionalExecution state
@@ -140,7 +140,7 @@ module API =
                     id
             match pointerBase with
             | HeapLocation(address, t) when address <> zeroAddress() ->
-                let typ = Memory.typeOfHeapLocation state address |> TypeUtils.mostConcreteType t
+                let typ = state.memory.TypeOfHeapLocation address |> TypeUtils.mostConcreteType t
                 let isString = typ = typeof<string>
                 if TypeUtils.isArrayType typ || isString then
                     let sightType =
@@ -166,9 +166,11 @@ module API =
                 let condition = offset === zero
                 fork state condition sightType zero
 
-        let TryTermToObj state term = Memory.tryTermToObj state term
-        let TryTermToFullyConcreteObj state term = Memory.tryTermToFullyConcreteObj state term
-        let ReTrackObject state (obj : obj) = state.concreteMemory.ReTrackObject obj
+        let TryTermToObj state term = state.memory.TryTermToObj term
+        let TryTermToFullyConcreteObj state term = state.memory.TryTermToFullyConcreteObj term
+        let ReTrackObject state (obj : obj) =
+            let memory = state.memory
+            memory.ConcreteMemory.ReTrackObject obj
 
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
@@ -247,7 +249,7 @@ module API =
         let HeapReferenceToBoxReference reference = Memory.heapReferenceToBoxReference reference
 
         let AddConstraint conditionState condition =
-            Memory.addConstraint conditionState condition
+            State.addConstraint conditionState condition
             let constraints = conditionState.typeStorage.Constraints
             TypeStorage.addTypeConstraint constraints condition
 
@@ -360,25 +362,27 @@ module API =
 
     module public Memory =
 
-        let EmptyState() = Memory.makeEmpty false
+        let EmptyIsolatedState() = Memory.makeEmpty false
+        let EmptyCompleteState() = Memory.makeEmpty true
+
         let EmptyModel method =
             let modelState = Memory.makeEmpty true
-            Memory.fillModelWithParametersAndThis modelState method
+            modelState.memory.FillModelWithParametersAndThis method
             StateModel modelState
 
-        let PopFrame state = Memory.popFrame state
-        let ForcePopFrames count state = Memory.forcePopFrames count state
-        let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
-        let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
-        let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
+        let PopFrame state = state.memory.PopFrame()
+        let ForcePopFrames count state = state.memory.ForcePopFrames(count)
+        let PopTypeVariables state = State.popTypeVariablesSubstitution state
+        let NewStackFrame state method parametersAndThis = state.memory.NewStackFrame method parametersAndThis
+        let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
 
-        let StringArrayInfo state stringAddress length = Memory.stringArrayInfo state stringAddress length
+        let StringArrayInfo state stringAddress length = state.memory.StringArrayInfo stringAddress length
 
         let rec ReferenceArrayIndex state arrayRef indices (valueType : Type option) =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
             match arrayRef.term with
             | HeapRef(addr, typ) ->
-                let t = Memory.mostConcreteTypeOfHeapRef state addr typ
+                let t = state.memory.MostConcreteTypeOfHeapRef addr typ
                 let addr, arrayType =
                     if TypeUtils.isArrayType t then
                         addr, symbolicTypeToArrayType t
@@ -386,7 +390,7 @@ module API =
                 assert(arrayType.dimension = List.length indices)
                 match valueType with
                 | Some valueType when not (Memory.isSafeContextWrite arrayType.elemType valueType) ->
-                    Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
+                    Ptr (HeapLocation(addr, typ)) valueType (state.memory.ArrayIndicesToOffset addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
             | Ref(ArrayIndex(address, innerIndices, arrayType) as ref) ->
                 assert(List.length indices = List.length innerIndices)
@@ -411,9 +415,9 @@ module API =
                 let sightType, indexOffset =
                     match valueType with
                     | None ->
-                        elemType, Memory.arrayIndicesToOffset state address arrayType indices
+                        elemType, state.memory.ArrayIndicesToOffset address arrayType indices
                     | Some t when Memory.isSafeContextWrite elemType t ->
-                        t, Memory.arrayIndicesToOffset state address arrayType indices
+                        t, state.memory.ArrayIndicesToOffset address arrayType indices
                     | Some t ->
                         assert(List.length indices = 1)
                         let index = indices[0]
@@ -425,7 +429,7 @@ module API =
             | _ -> internalfail $"Referencing array index: expected reference, but got {arrayRef}"
 
         let ReferenceField state reference fieldId =
-            Memory.referenceField state reference fieldId
+            state.memory.ReferenceField reference fieldId
 
         let private CommonTryAddressFromRef state ref shouldFork =
             let zero = MakeNumber 0
@@ -470,22 +474,22 @@ module API =
         let ExtractPointerOffset ptr = Memory.extractPointerOffset ptr
 
         let Read state reference =
-            transformBoxedRef reference |> Memory.read Memory.emptyReporter state
+            transformBoxedRef reference |> state.memory.Read Memory.emptyReporter
         let ReadUnsafe (reporter : IErrorReporter) state reference =
             reporter.ConfigureState state
-            transformBoxedRef reference |> Memory.read reporter state
-        let ReadLocalVariable state location = Memory.readStackLocation state location
-        let ReadThis state method = Memory.readStackLocation state (ThisKey method)
-        let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
+            transformBoxedRef reference |> state.memory.Read reporter
+        let ReadLocalVariable state location = state.memory.ReadStackLocation location
+        let ReadThis state method = state.memory.ReadStackLocation (ThisKey method)
+        let ReadArgument state parameterInfo = state.memory.ReadStackLocation (ParameterKey parameterInfo)
 
         let CommonReadField reporter state term field =
             let doRead target =
                 match target.term with
                 | HeapRef _
                 | Ptr _
-                | Ref _ -> ReferenceField state target field |> Memory.read reporter state
-                | Struct _ -> Memory.readStruct reporter state target field
-                | Combined _ -> Memory.readFieldUnsafe reporter state target field
+                | Ref _ -> ReferenceField state target field |> state.memory.Read reporter
+                | Struct _ -> state.memory.ReadStruct reporter target field
+                | Combined _ -> state.memory.ReadFieldUnsafe reporter target field
                 | _ -> internalfail $"Reading field of {term}"
             Merging.guardedApply doRead term
 
@@ -512,34 +516,34 @@ module API =
 
         let rec ReadStringChar state reference index =
             match reference.term with
-            | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = typeof<string> ->
-                let addr, arrayType = Memory.stringArrayInfo state addr None
-                Memory.readArrayIndex state addr [index] arrayType
+            | HeapRef(addr, typ) when state.memory.MostConcreteTypeOfHeapRef addr typ = typeof<string> ->
+                let addr, arrayType = state.memory.StringArrayInfo addr None
+                state.memory.ReadArrayIndex addr [index] arrayType
             | Union gvs ->
                 let readStringChar term = ReadStringChar state term index
                 Merging.guardedMap readStringChar gvs
             | _ -> internalfail $"Reading string char: expected reference, but got {reference}"
-        let ReadStaticField state typ field = Memory.readStaticField state typ field
-        let ReadDelegate state reference = Memory.readDelegate state reference
+        let ReadStaticField state typ field = state.memory.ReadStaticField typ field
+        let ReadDelegate state reference = state.memory.ReadDelegate reference
 
         let CombineDelegates state delegates t =
-            Memory.combineDelegates state delegates t
+            state.memory.CombineDelegates delegates t
         let RemoveDelegate state source toRemove t =
-            Memory.removeDelegate state source toRemove t
+            state.memory.RemoveDelegate source toRemove t
 
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
-        let WriteStackLocation state location value = Memory.writeStackLocation state location value
+        let WriteStackLocation state location value = state.memory.WriteStackLocation location value
 
         let Write state reference value =
             let write state reference =
-                Memory.write Memory.emptyReporter state (transformBoxedRef reference) value
+                state.memory.Write Memory.emptyReporter (transformBoxedRef reference) value
             Branching.guardedStatedMap write state reference
 
         let WriteUnsafe (reporter : IErrorReporter) state reference value =
             let write state reference =
                 reporter.ConfigureState state
-                Memory.write reporter state reference value
+                state.memory.Write reporter reference value
             Branching.guardedStatedMap write state reference
 
         let WriteStructField structure field value = Memory.writeStruct structure field value
@@ -552,7 +556,7 @@ module API =
             let write state reference =
                 reporter.ConfigureState state
                 match reference.term with
-                | HeapRef(addr, _) -> Memory.writeClassField state addr field value
+                | HeapRef(addr, _) -> state.memory.WriteClassField addr field value
                 | _ -> internalfail $"Writing field of class: expected reference, but got {reference}"
                 state
             Branching.guardedStatedMap write state reference
@@ -570,24 +574,24 @@ module API =
                     Types.Cast value arrayType.elemType
             WriteUnsafe reporter state ref value
 
-        let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
+        let WriteStaticField state typ field value = state.memory.WriteStaticField typ field value
 
         let DefaultOf typ = makeDefaultValue typ
 
-        let MakeSymbolicThis m = Memory.makeSymbolicThis m
+        let MakeSymbolicThis state m = state.memory.MakeSymbolicThis m
 
-        let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
-        let CallStackSize state = CallStack.size state.stack
-        let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
-        let EntryFunction state = CallStack.entryFunction state.stack
+        let CallStackContainsFunction state method = CallStack.containsFunc state.memory.Stack method
+        let CallStackSize state = CallStack.size state.memory.Stack
+        let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.memory.Stack
+        let EntryFunction state = CallStack.entryFunction state.memory.Stack
 
-        let BoxValueType state term = Memory.allocateBoxedLocation state term
+        let BoxValueType state term = state.memory.AllocateBoxedLocation term
 
         let InitializeStaticMembers state targetType =
-            Memory.initializeStaticMembers state targetType
+            State.initializeStaticMembers state targetType
 
         let MarkTypeInitialized state targetType =
-            Memory.markTypeInitialized state targetType
+            State.markTypeInitialized state targetType
 
         let InitFunctionFrame state (method : IMethod) this paramValues =
             let parameters = method.Parameters
@@ -627,53 +631,53 @@ module API =
         let AllocateTemporaryLocalVariable state index typ term =
             let tmpKey = TemporaryLocalVariableKey(typ, index)
             let ref = PrimitiveStackLocation tmpKey |> Ref
-            Memory.allocateOnStack state tmpKey term
+            state.memory.AllocateOnStack tmpKey term
             ref
 
         let AllocateTemporaryLocalVariableOfType state name index typ =
-            Memory.allocateTemporaryLocalVariableOfType state name index typ
+            state.memory.AllocateTemporaryLocalVariableOfType name index typ
 
         let AllocateDefaultClass state typ =
             if typ = typeof<string> then
                 // Allocating not empty string, because it should not be interned
                 // Constructor will mutate whole string
-                Memory.allocateString state (String('\000', 1))
-            else Memory.allocateClass state typ
+                state.memory.AllocateString (String('\000', 1))
+            else state.memory.AllocateClass typ
 
         let AllocateMock state mock targetType =
-            let concreteAddress = Memory.allocateMockType state mock
+            let concreteAddress = state.memory.AllocateMockType mock
             HeapRef (ConcreteHeapAddress concreteAddress) targetType
 
         let AllocateDefaultArray state lengths typ =
             let zeroLowerBounds = List.map (fun _ -> makeNumber 0) lengths
-            let address = Memory.allocateArray state typ zeroLowerBounds lengths
+            let address = state.memory.AllocateArray typ zeroLowerBounds lengths
             HeapRef address typ
 
         let AllocateVectorArray state length elementType =
-            let address = Memory.allocateVector state elementType length
+            let address = state.memory.AllocateVector elementType length
             HeapRef address (elementType.MakeArrayType())
 
         let AllocateConcreteVectorArray state length elementType contents =
-            let address = Memory.allocateConcreteVector state elementType length contents
+            let address = state.memory.AllocateConcreteVector elementType length contents
             HeapRef address (elementType.MakeArrayType())
 
         let AllocateArrayFromFieldInfo state fieldInfo =
             ArrayInitialization.allocateOptimizedArray state fieldInfo
 
         let AllocateDelegate state methodInfo target delegateType =
-            Memory.allocateDelegate state methodInfo target delegateType
+            state.memory.AllocateDelegate methodInfo target delegateType
 
-        let AllocateString string state = Memory.allocateString state string
-        let AllocateEmptyString state length = Memory.allocateEmptyString state length
+        let AllocateString string state = state.memory.AllocateString string
+        let AllocateEmptyString state length = state.memory.AllocateEmptyString length
 
-        let CreateStringFromChar state char = Memory.createStringFromChar state char
+        let CreateStringFromChar state char = state.memory.CreateStringFromChar char
 
-        let AllocateConcreteObject state (obj : obj) typ = Memory.allocateConcreteObject state obj typ
+        let AllocateConcreteObject state (obj : obj) typ = state.memory.AllocateConcreteObject obj typ
 
         let LinearizeArrayIndex state address indices arrayType =
             let dim = arrayType.dimension
-            let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
-            let lbs = List.init dim (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType)
+            let lens = List.init dim (fun dim -> state.memory.ReadLength address (makeNumber dim) arrayType)
+            let lbs = List.init dim (fun dim -> state.memory.ReadLowerBound address (makeNumber dim) arrayType)
             Memory.linearizeArrayIndex lens lbs indices
 
         let IsSafeContextCopy (srcArrayType : arrayType) (dstArrayType : arrayType) =
@@ -693,10 +697,11 @@ module API =
         let CopyStringArray state src srcIndex dst dstIndex length =
             match src.term, dst.term with
             | HeapRef(srcAddress, srcSightType), HeapRef(dstAddress, dstSightType) ->
-                assert(Memory.mostConcreteTypeOfHeapRef state srcAddress srcSightType = typeof<string>)
-                assert(Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType = typeof<string>)
-                let srcAddress, srcType = Memory.stringArrayInfo state srcAddress None
-                let dstAddress, dstType = Memory.stringArrayInfo state dstAddress None
+                let memory = state.memory
+                assert(memory.MostConcreteTypeOfHeapRef srcAddress srcSightType = typeof<string>)
+                assert(memory.MostConcreteTypeOfHeapRef dstAddress dstSightType = typeof<string>)
+                let srcAddress, srcType = memory.StringArrayInfo srcAddress None
+                let dstAddress, dstType = memory.StringArrayInfo dstAddress None
                 assert(srcType = arrayType.CharVector && dstType = arrayType.CharVector)
                 Copying.copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length
             | _ -> internalfail $"Coping arrays: expected heapRefs, but got {src}, {dst}"
@@ -704,7 +709,7 @@ module API =
         let ClearArray state array index length =
             match array.term with
             | HeapRef(address, sightType) ->
-                let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
+                let arrayType = state.memory.MostConcreteTypeOfHeapRef address sightType |> symbolicTypeToArrayType
                 let elemType = arrayType.elemType
                 let value = makeDefaultValue elemType
                 Copying.fillArray state address arrayType index length value
@@ -713,62 +718,68 @@ module API =
         let FillArray state array value =
             match array.term with
             | HeapRef(address, sightType) ->
-                let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
+                let memory = state.memory
+                let arrayType = memory.MostConcreteTypeOfHeapRef address sightType |> symbolicTypeToArrayType
                 // Asserting that array is vector (T[])
                 assert arrayType.isVector
                 let zero = makeNumber 0
-                let length = Memory.readLength state address zero arrayType
+                let length = memory.ReadLength address zero arrayType
                 Copying.fillArray state address arrayType zero length value
             | _ -> internalfail $"Filling array: expected heapRef, but got {array}"
 
         let StringFromReplicatedChar state string char length =
-            let cm = state.concreteMemory
-            let concreteChar = Memory.tryTermToObj state char
-            let concreteLen = Memory.tryTermToObj state length
+            let memory = state.memory
+            let cm = memory.ConcreteMemory
+            let concreteChar = memory.TryTermToObj char
+            let concreteLen = memory.TryTermToObj length
             let symbolicCase address =
-                let address, arrayType = Memory.stringArrayInfo state address (Some length)
+                let address, arrayType = memory.StringArrayInfo address (Some length)
                 Copying.fillArray state address arrayType (makeNumber 0) length char
-                Memory.writeClassField state address Reflection.stringLengthField length
+                memory.WriteClassField address Reflection.stringLengthField length
             match string.term, concreteChar, concreteLen with
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), Some (:? char as c), Some (:? int as len)
                 when cm.Contains a ->
-                    assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+                    assert(memory.MostConcreteTypeOfHeapRef address sightType = typeof<string>)
                     let string = String(c, len)
                     cm.Remove a
                     cm.Allocate a string
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), _, None
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), None, _
                 when cm.Contains a ->
-                    assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
-                    Memory.unmarshall state a
+                    assert(memory.MostConcreteTypeOfHeapRef address sightType = typeof<string>)
+                    memory.Unmarshall a
                     symbolicCase address
             | HeapRef(address, sightType), _, _ ->
-                assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+                assert(memory.MostConcreteTypeOfHeapRef address sightType = typeof<string>)
                 symbolicCase address
             | _ -> internalfail $"Creating string from replicated char: expected heapRef, but got {string}"
 
-        let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
-        let Dump state = Memory.dump state
+        let IsTypeInitialized state typ = State.isTypeInitialized state typ
+        let Dump state = State.dump state
         let StackTrace stack = CallStack.stackTrace stack
         let StackTraceString stack = CallStack.stackTraceString stack
         let StackToString stack = CallStack.toString stack
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
-            | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> TypeUtils.rankOf |> makeNumber
+            | HeapRef(addr, typ) -> state.memory.MostConcreteTypeOfHeapRef addr typ |> TypeUtils.rankOf |> makeNumber
             | Union gvs -> Merging.guardedMap (ArrayRank state) gvs
             | _ -> internalfail $"Getting rank of array: expected ref, but got {arrayRef}"
 
         let rec ArrayLengthByDimension state arrayRef index =
             match arrayRef.term with
-            | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLength state addr index
+            | HeapRef(addr, typ) ->
+                let memory = state.memory
+                memory.MostConcreteTypeOfHeapRef addr typ |> symbolicTypeToArrayType |> memory.ReadLength addr index
             | Union gvs ->
                 let arrayLengthByDimension term = ArrayLengthByDimension state term index
                 Merging.guardedMap arrayLengthByDimension gvs
             | _ -> internalfail $"reading array length: expected heap reference, but got {arrayRef}"
         let rec ArrayLowerBoundByDimension state arrayRef index =
             match arrayRef.term with
-            | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLowerBound state addr index
+            | HeapRef(addr, typ) ->
+                let memory = state.memory
+                memory.MostConcreteTypeOfHeapRef addr typ |> symbolicTypeToArrayType |> memory.ReadLowerBound addr index
             | Union gvs ->
                 let arrayLowerBoundByDimension term = ArrayLowerBoundByDimension state term index
                 Merging.guardedMap arrayLowerBoundByDimension gvs
@@ -777,22 +788,23 @@ module API =
         let rec CountOfArrayElements state arrayRef =
             match arrayRef.term with
             | HeapRef(address, typ) ->
-                let arrayType = Memory.mostConcreteTypeOfHeapRef state address typ |> symbolicTypeToArrayType
-                let lens = List.init arrayType.dimension (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
+                let memory = state.memory
+                let arrayType = memory.MostConcreteTypeOfHeapRef address typ |> symbolicTypeToArrayType
+                let lens = List.init arrayType.dimension (fun dim -> memory.ReadLength address (makeNumber dim) arrayType)
                 List.fold mul (makeNumber 1) lens
             | Union gvs -> Merging.guardedMap (CountOfArrayElements state) gvs
             | _ -> internalfail $"counting array elements: expected heap reference, but got {arrayRef}"
 
-        let StringLength state strRef = Memory.lengthOfString state strRef
+        let StringLength state strRef = state.memory.LengthOfString strRef
 
         let private CommonStringCtorOfCharArray state arrayRef stringRef length =
             match stringRef.term with
             | HeapRef({term = ConcreteHeapAddress dstAddr} as address, typ) ->
-                assert(Memory.mostConcreteTypeOfHeapRef state address typ = typeof<string>)
+                assert(state.memory.MostConcreteTypeOfHeapRef address typ = typeof<string>)
                 let copy arrayRef state k =
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
-                        assert(let t = Memory.mostConcreteTypeOfHeapRef state arrayAddr typ in t = typeof<char[]> || t = typeof<string>)
+                        assert(let t = state.memory.MostConcreteTypeOfHeapRef arrayAddr typ in t = typeof<char[]> || t = typeof<string>)
                         Copying.copyCharArrayToString state arrayAddr dstAddr (makeNumber 0) length
                         k (Nop(), state)
                     | Ref(ArrayIndex(arrayAddr, indices, arrayType)) ->
@@ -814,65 +826,65 @@ module API =
         let StringCtorOfCharArrayAndLen state arrayRef stringRef length =
             CommonStringCtorOfCharArray state arrayRef stringRef (Some length)
 
-        let ComposeStates state state' = Memory.composeStates state state'
-        let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc
+        let WLP state pc' = PC.mapPC (State.fillHoles state) pc' |> PC.union state.pc
 
-        let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
-        let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
+        let Merge2States (s1 : state) (s2 : state) = State.merge2States s1 s2
+        let Merge2Results (r1, s1 : state) (r2, s2 : state) = State.merge2Results (r1, s1) (r2, s2)
 
         let FillClassFieldsRegion state (field : fieldId) value =
             let defaultValue = MemoryRegion.empty field.typ
             let fill region = MemoryRegion.fillRegion value region
-            state.classFields <- PersistentDict.update state.classFields field defaultValue fill
+            state.memory.ClassFields <- PersistentDict.update state.memory.ClassFields field defaultValue fill
 
         let FillStaticsRegion state (field : fieldId) value =
             let defaultValue = MemoryRegion.empty field.typ
             let fill region = MemoryRegion.fillRegion value region
-            state.staticFields <- PersistentDict.update state.staticFields field defaultValue fill
+            state.memory.StaticFields <- PersistentDict.update state.memory.StaticFields field defaultValue fill
 
         let FillArrayRegion state arrayType value =
             let defaultValue = MemoryRegion.empty arrayType.elemType
             let fill region = MemoryRegion.fillRegion value region
-            state.arrays <- PersistentDict.update state.arrays arrayType defaultValue fill
+            state.memory.Arrays <- PersistentDict.update state.memory.Arrays arrayType defaultValue fill
 
         let FillLengthRegion state typ value =
             let defaultValue = MemoryRegion.empty TypeUtils.lengthType
             let fill region = MemoryRegion.fillRegion value region
-            state.lengths <- PersistentDict.update state.lengths typ defaultValue fill
+            state.memory.Lengths <- PersistentDict.update state.memory.Lengths typ defaultValue fill
 
         let FillLowerBoundRegion state typ value =
             let defaultValue = MemoryRegion.empty TypeUtils.lengthType
             let fill region = MemoryRegion.fillRegion value region
-            state.lowerBounds <- PersistentDict.update state.lowerBounds typ defaultValue fill
+            state.memory.LowerBounds <- PersistentDict.update state.memory.LowerBounds typ defaultValue fill
 
         let FillStackBufferRegion state key value =
             let defaultValue = MemoryRegion.empty typeof<int8>
             let fill region = MemoryRegion.fillRegion value region
-            state.stackBuffers <- PersistentDict.update state.stackBuffers key defaultValue fill
+            state.memory.StackBuffers <- PersistentDict.update state.memory.StackBuffers key defaultValue fill
 
         let FillBoxedRegion state typ value =
             let defaultValue = MemoryRegion.empty typ
             let fill region = MemoryRegion.fillRegion value region
-            state.boxedLocations <- PersistentDict.update state.boxedLocations typ defaultValue fill
+            state.memory.BoxedLocations <- PersistentDict.update state.memory.BoxedLocations typ defaultValue fill
 
-        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
-        let TryTermToObject (state : state) term = Memory.tryTermToObj state term
+        let ObjectToTerm (state : state) (o : obj) (typ : Type) = state.memory.ObjToTerm typ o
+        let TryTermToObject (state : state) term = state.memory.TryTermToObj term
 
         let StateResult (state : state) =
             let callStackSize = CallStackSize state
-            match EvaluationStack.Length state.evaluationStack with
+            let memory = state.memory
+            match EvaluationStack.Length memory.EvaluationStack with
             | _ when callStackSize > 2 -> internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
             | 0 -> Nop()
             | 1 ->
-                let result = EvaluationStack.Pop state.evaluationStack |> fst
+                let result = EvaluationStack.Pop memory.EvaluationStack |> fst
                 let method = GetCurrentExploringFunction state
                 match method with
                 | _ when callStackSize = 1 || callStackSize = 2 && method.HasParameterOnStack ->
                     Types.Cast result method.ReturnType
                 | _ when state.exceptionsRegister.IsUnhandledError -> Nop()
-                | _ -> internalfailf "Method is not finished! Stack trace = %O" CallStack.stackTraceString state.stack
+                | _ -> internalfailf "Method is not finished! Stack trace = %O" CallStack.stackTraceString memory.Stack
             | _ -> internalfail "EvaluationStack size was bigger than 1"
 
     module Print =
-        let Dump state = Memory.dump state
+        let Dump state = State.dump state
         let PrintPC pc = PC.toString pc

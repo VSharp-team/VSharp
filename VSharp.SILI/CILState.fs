@@ -322,29 +322,33 @@ module CilState =
         // -------------------- EvaluationStack operations --------------------
 
         member x.ClearEvaluationStackLastFrame() =
-            x.state.evaluationStack <- EvaluationStack.ClearActiveFrame x.state.evaluationStack
+            let memory = x.state.memory
+            memory.EvaluationStack <- EvaluationStack.ClearActiveFrame memory.EvaluationStack
 
         member x.Push v =
+            let memory = x.state.memory
             match v.term with
             | Nop -> internalfail "pushing 'NOP' value onto evaluation stack"
-            | _ -> x.state.evaluationStack <- EvaluationStack.Push v x.state.evaluationStack
+            | _ -> memory.EvaluationStack <- EvaluationStack.Push v memory.EvaluationStack
 
         member x.PushMany vs =
             if List.contains (Nop()) vs then
                 internalfail "pushing 'NOP' value onto evaluation stack"
-            x.state.evaluationStack <- EvaluationStack.PushMany vs x.state.evaluationStack
+            let memory = x.state.memory
+            memory.EvaluationStack <- EvaluationStack.PushMany vs memory.EvaluationStack
 
-        member x.Peek() = EvaluationStack.Pop x.state.evaluationStack |> fst
+        member x.Peek() = EvaluationStack.Pop x.state.memory.EvaluationStack |> fst
 
         member x.Peek2() =
-            let stack = x.state.evaluationStack
+            let stack = x.state.memory.EvaluationStack
             let arg2, stack = EvaluationStack.Pop stack
             let arg1, _ = EvaluationStack.Pop stack
             arg2, arg1
 
         member x.Pop() =
-            let v, evaluationStack = EvaluationStack.Pop x.state.evaluationStack
-            x.state.evaluationStack <- evaluationStack
+            let memory = x.state.memory
+            let v, evaluationStack = EvaluationStack.Pop memory.EvaluationStack
+            memory.EvaluationStack <- evaluationStack
             v
 
         member x.Pop2() =
@@ -359,8 +363,9 @@ module CilState =
             arg3, arg2, arg1
 
         member x.PopMany (count : int) =
-            let parameters, evaluationStack = EvaluationStack.PopMany count x.state.evaluationStack
-            x.state.evaluationStack <- evaluationStack
+            let memory = x.state.memory
+            let parameters, evaluationStack = EvaluationStack.PopMany count memory.EvaluationStack
+            memory.EvaluationStack <- evaluationStack
             parameters
 
         member x.PushNewObjForValueTypes() =
@@ -394,14 +399,14 @@ module CilState =
         // -------------------- Memory interaction --------------------
 
         member x.StackSize with get() =
-            assert(EvaluationStack.FramesCount x.state.evaluationStack = Memory.CallStackSize x.state)
+            assert(EvaluationStack.FramesCount x.state.memory.EvaluationStack = Memory.CallStackSize x.state)
             List.length x.ipStack
 
         member x.PopFrame() =
             Memory.PopFrame x.state
             let ip = List.tail x.ipStack
             x.ipStack <- ip
-            assert(EvaluationStack.FramesCount x.state.evaluationStack = Memory.CallStackSize x.state)
+            assert(EvaluationStack.FramesCount x.state.memory.EvaluationStack = Memory.CallStackSize x.state)
             match ip with
             | ip :: _ -> x.MoveCodeLoc ip
             | [] -> ()
@@ -495,7 +500,7 @@ module CilState =
 
         interface IGraphTrackableState with
             override this.CodeLocation = this.approximateLoc
-            override this.CallStack = Memory.StackTrace this.state.stack |> List.map (fun m -> m :?> Method)
+            override this.CallStack = Memory.StackTrace this.state.memory.Stack |> List.map (fun m -> m :?> Method)
 
 module CilStateOperations =
     open CilState

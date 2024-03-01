@@ -132,7 +132,7 @@ module internal TypeCasting =
     let rec typeIsRef state typ ref =
         match ref.term with
         | HeapRef(addr, sightType) ->
-            let rightType = Memory.mostConcreteTypeOfHeapRef state addr sightType
+            let rightType = state.memory.MostConcreteTypeOfHeapRef addr sightType
             typeIsAddress typ addr rightType
         | Ref address ->
             let rightType = address.TypeOfLocation
@@ -143,7 +143,7 @@ module internal TypeCasting =
     let rec refIsType state ref typ =
         match ref.term with
         | HeapRef(addr, sightType) ->
-            let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
+            let leftType = state.memory.MostConcreteTypeOfHeapRef  addr sightType
             addressIsType addr leftType typ
         | Ref address ->
             let leftType = address.TypeOfLocation
@@ -156,7 +156,7 @@ module internal TypeCasting =
     let rec refEqType state ref typ =
         match ref.term with
         | HeapRef(addr, sightType) ->
-            let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
+            let leftType = state.memory.MostConcreteTypeOfHeapRef addr sightType
             addressEqType addr leftType typ
         | Ref address ->
             let leftType = address.TypeOfLocation
@@ -167,17 +167,18 @@ module internal TypeCasting =
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
     let rec refIsRef state leftRef rightRef =
+        let memory = state.memory
         match leftRef.term, rightRef.term with
         | HeapRef(leftAddr, leftSightType), HeapRef(rightAddr, rightSightType) ->
-            let leftType = Memory.mostConcreteTypeOfHeapRef state leftAddr leftSightType
-            let rightType = Memory.mostConcreteTypeOfHeapRef state rightAddr rightSightType
+            let leftType = memory.MostConcreteTypeOfHeapRef leftAddr leftSightType
+            let rightType = memory.MostConcreteTypeOfHeapRef rightAddr rightSightType
             addressIsAddress leftAddr leftType rightAddr rightType
         | Ref leftAddress, HeapRef(rightAddr, rightSightType) ->
             let leftType = leftAddress.TypeOfLocation
-            let rightType = Memory.mostConcreteTypeOfHeapRef state rightAddr rightSightType
+            let rightType = memory.MostConcreteTypeOfHeapRef rightAddr rightSightType
             typeIsAddress leftType rightAddr rightType
         | HeapRef(leftAddr, leftSightType), Ref rightAddress ->
-            let leftType = Memory.mostConcreteTypeOfHeapRef state leftAddr leftSightType
+            let leftType = memory.MostConcreteTypeOfHeapRef leftAddr leftSightType
             let rightType = rightAddress.TypeOfLocation
             addressIsType leftAddr leftType rightType
         | Union gvs, _ ->
@@ -189,20 +190,21 @@ module internal TypeCasting =
     type symbolicSubtypeSource with
         interface IStatedSymbolicConstantSource with
             override x.Compose state =
-                let fillTerm = Memory.fillHoles state
-                let fillType = Memory.substituteTypeVariables state
+                let fillTerm = State.fillHoles state
+                let fillType = State.substituteTypeVariables state
+                let memory = state.memory
                 match x.left, x.right with
                 | SymbolicType l, SymbolicType r ->
                     let l = fillTerm l
                     let r = fillTerm r
-                    addressIsAddress l (Memory.typeOfHeapLocation state l) r (Memory.typeOfHeapLocation state r)
+                    addressIsAddress l (memory.TypeOfHeapLocation l) r (memory.TypeOfHeapLocation r)
                 | SymbolicType l, ConcreteType r ->
                     let l = fillTerm l
-                    let notMock() = addressIsType l (Memory.typeOfHeapLocation state l) (fillType r)
+                    let notMock() = addressIsType l (memory.TypeOfHeapLocation l) (fillType r)
                     match l with
                     | {term = ConcreteHeapAddress addr} ->
                         // None when addr is null
-                        match PersistentDict.tryFind state.allocatedTypes addr with
+                        match PersistentDict.tryFind memory.AllocatedTypes addr with
                         | Some(MockType mockType) ->
                             let assignableExists = mockType.SuperTypes |> Seq.exists (fun st -> st.IsAssignableTo r)
                             if assignableExists then True() else False()
@@ -210,11 +212,11 @@ module internal TypeCasting =
                     | _ -> notMock()
                 | ConcreteType l, SymbolicType r ->
                     let r = fillTerm r
-                    let notMock() = typeIsAddress (fillType l) r (Memory.typeOfHeapLocation state r)
+                    let notMock() = typeIsAddress (fillType l) r (memory.TypeOfHeapLocation r)
                     match r with
                     | {term = ConcreteHeapAddress addr} ->
                         // None when addr is null
-                        match PersistentDict.tryFind state.allocatedTypes addr with
+                        match PersistentDict.tryFind memory.AllocatedTypes addr with
                         | Some(MockType _) -> False()
                         | _ -> notMock()
                     | _ -> notMock()
@@ -223,15 +225,16 @@ module internal TypeCasting =
     type symbolicTypeEqualSource with
         interface IStatedSymbolicConstantSource with
             override x.Compose state =
-                let address = Memory.fillHoles state x.address
+                let address = State.fillHoles state x.address
+                let memory = state.memory
                 let notMock() =
-                    let targetType = Memory.substituteTypeVariables state x.targetType
-                    let addressType = Memory.typeOfHeapLocation state address
+                    let targetType = State.substituteTypeVariables state x.targetType
+                    let addressType = memory.TypeOfHeapLocation address
                     addressEqType address addressType targetType
                 match address.term with
                 | ConcreteHeapAddress addr ->
                     // None when addr is null
-                    match PersistentDict.tryFind state.allocatedTypes addr with
+                    match PersistentDict.tryFind memory.AllocatedTypes addr with
                     | Some(MockType _) -> False()
                     | _ -> notMock()
                 | _ -> notMock()
@@ -275,12 +278,13 @@ module internal TypeCasting =
 
     let canCast state term targetType =
         let castCheck term =
+            let memory = state.memory
             match term.term with
             | Concrete(value, _) -> canCastConcrete value targetType |> makeBool
             | Ptr(_, typ, _) -> typeIsType (typ.MakePointerType()) targetType
-            | Ref address -> typeIsType ((Memory.baseTypeOfAddress state address).MakeByRefType()) targetType
+            | Ref address -> typeIsType ((memory.BaseTypeOfAddress address).MakeByRefType()) targetType
             | HeapRef(address, sightType) ->
-                let baseType = Memory.mostConcreteTypeOfHeapRef state address sightType
+                let baseType = memory.MostConcreteTypeOfHeapRef address sightType
                 addressIsType address baseType targetType
             | _ -> typeIsType (typeOf term) targetType
         Merging.guardedApply castCheck term
