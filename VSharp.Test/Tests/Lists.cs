@@ -238,14 +238,14 @@ namespace IntegrationTests
         }
 
         [TestSvm(95)]
-        public static int DoubleWriteAfterCopy(int[] a, int i, int[] b)
+        public static int DoubleWriteAfterCopy(string[] a, int i, string[] b)
         {
             if (a.Length == b.Length)
             {
-                a[i] = 1;
+                a[i] = "1";
                 Array.Copy(b, a, a.Length - 1);
-                a[i] = 3;
-                a[i] = 3;
+                a[i] = "3";
+                a[i] = "3";
                 if (a[0] != b[0] && i > 0)
                     return -1;
                 return 1;
@@ -255,14 +255,14 @@ namespace IntegrationTests
         }
 
         [TestSvm(95)]
-        public static int DoubleWriteAfterCopy1(int[] a, int k, int i, int j, int[] b)
+        public static int DoubleWriteAfterCopy1(string[] a, int k, int i, int j, string[] b)
         {
             if (a.Length == b.Length)
             {
-                a[k] = 1;
+                a[k] = "1";
                 Array.Copy(b, a, a.Length - 1);
-                a[i] = 3;
-                a[j] = 3;
+                a[i] = "3";
+                a[j] = "3";
                 if (a[0] != b[0] && i > 0 && j > 0)
                     return -1;
                 return 1;
@@ -520,14 +520,14 @@ namespace IntegrationTests
         }
         
         [TestSvm(95)]
-        public static int TestSolvingCopyOverwrittenValueUnreachable1(int[] a, int[] b)
+        public static int TestSolvingCopyOverwrittenValueUnreachable1(string[] a, string[] b)
         {
             if (a != null && b != null && a.Length > b.Length)
             {
-                a[0] = 42;
-                b[0] = 4;
+                a[0] = "42";
+                b[0] = "4";
                 Array.Copy(a, 0, b, 0, b.Length);
-                if (b.Length > 0 && b[0] != 42) // unreachable
+                if (b.Length > 0 && b[0] != "42") // unreachable
                 {
                     return -1;
                 }
@@ -537,13 +537,13 @@ namespace IntegrationTests
         }
 
         [TestSvm(95)]
-        public static int TestSolvingCopyOverwrittenValueUnreachable2(int[] a, int i, int[] b)
+        public static int TestSolvingCopyOverwrittenValueUnreachable2(string[] a, int i, string[] b)
         {
             if (a != null && b != null && a.Length > b.Length)
             {
-                b[i] = 500;
+                b[i] = "500";
                 Array.Copy(a, 0, b, 0, b.Length);
-                if (b.Length > 0 && a[i] != 500 && b[i] == 500) // unreachable
+                if (b.Length > 0 && a[i] != "500" && b[i] == "500") // unreachable
                 {
                     return -1;
                 }
@@ -897,11 +897,11 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        public static int ConcreteDictionaryTest1(int a, int b)
+        public static int ConcreteDictionaryTest1(int a, string b)
         {
-            var d = new Dictionary<int, List<int>>();
-            d.Add(1, new List<int> {2, 3});
-            d.Add(4, new List<int> {5, 6});
+            var d = new Dictionary<int, List<string>>();
+            d.Add(1, new List<string> {"2", "3"});
+            d.Add(4, new List<string> {"5", "6"});
             if (d.TryGetValue(a, out var res))
             {
                 if (res.Contains(b))
@@ -1372,17 +1372,17 @@ namespace IntegrationTests
                 return -1;
             return 1;
         }
-        [TestSvm(90)]
-        public static int TestSplittingWithCopyRegionsImportance(int[] a, int i)
+        [TestSvm(91)]
+        public static int TestSplittingWithCopyRegionsImportance(string[] a, int i)
         {
-            a[i] = 6;
-            a[1] = 1;
-            var b = new int[a.Length];
+            a[i] = "a";
+            a[1] = "b";
+            var b = new String[a.Length];
             Array.Copy(a, 0, b, 0, a.Length);
-            if (i == 1 && b[i] == 6) // unreachable
+            if (i == 1 && b[i] == "a") // unreachable
                 // record b[i], 0 exists only if i != 1
                 return -1;
-            if (i != 1 && b[i] != 6) // unreachable
+            if (i != 1 && b[i] != "a") // unreachable
             {
                 return -2;
             }

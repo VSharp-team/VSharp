@@ -775,34 +775,28 @@ module internal Z3 =
                 let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
                 x.EncodeTerm term, slices
             | Union gvs ->
+                let extractTerm slice =
+                    match slice.term with
+                    | Slice(t, _) -> t
+                    | _ -> slice
+                let encodedTerm = List.map (fun (g, s) -> (g, extractTerm s)) gvs |> x.EncodeUnion
+
                 let extractCuts slice =
                     match slice.term with
-                    | Slice(t, cuts) -> t, cuts
-                    | _ -> slice, List.empty
-                let unionCuts = GuardedMapWithoutMerge extractCuts gvs
-                let firstGvCutsCount = (List.head >> snd >> snd >> List.length) unionCuts
-                assert(List.forall (fun gv -> (snd >> snd >> List.length) gv = firstGvCutsCount) unionCuts)
-                let encodedTerm = GuardedMapWithoutMerge fst unionCuts |> x.EncodeUnion
-                // slice cuts count are equal in each slice in union
-                // in order to encode i-th cut we consider i-th column in unionCuts as Union
-                let encodeCutChar proj column =
-                    column |> GuardedMapWithoutMerge (fun (_, cuts) -> proj cuts) |> x.EncodeUnion
-                let encodeSlicePart column =
-                    let encodedStarts = encodeCutChar fst3 column
-                    let encodedEnds = encodeCutChar snd3 column
-                    let encodedPoss = encodeCutChar thd3 column
+                    | Slice(t, cuts) -> cuts
+                    | _ -> List.empty
+                let unionCuts = List.map (fun (_, s) -> extractCuts s) gvs
+                assert(unionCuts |> List.forall (fun cuts -> (List.length cuts) = (unionCuts |> List.head |> List.length)))
+                let guardedSliceParts = unionCuts |> List.transpose |> List.map (List.map2 (fun (g, _) p -> (g, p)) gvs)
+                let encodeCutChar proj part =
+                    part |> List.map (fun (g, p) -> (g, proj p)) |> x.EncodeUnion
+                let encodeSlicePart part =
+                    let encodedStarts = encodeCutChar fst3 part
+                    let encodedEnds = encodeCutChar snd3 part
+                    let encodedPoss = encodeCutChar thd3 part
                     (encodedStarts, encodedEnds, encodedPoss)
-                let rec encodeCuts unionCuts encodedCuts =
-                    let restCuts = (List.head >> snd >> snd) unionCuts
-                    match restCuts with
-                    | [] -> encodedCuts
-                    | _::_ -> 
-                        let firstColumn, rest =
-                            GuardedMapWithoutMerge (fun (t, cuts) -> t, List.head cuts) unionCuts,
-                            GuardedMapWithoutMerge (fun (t, cuts) -> t, List.tail cuts) unionCuts
-                        let encodedPart = encodeSlicePart firstColumn
-                        encodeCuts rest (encodedPart::encodedCuts)
-                encodedTerm, encodeCuts unionCuts []
+                let encodedSliceParts = List.map encodeSlicePart guardedSliceParts
+                encodedTerm, encodedSliceParts
             | _ -> x.EncodeTerm slice, List.empty
 
         member private x.EncodeCombine slices typ =
