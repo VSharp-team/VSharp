@@ -43,8 +43,6 @@ module API =
         Branching.commonGuardedStatedApplyk f state term mergeStates k
     let GuardedMapWithoutMerge mapper gvs =
         Merging.guardedMapWithoutMerge mapper gvs
-    let Merge gvs =
-        Merging.merge gvs
 
     let ReleaseBranches() = Branching.branchesReleased <- true
     let AcquireBranches() = Branching.branchesReleased <- false

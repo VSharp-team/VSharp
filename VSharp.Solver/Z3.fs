@@ -775,7 +775,7 @@ module internal Z3 =
                             GuardedMapWithoutMerge (fun (t, cuts) -> t, List.tail cuts) unionCuts
                         let encodedPart = encodeSlicePart firstColumn
                         encodeCuts rest (encodedPart::encodedCuts)
-                encodedTerm, encodeCuts unionCuts []
+                encodedTerm, encodeCuts unionCuts [] |> List.rev
             | _ -> x.EncodeTerm slice, List.empty
 
         member private x.EncodeCombine slices typ =
