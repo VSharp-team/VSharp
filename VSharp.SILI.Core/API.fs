@@ -41,6 +41,8 @@ module API =
     let GuardedStatedApplyStatementK state term f k = Branching.guardedStatedApplyk f state term k
     let GuardedStatedApplyk f state term mergeStates k =
         Branching.commonGuardedStatedApplyk f state term mergeStates k
+    let GuardedMapWithoutMerge mapper gvs =
+        Merging.guardedMapWithoutMerge mapper gvs
 
     let ReleaseBranches() = Branching.branchesReleased <- true
     let AcquireBranches() = Branching.branchesReleased <- false
@@ -114,6 +116,10 @@ module API =
         let IsConcrete term =
             match term.term with
             | Concrete _ -> true
+            | HeapRef(address, _) when isConcreteHeapAddress address -> true
+            | _ -> false
+        let IsConcreteHeapAddress term =
+            match term.term with
             | HeapRef(address, _) when isConcreteHeapAddress address -> true
             | _ -> false
         let IsNullReference term = Pointers.isNull term
@@ -478,16 +484,17 @@ module API =
         let ReadThis state method = Memory.readStackLocation state (ThisKey method)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
 
-        let CommonReadField reporter state term field =
-            let doRead target =
-                match target.term with
-                | HeapRef _
-                | Ptr _
-                | Ref _ -> ReferenceField state target field |> Memory.read reporter state
-                | Struct _ -> Memory.readStruct reporter state target field
-                | Combined _ -> Memory.readFieldUnsafe reporter state target field
-                | _ -> internalfail $"Reading field of {term}"
-            Merging.guardedApply doRead term
+        let rec CommonReadField reporter state term field =
+            match term.term with
+            | HeapRef _
+            | Ptr _
+            | Ref _ -> ReferenceField state term field |> Memory.read reporter state
+            | Struct _ -> Memory.readStruct reporter state term field
+            | Combined _ -> Memory.readFieldUnsafe reporter state term field
+            | Union gvs ->
+                List.filter (fun (_, v) -> True() <> IsBadRef v) gvs
+                |> Merging.guardedMap (fun t -> CommonReadField reporter state t field)
+            | _ -> internalfail $"Reading field of {term}"
 
         let ReadField state term field =
             CommonReadField Memory.emptyReporter state term field

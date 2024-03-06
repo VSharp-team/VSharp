@@ -282,7 +282,7 @@ and
 
 and
     ISymbolicConstantSource =
-        abstract SubTerms : term seq
+        abstract SubTerms : term list
         abstract Time : vectorTime
         abstract TypeOfLocation : Type
 
@@ -374,7 +374,7 @@ module internal Terms =
         | Struct(fields, _) -> fields
         | term -> internalfail $"struct or class expected, {term} received"
 
-    let private typeOfUnion getType gvs =
+    let private typeOfUnion (getType : 'a -> Type)  gvs =
         let types = List.map (snd >> getType) gvs
         match types with
         | [] -> __unreachable__()
@@ -382,7 +382,8 @@ module internal Terms =
             let allSame =
                 List.forall ((=) t) ts
             if allSame then t
-            else internalfail $"evaluating type of unexpected union {gvs}!"
+            else
+                types |> List.fold (fun acc t -> if t.IsAssignableTo(acc) then acc else t) t
 
     let commonTypeOf getType term =
         match term.term with
@@ -407,7 +408,7 @@ module internal Terms =
         commonTypeOf getTypeOfRef term
 
     and typeOf term =
-        let getType term =
+        let rec getType term =
             match term.term with
             | Concrete(_, t)
             | Constant(_, _, t)
@@ -416,6 +417,7 @@ module internal Terms =
             | Struct(_, t) -> t
             | Ref _ -> (typeOfRef term).MakeByRefType()
             | Ptr _ -> (sightTypeOfPtr term).MakePointerType()
+            | Union gvs -> typeOfUnion getType gvs
             | _ -> internalfail $"getting type of unexpected term {term}"
         commonTypeOf getType term
 
@@ -980,6 +982,7 @@ module internal Terms =
             Expression Combine terms t
         let isSolid term typeOfTerm =
             typeOfTerm = t || isRefOrPtr term && (not t.IsValueType || t.IsByRef || isNative t || t.IsPrimitive)
+        // TODO: simplify in single union case
         let simplify p s e pos =
             let typ = typeOf p
             let termSize = lazy (internalSizeOf typ)
@@ -990,6 +993,7 @@ module internal Terms =
                     primitiveCast p t
                 else defaultCase()
             else defaultCase()
+        // TODO: in case of single union propagate guards and make union combine
         match terms with
         // 'ReportError' case
         | _ when List.isEmpty terms ->
@@ -1003,6 +1007,7 @@ module internal Terms =
                 let pos = convert pos typeof<int> :?> int
                 simplify p s e pos
             | _ -> defaultCase()
+        | [{term = Union _}] -> defaultCase()
         | [nonSliceTerm] ->
             simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()
@@ -1025,19 +1030,20 @@ module internal Terms =
     and private foldChildren folder state term k =
         match term.term with
         | Constant(_, source, _) ->
-            foldSeq folder source.SubTerms state k
+            foldList folder source.SubTerms state k
         | Expression(_, args, _) ->
-            foldSeq folder args state k
+            foldList folder args state k
         | Struct(fields, _) ->
-            foldSeq folder (PersistentDict.values fields) state k
+            let values = PersistentDict.values fields |> List.ofSeq
+            foldList folder values state k
         | Ref address ->
             foldAddress folder state address k
         | Ptr(address, _, indent) ->
             foldPointerBase folder state address (fun state ->
             doFold folder state indent k)
         | GuardedValues(gs, vs) ->
-            foldSeq folder gs state (fun state ->
-            foldSeq folder vs state k)
+            foldList folder gs state (fun state ->
+            foldList folder vs state k)
         | Slice(t, slices) ->
             let foldSlice state (s, e, pos) k =
                 doFold folder state s (fun state ->
@@ -1059,7 +1065,7 @@ module internal Terms =
         | ClassField(addr, _) -> doFold folder state addr k
         | ArrayIndex(addr, indices, _) ->
             doFold folder state addr (fun state ->
-            foldSeq folder indices state k)
+            foldList folder indices state k)
         | StructField(addr, _) -> foldAddress folder state addr k
         | ArrayLength(addr, idx, _)
         | ArrayLowerBound(addr, idx, _) ->
@@ -1073,17 +1079,17 @@ module internal Terms =
         | StackLocation _
         | StaticLocation _ -> k state
 
-    and private foldSeq folder terms state k =
-        Cps.Seq.foldlk (doFold folder) state terms k
+    and private foldList folder (terms : term list) state k =
+        Cps.List.foldlk (doFold folder) state terms k
 
     and fold folder state terms =
-        foldSeq folder terms state id
+        foldList folder terms state id
 
     and iter action term =
         doFold action () term id
 
-    and iterSeq action terms =
-        Cps.Seq.foldlk (doFold action) () terms id
+    and iterList action terms =
+        Cps.List.foldlk (doFold action) () terms id
 
     and discoverConstants terms =
         let result = HashSet<term>()

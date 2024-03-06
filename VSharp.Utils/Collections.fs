@@ -9,8 +9,8 @@ module public Seq =
     let foldi f st xs =
         let i = ref -1
         Seq.fold (fun s t ->
-            i := !i + 1
-            f s !i t) st xs
+            i.Value <- i.Value + 1
+            f s i.Value t) st xs
 
     let public cons x xs = seq {
         yield x
@@ -127,15 +127,15 @@ module public Dict =
                     newVal
 
     let public setValueOrUpdate (dict : IDictionary<'a, 'b>) key value =
-        if dict.ContainsKey(key) then dict.[key] <- value
+        if dict.ContainsKey(key) then dict[key] <- value
         else dict.Add(key, value)
 
     let public tryGetValue (dict : IDictionary<'a, 'b>) key defaultValue =
-        if dict.ContainsKey(key) then dict.[key]
+        if dict.ContainsKey(key) then dict[key]
         else defaultValue
 
     let public tryGetValue2 (dict : IDictionary<'a, 'b>) key defaultValue =
-        if dict.ContainsKey(key) then dict.[key]
+        if dict.ContainsKey(key) then dict[key]
         else defaultValue()
 
     let public ofSeq<'a, 'b when 'a : equality> (s : seq<'a * 'b>) : IDictionary<'a, 'b> =
@@ -145,7 +145,7 @@ module public Dict =
 
     let public equals (dict1 : IDictionary<'a,'b>) (dict2 : IDictionary<'a, 'b>) =
         dict1.Keys.Count = dict2.Keys.Count &&
-        dict1.Keys |> Seq.forall (fun k -> dict2.ContainsKey(k) && obj.Equals(dict2.[k], dict1.[k]));
+        dict1.Keys |> Seq.forall (fun k -> dict2.ContainsKey(k) && obj.Equals(dict2[k], dict1[k]));
 
     let public toString format separator keyMapper valueMapper sorter (d : IDictionary<'a, 'b>) =
         d
@@ -330,14 +330,14 @@ module Array =
     let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
         let detachOne (acc, lensProd) dim =
             let curOffset = acc / lensProd
-            let lb = if lowerBounds = null then 0 else lowerBounds.[dim]
+            let lb = if lowerBounds = null then 0 else lowerBounds[dim]
             let curIndex = curOffset + lb
             let rest = acc % lensProd
-            let lensProd = if dim = lengths.Length - 1 then 1 else lensProd / lengths.[dim + 1]
+            let lensProd = if dim = lengths.Length - 1 then 1 else lensProd / lengths[dim + 1]
             curIndex, (rest, lensProd)
         let mutable lenProd = 1
         for i in 1 .. lengths.Length - 1 do
-            lenProd <- lenProd * lengths.[i]
+            lenProd <- lenProd * lengths[i]
         Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
 
     let mapToOneDArray mapper (arr : Array) : obj[] =
@@ -346,6 +346,6 @@ module Array =
             let dest = Array.zeroCreate<obj> arr.Length
             let mutable i = 0
             for e in arr do
-                dest.[i] <- mapper e
+                dest[i] <- mapper e
                 i <- i + 1
             dest

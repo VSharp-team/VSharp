@@ -220,7 +220,7 @@ module internal Memory =
     type private hashCodeSource =
         {object : term}
         interface INonComposableSymbolicConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<int32>
 
@@ -268,7 +268,7 @@ module internal Memory =
     type private stackReading =
         {key : stackKey; time : vectorTime}
         interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = x.time
             override x.TypeOfLocation = x.key.TypeOfLocation
 
@@ -276,7 +276,7 @@ module internal Memory =
     type private heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
         {picker : regionPicker<'key, 'reg>; key : 'key; memoryObject : memoryRegion<'key, 'reg>; time : vectorTime}
         interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
 
@@ -289,7 +289,7 @@ module internal Memory =
             time : vectorTime
         }
         interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
 
@@ -399,7 +399,7 @@ module internal Memory =
     type private typeInitialized =
         {typ : Type; matchingTypes : symbolicTypeSet}
         interface IStatedSymbolicConstantSource  with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<bool>
 
@@ -466,23 +466,15 @@ module internal Memory =
         let name = toString key
         makeSymbolicValue source name typ
 
-    let rec private makeSymbolicHeapRead _ picker key time typ memoryObject _ =
+    let rec private makeSymbolicHeapRead _ picker key time typ memoryObject =
         let source : heapReading<'key, 'reg> = {picker = picker; key = key; memoryObject = memoryObject; time = time}
         let name = picker.mkName key
         makeSymbolicValue source name typ
 
-    let rec private makeArraySymbolicHeapRead state picker (key : heapArrayKey) time typ memoryObject (singleValue : updateTreeKey<heapArrayKey, term> option) =
-        match singleValue with
-        | Some {key = key'; value = {term = HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(mo, srcA, srcF, srcT, p, _)), _)}, _)}}
-        | Some {key = key'; value = {term = Constant(_, ArrayRangeReading(mo, srcA, srcF, srcT, p, _), _)}} when key'.Includes key ->
-            let key = key.Specialize key' srcA srcF srcT
-            let inst = makeArraySymbolicHeapRead state p key state.startingTime
-            MemoryRegion.read mo key (p.isDefaultKey state) inst
-        | Some { key = key'; value = value } when key'.Includes key -> value
-        | _ ->
-            let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
-            let name = picker.mkName key
-            makeSymbolicValue source name typ
+    let rec private makeArraySymbolicHeapRead state picker (key : heapArrayKey) time typ memoryObject =
+        let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
+        let name = picker.mkName key
+        makeSymbolicValue source name typ
 
     // This function is used only for creating 'this' of reference types
     let makeSymbolicThis (m : IMethod) =
@@ -696,6 +688,8 @@ module internal Memory =
         | ConcreteHeapAddress address -> VectorTime.less state.startingTime address
         | _ -> false
 
+    let rec private rangeReadingUnreachable _ _ = __unreachable__()
+
     let readStackLocation (s : state) key =
         let makeSymbolic typ =
             if s.complete then makeDefaultValue typ
@@ -715,7 +709,7 @@ module internal Memory =
                     isDefaultKey = isDefault; isDefaultRegion = false
                 }
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
-        MemoryRegion.read (extractor state) key (isDefault state) inst
+        MemoryRegion.read (extractor state) key (isDefault state) inst rangeReadingUnreachable
 
     let readLowerBound state address dimension arrayType =
         let cm = state.concreteMemory
@@ -737,7 +731,7 @@ module internal Memory =
                     isDefaultKey = isDefault; isDefaultRegion = false
                 }
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
-        MemoryRegion.read (extractor state) key (isDefault state) inst
+        MemoryRegion.read (extractor state) key (isDefault state) inst rangeReadingUnreachable
 
     let readLength state address dimension arrayType =
         let cm = state.concreteMemory
@@ -746,9 +740,20 @@ module internal Memory =
             cm.ReadArrayLength address dim |> objToTerm state typeof<int>
         | _ -> readLengthSymbolic state address dimension arrayType
 
+    let rec private rangeReading state (readKey : heapArrayKey) utKey =
+        match utKey with
+        | {key = key'; value = {term = HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(mo, srcA, srcF, srcT, picker, _)), _)}, _)}}
+        | {key = key'; value = {term = Constant(_, ArrayRangeReading(mo, srcA, srcF, srcT, picker, _), _)}} ->
+            let key = readKey.Specialize key' srcA srcF srcT
+            let inst typ memoryObject =
+                makeArraySymbolicHeapRead state picker key state.startingTime typ memoryObject
+            let reading = rangeReading state
+            MemoryRegion.read mo key (picker.isDefaultKey state) inst reading
+        | _ -> utKey.value
+
     let private readArrayRegion state arrayType extractor region (isDefaultRegion : bool) (key : heapArrayKey) =
         let isDefault state (key : heapArrayKey) = isHeapAddressDefault state key.Address
-        let instantiate typ memory singleValue =
+        let instantiate typ memory =
             let sort = ArrayIndexSort arrayType
             let picker =
                 {
@@ -757,9 +762,10 @@ module internal Memory =
                 }
             let time =
                 if isValueType typ then state.startingTime
-                else MemoryRegion.maxTime region.updates state.startingTime
-            makeArraySymbolicHeapRead state picker key time typ memory singleValue
-        MemoryRegion.read region key (isDefault state) instantiate
+                else VectorTime.max region.nextUpdateTime state.startingTime
+            makeArraySymbolicHeapRead state picker key time typ memory
+        let rangeReader = rangeReading state
+        MemoryRegion.read region key (isDefault state) instantiate rangeReader
 
     let private readArrayKeySymbolic state key arrayType =
         let extractor state =
@@ -787,7 +793,7 @@ module internal Memory =
         Seq.map prepareData data |> MemoryRegion.memset region
 
     let private arrayRegionFromData state concreteAddress data regionType =
-        let region = MemoryRegion.empty regionType
+        let region = MemoryRegion.emptyWithExplicit regionType concreteAddress
         arrayRegionMemsetData state concreteAddress data regionType region
 
     let private readRangeFromConcreteArray state concreteAddress arrayData fromIndices toIndices arrayType =
@@ -880,7 +886,7 @@ module internal Memory =
                 if isValueType typ then state.startingTime
                 else MemoryRegion.maxTime region.updates state.startingTime
             makeSymbolicHeapRead state picker key time typ memory
-        MemoryRegion.read region key (isDefault state) instantiate
+        MemoryRegion.read region key (isDefault state) instantiate rangeReadingUnreachable
 
     let stringArrayInfo state stringAddress length =
         let arrayType = arrayType.CharVector
@@ -916,7 +922,7 @@ module internal Memory =
         match address.term with
         | ConcreteHeapAddress address when cm.Contains address ->
             cm.ReadClassField address field |> objToTerm state field.typ
-        // TODO: remember all concrete field values from 'ConcreteMemory' and add it to symbolic constant [Test: ConcreteDictionaryTest1]
+        | ConcreteHeapAddress a when (VectorTime.extractFromSingleton a = 0) -> internalfailf "asddas"
         | _ -> readClassFieldSymbolic state address field
 
     let readStaticField state typ (field : fieldId) =
@@ -932,7 +938,7 @@ module internal Memory =
                     isDefaultKey = isDefault; isDefaultRegion = false
                 }
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
-        MemoryRegion.read (extractor state) key (isDefault state) inst
+        MemoryRegion.read (extractor state) key (isDefault state) inst rangeReadingUnreachable
 
     let readStackBuffer state (stackKey : stackKey) index =
         let extractor state = accessRegion state.stackBuffers (stackKey.Map (typeVariableSubst state)) typeof<int8>
@@ -947,7 +953,7 @@ module internal Memory =
                     isDefaultKey = isDefault; isDefaultRegion = false
                 }
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
-        MemoryRegion.read (extractor state) key (isDefault state) inst
+        MemoryRegion.read (extractor state) key (isDefault state) inst rangeReadingUnreachable
 
     let private readBoxedSymbolic state address typ =
         let extractor state = accessRegion state.boxedLocations typ typ
@@ -964,7 +970,7 @@ module internal Memory =
                 }
             let time = state.startingTime
             makeSymbolicHeapRead state picker key time typ memory
-        MemoryRegion.read region key (isDefault state) instantiate
+        MemoryRegion.read region key (isDefault state) instantiate rangeReadingUnreachable
 
     let readBoxedLocation state (address : term) sightType =
         assert(isBoxedType sightType)
@@ -1056,6 +1062,11 @@ module internal Memory =
         | Constant _, _
         | Expression _, _ ->
             sliceTerm term startByte endByte pos stablePos |> List.singleton
+        | Union gvs, _ ->
+            let mapper term = commonReadTermUnsafe reporter term startByte endByte pos stablePos sightType
+            let mapped = Merging.guardedMapWithoutMerge mapper gvs
+            assert List.forall (fun (_, list) -> List.length list = 1) mapped
+            mapped |> List.map (fun (g, list) -> g, List.head list) |> Union |> List.singleton
         | _ -> internalfailf $"readTermUnsafe: unexpected term {term}"
 
     and private readTermUnsafe reporter term startByte endByte sightType =
@@ -1338,7 +1349,9 @@ module internal Memory =
             Nop()
         | Ptr(baseAddress, sightType, offset) ->
             readUnsafe reporter state baseAddress offset sightType
-        | Union gvs -> Merging.guardedMap (read reporter state) gvs
+        | Union gvs ->
+            List.filter (fun (_, v) -> True() <> Pointers.isBadRef v) gvs
+            |> Merging.guardedMap (read reporter state) 
         | _ when typeOf reference |> isNative ->
             reporter.ReportFatalError "reading by detached pointer" (True()) |> ignore
             Nop()
@@ -1383,6 +1396,7 @@ module internal Memory =
         ensureConcreteType elemType
         let region = accessRegion state.arrays arrayType elemType
         let region' = arrayRegionMemsetData state concreteAddress data elemType region
+        let region' = MemoryRegion.addExplicitAddress concreteAddress region'
         state.arrays <- PersistentDict.add arrayType region' state.arrays
 
     let initializeArray state address indicesAndValues arrayType =
@@ -1563,6 +1577,9 @@ module internal Memory =
                 let valueSlices = readTermUnsafe reporter value (neg startByte) (sub termSize startByte) None
                 let right = readTermPartUnsafe reporter term (add startByte valueSize) termSize None
                 combine (left @ valueSlices @ right) termType
+        | Union gvs ->
+            let mapper term = writeTermUnsafe reporter term startByte value
+            Merging.guardedMap mapper gvs
         | _ -> internalfailf $"writeTermUnsafe: unexpected term {term}"
 
     and private writeStructUnsafe reporter structTerm fields structType startByte value =
@@ -1986,7 +2003,7 @@ module internal Memory =
                 let afters = MemoryRegion.compose before effect
                 let read region =
                     let inst = makeSymbolicHeapRead state x.picker key state.startingTime
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst rangeReadingUnreachable
                 afters |> List.map (mapsnd read) |> Merging.merge
 
     type arrayReading with
@@ -2006,7 +2023,7 @@ module internal Memory =
                     else List.singleton (True(), x.memoryObject)
                 let read region =
                     let inst = makeArraySymbolicHeapRead state x.picker key state.startingTime
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst (rangeReading state)
                 afters |> List.map (mapsnd read) |> Merging.merge
 
     type stackReading with

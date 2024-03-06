@@ -14,12 +14,18 @@ module VectorTime =
         if time = zero then RuntimeHelpers.GetHashCode null
         else time.GetHashCode()
 
-    let extractFromSingleton (time : vectorTime) =
-        assert(List.length time = 1)
-        List.head time
+    let extractFromSingleton (t : vectorTime) =
+        assert(List.length t = 1)
+        List.head t
 
     let singleton t : vectorTime =
         [t]
+
+    let next t : vectorTime =
+       t |> extractFromSingleton |> (fun x -> x + 1) |> singleton
+
+    let singletonsSum t1 t2 =
+        extractFromSingleton t1 + extractFromSingleton t2 |> singleton
 
     let rec compare (t1 : vectorTime) (t2 : vectorTime) =
         List.compareWith (fun (v1 : int32) (v2 : int32) -> v1.CompareTo(v2)) t1 t2

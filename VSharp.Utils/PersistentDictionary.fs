@@ -46,6 +46,7 @@ module public PersistentDict =
 
     // [NOTE] if PersistentDict already contains key, 'add' will replace it with new value
     let public add (key : 'a) (value : 'b) (d : pdict<'a, 'b>) = {impl = d.impl.Add(key, value); hash = None}
+    let public append d1 d2 = Seq.fold (fun acc (k, v) -> add k v acc) d1 (d2 |> toSeq)
     let public remove key (d : pdict<'a, 'b>) = {impl = d.impl.Remove key; hash = None}
     let public tryFind (d : pdict<'a, 'b>) key =
         // TODO: speed it up by scanning only once! Perhaps we should migrate to System.Collections.Immutable to support this
@@ -139,6 +140,7 @@ module PersistentSet =
 
     let public fold folder state (d : pset<'a>) =
         d |> toSeq |> Seq.fold folder state
+    let public append d1 d2 = fold add d1 d2
     let public forall predicate (d : pset<'a>) =
         d |> toSeq |> Seq.forall predicate
     let public map (mapper : 'a -> 'a) (d : pset<'a>) : pset<'a> =

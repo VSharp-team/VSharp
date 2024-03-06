@@ -7,6 +7,7 @@ open System.Collections.Generic
 open VSharp
 open VSharp.TypeUtils
 open VSharp.Core
+open VSharp.Core.API.Memory
 open VSharp.Core.SolverInteraction
 
 module internal Z3 =
@@ -563,6 +564,7 @@ module internal Z3 =
                     | Constant(name, source, typ) -> x.EncodeConstant name.v source typ
                     | Expression(op, args, typ) -> x.EncodeExpression t op args typ
                     | HeapRef(address, _) -> x.EncodeTerm address
+                    | Union gvs -> x.EncodeUnion gvs
                     | _ -> internalfail $"EncodeTerm: unexpected term: {t}"
                 let typ = TypeOf t
                 let result = if typ.IsEnum then x.AddEnumAssumptions typ result else result
@@ -740,18 +742,43 @@ module internal Z3 =
                 ctx.MkFP(signExpr, expExpr, sigExpr) :> Expr
             else result :> Expr
 
+        member private x.EncodeSlice slice =
+            match slice.term with
+            | Slice(term, cuts) ->
+                let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
+                x.EncodeTerm term, slices
+            | Union gvs ->
+                let extractTerm slice =
+                    match slice.term with
+                    | Slice(t, _) -> t
+                    | _ -> slice
+                let encodedTerm = List.map (fun (g, s) -> (g, extractTerm s)) gvs |> x.EncodeUnion
+
+                let extractCuts slice =
+                    match slice.term with
+                    | Slice(t, cuts) -> cuts
+                    | _ -> List.empty
+                let unionCuts = List.map (fun (_, s) -> extractCuts s) gvs
+                assert(unionCuts |> List.forall (fun cuts -> (List.length cuts) = (unionCuts |> List.head |> List.length)))
+                let guardedSliceParts = unionCuts |> List.transpose |> List.map (List.map2 (fun (g, _) p -> (g, p)) gvs)
+                let encodeCutChar proj part =
+                    part |> List.map (fun (g, p) -> (g, proj p)) |> x.EncodeUnion
+                let encodeSlicePart part =
+                    let encodedStarts = encodeCutChar fst3 part
+                    let encodedEnds = encodeCutChar snd3 part
+                    let encodedPoss = encodeCutChar thd3 part
+                    (encodedStarts, encodedEnds, encodedPoss)
+                let encodedSliceParts = List.map encodeSlicePart guardedSliceParts
+                encodedTerm, encodedSliceParts
+            | _ -> x.EncodeTerm slice, List.empty
+
         member private x.EncodeCombine slices typ =
             let size = x.SizeOfBV typ
             let res = ctx.MkBV(0, size)
             let window = res.SortSize
             let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
             let addOneSlice (res, assumptions) slice =
-                let term, cuts =
-                    match slice.term with
-                    | Slice(term, cuts) ->
-                        let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
-                        x.EncodeTerm term, slices
-                    | _ -> x.EncodeTerm slice, List.empty
+                let term, cuts = x.EncodeSlice slice
                 let t =
                     match term.expr with
                     | :? BitVecExpr as bv -> bv
@@ -799,6 +826,17 @@ module internal Z3 =
             let decl = getFuncDecl name argsSort resultSort
             ctx.MkApp(decl, args)
 
+        member private x.EncodeUnion gvs =
+            // can be chosen arbitrary since unreachable
+            let {expr = deepestIteElseValue} = x.EncodeTerm (List.head gvs |> snd)
+            let constructUnion (g, v) (prevIte, assumptions) k =
+                let {expr = guard; assumptions = guardAssumptions} = x.EncodeTerm g
+                let {expr = value; assumptions = valueAssumptions} = x.EncodeTerm v
+                let assumptions = assumptions @ guardAssumptions @ valueAssumptions
+                (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
+            Cps.List.foldrk constructUnion (deepestIteElseValue, []) gvs (fun (ite, assumptions) ->
+            {expr = ite; assumptions = assumptions})
+            
         member private x.EncodeExpression term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with
@@ -902,12 +940,16 @@ module internal Z3 =
             let assumptions = inRegionAssumptions @ assumptions
             let inst, instAssumptions = inst readExpr
             let assumptions = instAssumptions @ assumptions
-            let checkOneKey (updateKey, reg, value) (acc, assumptions) =
+            let checkOneKey (reg, record) (acc, assumptions) =
+                let recordGuard = Option.defaultValue (True()) record.guard
+                let {expr = recordGuardEncoded; assumptions = recordGuardAssumptions} = x.EncodeTerm recordGuard
+                let assumptions = assumptions @ recordGuardAssumptions
                 // NOTE: we need constraints on right key, because path condition may contain it
                 // EXAMPLE: a[k] = 1; if (k == 0 && a[i] == 1) {...}
-                let matchAssumptions, keysAreMatch = keysAreMatch readKey updateKey reg
+                let matchAssumptions, keysAreMatch = keysAreMatch readKey record.key reg
+                let recordReachability = x.MkAnd(recordGuardEncoded :?> BoolExpr, keysAreMatch)
                 // TODO: [style] auto append assumptions
-                let assumptions = List.append assumptions matchAssumptions
+                let assumptions =  assumptions @ matchAssumptions
                 let readFieldIfNeed term path =
                     match path with
                     | StructFieldPart field ->
@@ -919,10 +961,10 @@ module internal Z3 =
                     | PointerOffset ->
                         assert(IsPtr term)
                         Memory.ExtractPointerOffset term
-                let value = path.Fold readFieldIfNeed value
-                let valueExpr = specializeWithKey value readKey updateKey |> x.EncodeTerm
+                let value = path.Fold readFieldIfNeed record.value
+                let valueExpr = specializeWithKey value readKey record.key |> x.EncodeTerm
                 let assumptions = List.append assumptions valueExpr.assumptions
-                x.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
+                x.MkITE(recordReachability, valueExpr.expr, acc), assumptions
             let expr, assumptions = List.foldBack checkOneKey updates (inst, assumptions)
             encodingResult.Create(expr, assumptions)
 
@@ -1044,9 +1086,9 @@ module internal Z3 =
         member private x.StaticsReading (key : symbolicTypeKey) mo typ source path (name : string) =
             assert mo.defaultValue.IsNone
             let updates = MemoryRegion.flatten mo
-            let value = Seq.tryFind (fun (k, _, _) -> k = key) updates
+            let value = List.tryFind (fun (_, k : updateTreeKey<_, _>) -> k.key = key) updates
             match value with
-            | Some (_, _, v) -> x.EncodeTerm v
+            | Some (_, k) -> x.EncodeTerm k.value
             | None ->
                 let keyType = x.Type2Sort Types.IndexType
                 let sort = ctx.MkArraySort(keyType, x.Type2Sort typ)
