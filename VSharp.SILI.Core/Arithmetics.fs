@@ -885,7 +885,9 @@ module internal Arithmetics =
 
 // ------------------------------- Simplification of "/" -------------------------------
 
-    and simplifyConcreteDivision isSigned t x y =
+    and simplifyConcreteDivision isSigned t x (y : obj) =
+        if y = 0L then
+            internalfailf "asd"
         let result =
             if isSigned then ILCalculator.div(x, y, t)
             else ILCalculator.divUn(x, y, t)
@@ -898,7 +900,7 @@ module internal Arithmetics =
                 match x, y with
                 // 0 / y = 0
                 | ConcreteT(xval, _), _ when ILCalculator.isZero(xval) -> x |> k
-                // x / 1 = x
+                // x / 1 = xto
                 | _, ConcreteT(yval, _) when ILCalculator.equal yval (convert 1 (typeOf y)) -> x |> k
                 // x / -1 = -x
                 | _, ConcreteT(yval, _) when not <| isUnsigned t && ILCalculator.equal yval (convert -1 (typeOf y)) ->

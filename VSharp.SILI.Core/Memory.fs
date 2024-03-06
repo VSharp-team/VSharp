@@ -894,7 +894,6 @@ module internal Memory =
             match address.term with
             | ConcreteHeapAddress address when concreteMemory.Contains address ->
                 concreteMemory.ReadClassField address field |> self.ObjToTerm field.typ
-            // TODO: remember all concrete field values from 'ConcreteMemory' and add it to symbolic constant [Test: ConcreteDictionaryTest1]
             | _ -> self.ReadClassFieldSymbolic address field
 
         member private self.ReadStaticField typ (field : fieldId) =
@@ -1286,7 +1285,9 @@ module internal Memory =
                 Nop()
             | Ptr(baseAddress, sightType, offset) ->
                 self.ReadUnsafe reporter baseAddress offset sightType
-            | Union gvs -> Merging.guardedMap (self.Read reporter ) gvs
+            | Union gvs ->
+                List.filter (fun (_, v) -> True() <> Pointers.isBadRef v) gvs
+                |> Merging.guardedMap (self.Read reporter) 
             | _ when typeOf reference |> isNative ->
                 reporter.ReportFatalError "reading by detached pointer" (True()) |> ignore
                 Nop()

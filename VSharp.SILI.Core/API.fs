@@ -118,6 +118,10 @@ module API =
             | Concrete _ -> true
             | HeapRef(address, _) when isConcreteHeapAddress address -> true
             | _ -> false
+        let IsConcreteHeapAddress term =
+            match term.term with
+            | HeapRef(address, _) when isConcreteHeapAddress address -> true
+            | _ -> false
         let IsNullReference term = Pointers.isNull term
         let IsBadRef term = Pointers.isBadRef term
 
@@ -487,16 +491,17 @@ module API =
         let ReadThis state method = state.memory.ReadStackLocation (ThisKey method)
         let ReadArgument state parameterInfo = state.memory.ReadStackLocation (ParameterKey parameterInfo)
 
-        let CommonReadField reporter state term field =
-            let doRead target =
-                match target.term with
-                | HeapRef _
-                | Ptr _
-                | Ref _ -> ReferenceField state target field |> state.memory.Read reporter
+        let rec CommonReadField reporter state term field =
+            match term.term with
+            | HeapRef _
+            | Ptr _
+            | Ref _ -> ReferenceField state term field |> state.memory.Read reporter
                 | Struct _ -> state.memory.ReadStruct reporter target field
-                | Combined _ -> state.memory.ReadFieldUnsafe reporter target field
-                | _ -> internalfail $"Reading field of {term}"
-            Merging.guardedApply doRead term
+                | Combined _ -> state.memory.ReadFieldUnsafe reporter target f
+            | Union gvs ->
+                List.filter (fun (_, v) -> True() <> IsBadRef v) gvs
+                |> Merging.guardedMap (fun t -> CommonReadField reporter state t field)
+            | _ -> internalfail $"Reading field of {term}"
 
         let ReadField state term field =
             CommonReadField emptyReporter state term field
