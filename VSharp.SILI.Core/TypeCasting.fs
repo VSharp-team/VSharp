@@ -190,8 +190,8 @@ module internal TypeCasting =
     type symbolicSubtypeSource with
         interface IStatedSymbolicConstantSource with
             override x.Compose state =
-                let fillTerm = State.fillHoles state
-                let fillType = State.substituteTypeVariables state
+                let fillTerm = state.FillHoles
+                let fillType = state.SubstituteTypeVariables
                 let memory = state.memory
                 match x.left, x.right with
                 | SymbolicType l, SymbolicType r ->
@@ -225,10 +225,10 @@ module internal TypeCasting =
     type symbolicTypeEqualSource with
         interface IStatedSymbolicConstantSource with
             override x.Compose state =
-                let address = State.fillHoles state x.address
+                let address = state.FillHoles x.address
                 let memory = state.memory
                 let notMock() =
-                    let targetType = State.substituteTypeVariables state x.targetType
+                    let targetType = state.SubstituteTypeVariables x.targetType
                     let addressType = memory.TypeOfHeapLocation address
                     addressEqType address addressType targetType
                 match address.term with

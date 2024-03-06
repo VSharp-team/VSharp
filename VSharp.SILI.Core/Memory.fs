@@ -327,7 +327,7 @@ module internal Memory =
     type stackReading with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
-                let key = x.key.Map (State.typeVariableSubst state)
+                let key = x.key.Map state.TypeVariableSubst
                 state.memory.ReadStackLocation key
 
     let (|StackReading|_|) (src : ISymbolicConstantSource) =
@@ -497,9 +497,9 @@ module internal Memory =
 
         let composeMemoryRegions dict dict' =
             // TODO: somehow get rid of this copy-paste?
-            let substTerm = State.fillHoles state
-            let substType = State.substituteTypeVariables state
-            let substTime = State.composeTime state
+            let substTerm = state.FillHoles
+            let substType = state.SubstituteTypeVariables
+            let substTime = state.ComposeTime
             let composeOneRegion dicts k (mr' : memoryRegion<_, _>) =
                 list {
                     let! g, dict = dicts
@@ -516,7 +516,7 @@ module internal Memory =
                 |> PersistentDict.fold composeOneRegion [(True(), dict)]
 
         let composeEvaluationStacksOf evaluationStack =
-            EvaluationStack.map (State.fillHoles state) evaluationStack
+            EvaluationStack.map state.FillHoles evaluationStack
 
         // state is untouched. It is needed because of this situation:
         // Effect: x' <- y + 5, y' <- x + 10
@@ -524,8 +524,8 @@ module internal Memory =
         // After composition: {x <- 5, y <- 15} OR {y <- 10, x <- 15}
         // but expected result is {x <- 5, y <- 10}
         let fillHolesInStack stack =
-            let keyMapper (k : stackKey) = k.Map (State.typeVariableSubst state)
-            CallStack.map keyMapper (State.fillHoles state) (State.substituteTypeVariables state) stack
+            let keyMapper (k : stackKey) = k.Map state.TypeVariableSubst
+            CallStack.map keyMapper state.FillHoles state.SubstituteTypeVariables stack
 
         let composeStacksOf (otherMemory : IMemory) : callStack =
             let stack' = fillHolesInStack otherMemory.Stack
@@ -548,7 +548,7 @@ module internal Memory =
 
         let substituteTypeVariablesToSymbolicType st =
             match st with
-            | ConcreteType t -> t |> State.substituteTypeVariables state |> ConcreteType
+            | ConcreteType t -> state.SubstituteTypeVariables t |> ConcreteType
             | MockType _ -> __unreachable__()
 
         new() as self =
@@ -697,7 +697,8 @@ module internal Memory =
                 self.MakeSymbolicValue source name typ
 
         member private self.ReadLowerBoundSymbolic address dimension arrayType =
-            let extractor (state : state) = accessRegion state.memory.LowerBounds (State.substituteTypeVariablesIntoArrayType state arrayType) lengthType
+            let extractor (state : state) =
+                accessRegion state.memory.LowerBounds (state.SubstituteTypeVariablesIntoArrayType arrayType) lengthType
             let mkName (key : heapVectorIndexKey) = $"LowerBound({key.address}, {key.index})"
             let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || arrayType.isVector
             let key = {address = address; index = dimension}
@@ -712,7 +713,8 @@ module internal Memory =
             MemoryRegion.read (extractor state) key (isDefault state) inst
 
         member private self.ReadLengthSymbolic address dimension arrayType =
-            let extractor (state : state) = accessRegion state.memory.Lengths (State.substituteTypeVariablesIntoArrayType state arrayType) lengthType
+            let extractor (state : state) =
+                accessRegion state.memory.Lengths (state.SubstituteTypeVariablesIntoArrayType arrayType) lengthType
             let mkName (key : heapVectorIndexKey) = $"Length({key.address}, {key.index})"
             let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
             let key = {address = address; index = dimension}
@@ -742,8 +744,8 @@ module internal Memory =
             MemoryRegion.read region key (isDefault state) instantiate
 
         member private self.ReadArrayKeySymbolic key arrayType =
-            let extractor state =
-                let arrayType = State.substituteTypeVariablesIntoArrayType state arrayType
+            let extractor (state : state) =
+                let arrayType = state.SubstituteTypeVariablesIntoArrayType arrayType
                 accessRegion state.memory.Arrays arrayType arrayType.elemType
             self.ReadArrayRegion arrayType extractor (extractor state) false key
 
@@ -786,7 +788,7 @@ module internal Memory =
             self.ReadArrayRegion arrayType (always region) region true key
 
         member private self.ArrayMemsetData concreteAddress data arrayType =
-            let arrayType = State.substituteTypeVariablesIntoArrayType state arrayType
+            let arrayType = state.SubstituteTypeVariablesIntoArrayType arrayType
             let elemType = arrayType.elemType
             ensureConcreteType elemType
             let region = accessRegion arrays arrayType elemType
@@ -826,9 +828,9 @@ module internal Memory =
 
         member private self.CommonReadClassFieldSymbolic address (field : fieldId) =
             let symbolicType = field.typ
-            let extractor state =
-                let field = State.substituteTypeVariablesIntoField state field
-                let typ = State.substituteTypeVariables state symbolicType
+            let extractor (state : state) =
+                let field = state.SubstituteTypeVariablesIntoField field
+                let typ = state.SubstituteTypeVariables symbolicType
                 accessRegion state.memory.ClassFields field typ
             let region = extractor state
             let mkName = fun (key : heapAddressKey) -> $"{key.address}.{field}"
@@ -878,9 +880,9 @@ module internal Memory =
             | _ -> self.ReadClassFieldSymbolic address field
 
         member private self.ReadStaticField typ (field : fieldId) =
-            let extractor state =
-                let field = State.substituteTypeVariablesIntoField state field
-                let typ = State.substituteTypeVariables state field.typ
+            let extractor (state : state) =
+                let field = state.SubstituteTypeVariablesIntoField field
+                let typ = state.SubstituteTypeVariables field.typ
                 accessRegion state.memory.StaticFields field typ
             let mkName = fun (key : symbolicTypeKey) -> $"{key.typ}.{field}"
             let isDefault state _ = state.complete // TODO: when statics are allocated? always or never? depends on our exploration strategy
@@ -896,7 +898,7 @@ module internal Memory =
             MemoryRegion.read (extractor state) key (isDefault state) inst
 
         member private self.ReadStackBuffer (stackKey : stackKey) index =
-            let extractor state = accessRegion state.memory.StackBuffers (stackKey.Map (State.typeVariableSubst state)) typeof<int8>
+            let extractor state = accessRegion state.memory.StackBuffers (stackKey.Map state.TypeVariableSubst) typeof<int8>
             let mkName (key : stackBufferIndexKey) = $"{stackKey}[{key.index}]"
             let isDefault _ _ = true
             let key : stackBufferIndexKey = {index = index}
@@ -1634,7 +1636,7 @@ module internal Memory =
                         | Some len -> len
                         | None -> self.CommonReadClassFieldSymbolic stringAddress Reflection.stringLengthField
                     let greaterZero = simplifyGreaterOrEqual stringLength zero id
-                    State.addConstraint state greaterZero
+                    state.AddConstraint greaterZero
                     let arrayLength = add stringLength (makeNumber 1)
                     writeLengthSymbolic stringAddress zero arrayType arrayLength
                     writeLowerBoundSymbolic stringAddress zero arrayType zero
@@ -2059,9 +2061,9 @@ module internal Memory =
         interface IMemoryAccessConstantSource with
             override x.Compose state =
                 // TODO: do nothing if state is empty!
-                let substTerm = State.fillHoles state
-                let substType = State.substituteTypeVariables state
-                let substTime = State.composeTime state
+                let substTerm = state.FillHoles
+                let substType = state.SubstituteTypeVariables
+                let substTime = state.ComposeTime
                 let key = x.key.Map substTerm substType substTime x.key.Region |> snd
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
@@ -2077,9 +2079,9 @@ module internal Memory =
         interface IMemoryAccessConstantSource with
             override x.Compose state =
                 // TODO: do nothing if state is empty!
-                let substTerm = State.fillHoles state
-                let substType = State.substituteTypeVariables state
-                let substTime = State.composeTime state
+                let substTerm = state.FillHoles
+                let substType = state.SubstituteTypeVariables
+                let substTime = state.ComposeTime
                 let key = x.key :> IHeapArrayKey
                 let key = key.Map substTerm substType substTime key.Region |> snd
                 let afters =
@@ -2095,20 +2097,22 @@ module internal Memory =
                     MemoryRegion.read region key (x.picker.isDefaultKey state) inst
                 afters |> List.map (mapsnd read) |> Merging.merge
 
-    let makeEmpty complete =
-        let memory = Memory()
-        let state = { memory.State with complete = complete }
-        memory.State <- state
-        state
 
-    // TODO: think about moving it to State.fs and get rid of type downcast
-    let copy (state : state) newPc =
-        let memory = state.memory.Copy() :?> Memory
-        let methodMocks = Dictionary()
-        for entry in state.methodMocks do
-            let method = entry.Key
-            let newMock = entry.Value.Copy()
-            methodMocks.Add(method, newMock)
-        let state = { memory.State with pc = newPc; methodMocks = methodMocks; memory = memory }
-        memory.State <- state
-        state
+    type state with
+        static member MakeEmpty complete =
+            let memory = Memory()
+            let state = { memory.State with complete = complete }
+            memory.State <- state
+            state
+
+        // TODO: think about moving it to State.fs and get rid of type downcast
+        member x.Copy newPc =
+            let memory = x.memory.Copy() :?> Memory
+            let methodMocks = Dictionary()
+            for entry in x.methodMocks do
+                let method = entry.Key
+                let newMock = entry.Value.Copy()
+                methodMocks.Add(method, newMock)
+            let state = { memory.State with pc = newPc; methodMocks = methodMocks; memory = memory }
+            memory.State <- state
+            state

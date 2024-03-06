@@ -4,6 +4,7 @@ open System
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
+open Memory
 
 module API =
 
@@ -248,8 +249,8 @@ module API =
 
         let HeapReferenceToBoxReference reference = Memory.heapReferenceToBoxReference reference
 
-        let AddConstraint conditionState condition =
-            State.addConstraint conditionState condition
+        let AddConstraint (conditionState : state) condition =
+            conditionState.AddConstraint condition
             let constraints = conditionState.typeStorage.Constraints
             TypeStorage.addTypeConstraint constraints condition
 
@@ -362,19 +363,19 @@ module API =
 
     module public Memory =
 
-        let EmptyIsolatedState() = Memory.makeEmpty false
-        let EmptyCompleteState() = Memory.makeEmpty true
+        let EmptyIsolatedState() = state.MakeEmpty false
+        let EmptyCompleteState() = state.MakeEmpty true
 
         let EmptyModel method =
-            let modelState = Memory.makeEmpty true
+            let modelState = state.MakeEmpty true
             modelState.memory.FillModelWithParametersAndThis method
             StateModel modelState
 
         let PopFrame state = state.memory.PopFrame()
         let ForcePopFrames count state = state.memory.ForcePopFrames(count)
-        let PopTypeVariables state = State.popTypeVariablesSubstitution state
+        let PopTypeVariables (state : state) = state.PopTypeVariablesSubstitution()
         let NewStackFrame state method parametersAndThis = state.memory.NewStackFrame method parametersAndThis
-        let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
+        let NewTypeVariables (state : state) subst = state.PushTypeVariablesSubstitution subst
 
         let StringArrayInfo state stringAddress length = state.memory.StringArrayInfo stringAddress length
 
@@ -587,11 +588,11 @@ module API =
 
         let BoxValueType state term = state.memory.AllocateBoxedLocation term
 
-        let InitializeStaticMembers state targetType =
-            State.initializeStaticMembers state targetType
+        let InitializeStaticMembers (state : state) targetType =
+            state.InitializeStaticMembers targetType
 
-        let MarkTypeInitialized state targetType =
-            State.markTypeInitialized state targetType
+        let MarkTypeInitialized (state : state) targetType =
+            state.MarkTypeInitialized targetType
 
         let InitFunctionFrame state (method : IMethod) this paramValues =
             let parameters = method.Parameters
@@ -755,7 +756,7 @@ module API =
             | _ -> internalfail $"Creating string from replicated char: expected heapRef, but got {string}"
 
         let IsTypeInitialized state typ = State.isTypeInitialized state typ
-        let Dump state = State.dump state
+        let Dump (state : state) = state.Dump()
         let StackTrace stack = CallStack.stackTrace stack
         let StackTraceString stack = CallStack.stackTraceString stack
         let StackToString stack = CallStack.toString stack
@@ -826,7 +827,7 @@ module API =
         let StringCtorOfCharArrayAndLen state arrayRef stringRef length =
             CommonStringCtorOfCharArray state arrayRef stringRef (Some length)
 
-        let WLP state pc' = PC.mapPC (State.fillHoles state) pc' |> PC.union state.pc
+        let WLP (state : state) pc' = PC.mapPC state.FillHoles pc' |> PC.union state.pc
 
         let Merge2States (s1 : state) (s2 : state) = State.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = State.merge2Results (r1, s1) (r2, s2)
@@ -886,5 +887,5 @@ module API =
             | _ -> internalfail "EvaluationStack size was bigger than 1"
 
     module Print =
-        let Dump state = State.dump state
+        let Dump (state : state) = state.Dump()
         let PrintPC pc = PC.toString pc

@@ -310,84 +310,164 @@ and
         complete : bool                                                    // If true, reading of undefined locations would result in default values
         methodMocks : IDictionary<IMethod, IMethodMock>
     }
-    with override x.ToString() = String.Empty
+    with
+        override x.ToString() = String.Empty
+
+        member x.AddConstraint cond =
+            x.pc <- PC.add x.pc cond
+
+        // ------------------------------- Types -------------------------------
+
+        member x.PushTypeVariablesSubstitution subst =
+            assert (subst <> [])
+            let oldMappedStack, oldStack = x.typeVariables
+            let newStack = subst |> List.unzip |> fst |> Stack.push oldStack
+            let newMappedStack = subst |> List.fold (fun acc (k, v) -> MappedStack.push {t=k} v acc) oldMappedStack
+            x.typeVariables <- (newMappedStack, newStack)
+
+        member x.PopTypeVariablesSubstitution() =
+            let oldMappedStack, oldStack = x.typeVariables
+            let toPop, newStack = Stack.pop oldStack
+            let newMappedStack = List.fold MappedStack.remove oldMappedStack (List.map (fun t -> {t=t}) toPop)
+            x.typeVariables <- (newMappedStack, newStack)
+
+        member x.CommonTypeVariableSubst (t : Type) noneCase =
+            match MappedStack.tryFind {t=t} (fst x.typeVariables) with
+            | Some typ -> typ
+            | None -> noneCase
+
+        member x.SubstituteTypeVariables typ =
+            match typ with
+            | Bool
+            | AddressType
+            | Numeric _ -> typ
+            | StructType(t, args)
+            | ClassType(t, args)
+            | InterfaceType(t, args) ->
+                let args' = Array.map x.SubstituteTypeVariables args
+                if args = args' then typ
+                else
+                    t.MakeGenericType args'
+            | TypeVariable t -> x.CommonTypeVariableSubst t typ
+            | ArrayType(t, dim) ->
+                let t' = x.SubstituteTypeVariables t
+                if t = t' then typ
+                else
+                    match dim with
+                    | Vector -> t'.MakeArrayType()
+                    | ConcreteDimension d -> t'.MakeArrayType(d)
+                    | SymbolicDimension -> __unreachable__()
+            | Pointer t ->
+                let t' = x.SubstituteTypeVariables t
+                if t = t' then typ else t'.MakePointerType()
+            | ByRef t ->
+                let t' = x.SubstituteTypeVariables t
+                if t = t' then typ else t'.MakeByRefType()
+            | _ -> __unreachable__()
+
+        member x.SubstituteTypeVariablesIntoArrayType ({elemType = et} as arrayType) : arrayType =
+            { arrayType with elemType = x.SubstituteTypeVariables et }
+
+        member x.TypeVariableSubst (t : Type) = x.CommonTypeVariableSubst t t
+
+        member x.SubstituteTypeVariablesIntoField (f : fieldId) =
+            Reflection.concretizeField f x.TypeVariableSubst
+
+        member x.InitializeStaticMembers typ =
+            if typ = typeof<string> then
+                let memory = x.memory
+                let reference = memory.AllocateString ""
+                memory.WriteStaticField typeof<string> Reflection.emptyStringField reference
+            x.initializedTypes <- SymbolicSet.add {typ=typ} x.initializedTypes
+
+        member x.MarkTypeInitialized typ =
+            x.initializedTypes <- SymbolicSet.add {typ=typ} x.initializedTypes
+
+        // ------------------------------- Composition -------------------------------
+
+        member x.ComposeTime time =
+            if time = [] then x.currentTime
+            elif VectorTime.less VectorTime.zero time |> not then time
+            elif x.complete then time
+            else x.currentTime @ time
+
+        member private x.FillHole term =
+            match term.term with
+            | Constant(_, source, _) ->
+                match source with
+                | :? IStatedSymbolicConstantSource as source -> source.Compose x
+                | :? INonComposableSymbolicConstantSource ->
+                    match x.model with
+                    | PrimitiveModel dict ->
+                        // Case for model state, so using eval from substitution dict for non composable constants
+                        let typ = typeOf term
+                        model.EvalDict dict source term typ true
+                    | _ -> term
+                | _ -> internalfail $"fillHole: unexpected term {term}"
+            | _ -> term
+
+        member x.FillHoles term =
+            Substitution.substitute x.FillHole x.SubstituteTypeVariables x.ComposeTime term
+
+        member x.ComposeInitializedTypes initializedTypes =
+            let it' = SymbolicSet.map (fun _ -> __unreachable__()) x.SubstituteTypeVariables (fun _ -> __unreachable__()) initializedTypes
+            SymbolicSet.union x.initializedTypes it'
+
+        // ------------------------------- Pretty-printing -------------------------------
+
+        member private x.DumpStack stack (sb : StringBuilder) =
+            let stackString = CallStack.toString stack
+            if String.IsNullOrEmpty stackString then sb
+            else
+                let sb = PrettyPrinting.dumpSection "Stack" sb
+                PrettyPrinting.appendLine sb stackString
+
+        member private x.DumpDict section sort keyToString valueToString d (sb : StringBuilder) =
+            if PersistentDict.isEmpty d then sb
+            else
+                let sb = PrettyPrinting.dumpSection section sb
+                PersistentDict.dump d sort keyToString valueToString |> PrettyPrinting.appendLine sb
+
+        member private x.DumpInitializedTypes initializedTypes (sb : StringBuilder) =
+            if SymbolicSet.isEmpty initializedTypes then sb
+            else sprintf "Initialized types = %s" (SymbolicSet.print initializedTypes) |> PrettyPrinting.appendLine sb
+
+        member private x.DumpEvaluationStack evaluationStack (sb : StringBuilder) =
+            if EvaluationStack.length evaluationStack = 0 then sb
+            else
+                let sb = PrettyPrinting.dumpSection "Operation stack" sb
+                EvaluationStack.toString evaluationStack |> PrettyPrinting.appendLine sb
+
+        member private x.ArrayTypeToString arrayType = (arrayTypeToSymbolicType arrayType).FullName
+
+        member private x.SortVectorTime<'a> vts : (vectorTime * 'a) seq =
+            Seq.sortWith (fun (k1, _ ) (k2, _ ) -> VectorTime.compare k1 k2) vts
+
+        member x.Dump () =
+            // TODO: print lower bounds?
+            let sortBy sorter = Seq.sortBy (fst >> sorter)
+            let memory = x.memory
+            let sb = StringBuilder()
+            let sb =
+                (if PC.isEmpty x.pc then sb else x.pc |> PC.toString |> sprintf "Path condition: %s" |> PrettyPrinting.appendLine sb)
+                |> x.DumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") memory.ClassFields
+                |> x.DumpDict "Array contents" (sortBy x.ArrayTypeToString) x.ArrayTypeToString (MemoryRegion.toString "    ") memory.Arrays
+                |> x.DumpDict "Array lengths" (sortBy x.ArrayTypeToString) x.ArrayTypeToString (MemoryRegion.toString "    ") memory.Lengths
+                |> x.DumpDict "Types tokens" x.SortVectorTime VectorTime.print toString memory.AllocatedTypes
+                |> x.DumpDict "Static fields" (sortBy toString) toString (MemoryRegion.toString "    ") memory.StaticFields
+                |> x.DumpDict "Delegates" x.SortVectorTime VectorTime.print toString memory.Delegates
+                |> x.DumpStack memory.Stack
+                |> x.DumpInitializedTypes x.initializedTypes
+                |> x.DumpEvaluationStack memory.EvaluationStack
+            if sb.Length = 0 then "<Empty>"
+            else
+                System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "")
 
 and IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
     abstract Compose : state -> term
 
 module internal State =
-
-    let addConstraint (s : state) cond =
-        s.pc <- PC.add s.pc cond
-
-// ------------------------------- Types -------------------------------
-
-    let pushTypeVariablesSubstitution state subst =
-        assert (subst <> [])
-        let oldMappedStack, oldStack = state.typeVariables
-        let newStack = subst |> List.unzip |> fst |> Stack.push oldStack
-        let newMappedStack = subst |> List.fold (fun acc (k, v) -> MappedStack.push {t=k} v acc) oldMappedStack
-        state.typeVariables <- (newMappedStack, newStack)
-
-    let popTypeVariablesSubstitution state =
-        let oldMappedStack, oldStack = state.typeVariables
-        let toPop, newStack = Stack.pop oldStack
-        let newMappedStack = List.fold MappedStack.remove oldMappedStack (List.map (fun t -> {t=t}) toPop)
-        state.typeVariables <- (newMappedStack, newStack)
-
-    let commonTypeVariableSubst state (t : Type) noneCase =
-        match MappedStack.tryFind {t=t} (fst state.typeVariables) with
-        | Some typ -> typ
-        | None -> noneCase
-
-    let rec substituteTypeVariables (state : state) typ =
-        let substituteTypeVariables = substituteTypeVariables state
-        match typ with
-        | Bool
-        | AddressType
-        | Numeric _ -> typ
-        | StructType(t, args)
-        | ClassType(t, args)
-        | InterfaceType(t, args) ->
-            let args' = Array.map substituteTypeVariables args
-            if args = args' then typ
-            else
-                t.MakeGenericType args'
-        | TypeVariable t -> commonTypeVariableSubst state t typ
-        | ArrayType(t, dim) ->
-            let t' = substituteTypeVariables t
-            if t = t' then typ
-            else
-                match dim with
-                | Vector -> t'.MakeArrayType()
-                | ConcreteDimension d -> t'.MakeArrayType(d)
-                | SymbolicDimension -> __unreachable__()
-        | Pointer t ->
-            let t' = substituteTypeVariables t
-            if t = t' then typ else t'.MakePointerType()
-        | ByRef t ->
-            let t' = substituteTypeVariables t
-            if t = t' then typ else t'.MakeByRefType()
-        | _ -> __unreachable__()
-
-    let substituteTypeVariablesIntoArrayType state ({elemType = et} as arrayType) : arrayType =
-        { arrayType with elemType = substituteTypeVariables state et }
-
-    let typeVariableSubst state (t : Type) = commonTypeVariableSubst state t t
-
-    let substituteTypeVariablesIntoField state (f : fieldId) =
-        Reflection.concretizeField f (typeVariableSubst state)
-
-    let initializeStaticMembers state typ =
-        if typ = typeof<string> then
-            let memory = state.memory
-            let reference = memory.AllocateString ""
-            memory.WriteStaticField typeof<string> Reflection.emptyStringField reference
-        state.initializedTypes <- SymbolicSet.add {typ=typ} state.initializedTypes
-
-    let markTypeInitialized state typ =
-        state.initializedTypes <- SymbolicSet.add {typ=typ} state.initializedTypes
 
     let private merge2StatesInternal state1 state2 =
         if state1.memory.Stack <> state2.memory.Stack then None
@@ -413,50 +493,6 @@ module internal State =
         // TODO
         results
 
-    // ------------------------------- Composition -------------------------------
-
-    let private skipSuffixWhile predicate ys =
-        let skipIfNeed y acc k =
-            if predicate (y::acc) then k (y::acc)
-            else List.take (List.length ys - List.length acc) ys
-        Cps.List.foldrk skipIfNeed [] ys (always [])
-
-    let composeTime state time =
-        if time = [] then state.currentTime
-        elif VectorTime.less VectorTime.zero time |> not then time
-        elif state.complete then time
-        else state.currentTime @ time
-
-    let rec private fillHole state term =
-        match term.term with
-        | Constant(_, source, _) ->
-            match source with
-            | :? IStatedSymbolicConstantSource as source -> source.Compose state
-            | :? INonComposableSymbolicConstantSource ->
-                match state.model with
-                | PrimitiveModel dict ->
-                    // Case for model state, so using eval from substitution dict for non composable constants
-                    let typ = typeOf term
-                    model.EvalDict dict source term typ true
-                | _ -> term
-            | _ -> internalfail $"fillHole: unexpected term {term}"
-        | _ -> term
-
-    and fillHoles state term =
-        Substitution.substitute (fillHole state) (substituteTypeVariables state) (composeTime state) term
-
-    let composeRaisedExceptionsOf (state : state) (exceptionRegister : exceptionRegisterStack) =
-        let elem, rest = state.exceptionsRegister.Pop()
-        match elem with
-        | NoException ->
-            rest.Push exceptionRegister.Peek
-            |> exceptionRegisterStack.map (fillHoles state)
-        | _ -> __unreachable__()
-
-    let composeInitializedTypes state initializedTypes =
-        let it' = SymbolicSet.map (fun _ -> __unreachable__()) (substituteTypeVariables state) (fun _ -> __unreachable__()) initializedTypes
-        SymbolicSet.union state.initializedTypes it'
-
     [<StructuralEquality;NoComparison>]
     type typeInitialized =
         {typ : Type; matchingTypes : symbolicTypeSet}
@@ -478,55 +514,6 @@ module internal State =
     type typeInitialized with
         interface IStatedSymbolicConstantSource with
             override x.Compose state =
-                let typ = substituteTypeVariables state x.typ
-                let newTypes = composeInitializedTypes state x.matchingTypes
+                let typ = state.SubstituteTypeVariables(x.typ)
+                let newTypes = state.ComposeInitializedTypes(x.matchingTypes)
                 isTypeInitialized {state with initializedTypes = newTypes} typ
-
-    // ------------------------------- Pretty-printing -------------------------------
-
-    let private dumpStack (sb : StringBuilder) stack =
-        let stackString = CallStack.toString stack
-        if String.IsNullOrEmpty stackString then sb
-        else
-            let sb = PrettyPrinting.dumpSection "Stack" sb
-            PrettyPrinting.appendLine sb stackString
-
-    let private dumpDict section sort keyToString valueToString (sb : StringBuilder) d =
-        if PersistentDict.isEmpty d then sb
-        else
-            let sb = PrettyPrinting.dumpSection section sb
-            PersistentDict.dump d sort keyToString valueToString |> PrettyPrinting.appendLine sb
-
-    let private dumpInitializedTypes (sb : StringBuilder) initializedTypes =
-        if SymbolicSet.isEmpty initializedTypes then sb
-        else sprintf "Initialized types = %s" (SymbolicSet.print initializedTypes) |> PrettyPrinting.appendLine sb
-
-    let private dumpEvaluationStack (sb : StringBuilder) evaluationStack =
-        if EvaluationStack.length evaluationStack = 0 then sb
-        else
-            let sb = PrettyPrinting.dumpSection "Operation stack" sb
-            EvaluationStack.toString evaluationStack |> PrettyPrinting.appendLine sb
-
-    let private arrayTypeToString arrayType = (arrayTypeToSymbolicType arrayType).FullName
-
-    let private sortVectorTime<'a> : seq<vectorTime * 'a> -> seq<vectorTime * 'a> =
-        Seq.sortWith (fun (k1, _ ) (k2, _ ) -> VectorTime.compare k1 k2)
-
-    let dump (s : state) =
-        // TODO: print lower bounds?
-        let sortBy sorter = Seq.sortBy (fst >> sorter)
-        let memory = s.memory
-        let sb = StringBuilder()
-        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.toString |> sprintf "Path condition: %s" |> PrettyPrinting.appendLine sb
-        let sb = dumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb memory.ClassFields
-        let sb = dumpDict "Array contents" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb memory.Arrays
-        let sb = dumpDict "Array lengths" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb memory.Lengths
-        let sb = dumpDict "Types tokens" sortVectorTime VectorTime.print toString sb memory.AllocatedTypes
-        let sb = dumpDict "Static fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb memory.StaticFields
-        let sb = dumpDict "Delegates" sortVectorTime VectorTime.print toString sb memory.Delegates
-        let sb = dumpStack sb memory.Stack
-        let sb = dumpInitializedTypes sb s.initializedTypes
-        let sb = dumpEvaluationStack sb memory.EvaluationStack
-        if sb.Length = 0 then "<Empty>"
-        else
-            System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "");
