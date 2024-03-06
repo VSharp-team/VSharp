@@ -763,13 +763,14 @@ namespace IntegrationTests
         }
 
         [TestSvm(88)]
-        public static int LastRecordReachability(int[] a, int[] b, int i)
+        public static int LastRecordReachability(string[] a, string[] b, int i, string s)
         {
-            a[i] = 1;
-            b[1] = i;
-            if (b[1] != i)
+            a[i] = "1";
+            b[1] = s;
+            if (b[1] != s)
             {
-                throw new Exception();
+                // unreachable
+                return -1;
             }
             return 0;
         }

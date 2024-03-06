@@ -533,7 +533,7 @@ module private UpdateTree =
             let notMatchPath = List.fold (fun acc k -> acc &&& !!((UpdateTreeKey.guard k) &&& (readKey :> IMemoryKey<_,_>).IntersectionCondition k.key)) (True()) keysPath
             let collectSplittingAndSymbolicTree (splitting, symbolic) stReg (stUtKey, st) =
                 let keysAreMatch = readKey.MatchCondition stUtKey.key stReg
-                let finalGuard = (UpdateTreeKey.guard stUtKey) &&& notMatchPath &&& keysAreMatch
+                let finalGuard =  simplifyAndWithDisjunctions ((UpdateTreeKey.guard stUtKey) &&& notMatchPath) keysAreMatch
                 let stSplitting, stSymbolic = recReading st (stUtKey::keysPath)
                 let modifiedSymbolic = PersistentDict.append symbolic stSymbolic
                 if finalGuard = False() then
@@ -697,15 +697,13 @@ module MemoryRegion =
     let emptyWithExplicit typ addr = {typ = typ; updates = UpdateTree.empty; defaultValue = None; nextUpdateTime = [1]; explicitAddresses = PersistentSet.add PersistentSet.empty addr}
     let addExplicitAddress addr mr = {mr with explicitAddresses = PersistentSet.add mr.explicitAddresses addr}
 
-    let rec valueIsConcrete key =
+    let valueIsConcrete key =
         match key.value.term with
         | Concrete _ -> true
-        | HeapRef(address, _) when isConcreteHeapAddress address -> true
-        | _ when (key.key :> IMemoryKey<_,_>).IsRange -> true
-        | _ -> false
+        | HeapRef(address, _) -> isConcreteHeapAddress address
+        | _ -> (key.key :> IMemoryKey<_,_>).IsRange
     let valueIsConcreteHeapAddress key =
         match key.value.term with
-        | Concrete(:? concreteHeapAddress, AddressType) -> true // reachable?
         | HeapRef(address, _) when isConcreteHeapAddress address -> true
         | _ when (key.key :> IMemoryKey<_,_>).IsRange -> true
         | _ -> false
@@ -722,7 +720,7 @@ module MemoryRegion =
             | Some d -> d
             | _ -> makeDefaultValue mr.typ
         let unguardedKey = (key :> IMemoryKey<_,_>).Unguard
-        if (List.length unguardedKey = 1) then // not union
+        if List.length unguardedKey = 1 then // not union
             UpdateTree.read key mr.updates mr.explicitAddresses rangeReader valueIsConcreteHeapAddress isDefault makeSymbolic makeDefault
         else
             list {
