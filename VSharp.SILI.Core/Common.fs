@@ -35,7 +35,7 @@ module internal Common =
     let simplifyGenericBinary _ x y matched concrete unmatched repeat =
         match x.term, y.term with
         | Concrete(xval, typeOfX), Concrete(yval, typeOfY) -> concrete x y xval yval typeOfX typeOfY |> matched
-        | Union(gvsx), Union(gvsy) ->
+        | Ite(gvsx), Ite(gvsy) ->
             let compose (gx, vx) (gy, vy) matched = repeat vx vy (fun xy -> (gx &&& gy, xy) |> matched)
             let join (gx, vx) k = Cps.List.mapk (compose (gx, vx)) gvsy k
             Cps.List.mapk join gvsx (fun gvss -> Merging.merge (List.concat gvss) |> matched)

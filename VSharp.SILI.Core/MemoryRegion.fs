@@ -418,11 +418,11 @@ type stackBufferIndexKey =
             reg, {index = mapTerm x.index}
         override x.IsUnion =
             match x.index.term with
-            | Union gvs when List.forall (fst >> isConcrete) gvs -> true
+            | Ite gvs when List.forall (fst >> isConcrete) gvs -> true
             | _ -> false
         override x.Unguard =
             match x.index.term with
-            | Union gvs when List.forall (fst >> isConcrete) gvs -> gvs |> List.map (fun (g, idx) -> (g, {index = idx}))
+            | Ite gvs when List.forall (fst >> isConcrete) gvs -> gvs |> List.map (fun (g, idx) -> (g, {index = idx}))
             | _ -> [(True(), x)]
         override x.InRegionCondition region =
             MemoryKeyUtils.keyInIntPoints x.index region
@@ -530,10 +530,10 @@ module private UpdateTree =
     let private getSplittingAndSymbolicTree readKey tree predicate =
         let rec recReading (Node d) keysPath =
             let splittingTree, symbolicTree = PersistentDict.partition (fun _ (k, _) -> predicate k) d
-            let notMatchPath = List.fold (fun acc k -> acc &&& !!((UpdateTreeKey.guard k) &&& (readKey :> IMemoryKey<_,_>).IntersectionCondition k.key)) (True()) keysPath
+            //let notMatchPath = List.fold (fun acc k -> acc &&& !!((UpdateTreeKey.guard k) &&& (readKey :> IMemoryKey<_,_>).IntersectionCondition k.key)) (True()) keysPath
             let collectSplittingAndSymbolicTree (splitting, symbolic) stReg (stUtKey, st) =
-                let keysAreMatch = readKey.MatchCondition stUtKey.key stReg
-                let finalGuard =  simplifyAndWithDisjunctions ((UpdateTreeKey.guard stUtKey) &&& notMatchPath) keysAreMatch
+                let keysAreMatch =( readKey :> IMemoryKey<_,_>).MatchCondition stUtKey.key stReg
+                let finalGuard =  simplifyAndWithDisjunctions ((UpdateTreeKey.guard stUtKey)) keysAreMatch
                 let stSplitting, stSymbolic = recReading st (stUtKey::keysPath)
                 let modifiedSymbolic = PersistentDict.append symbolic stSymbolic
                 if finalGuard = False() then
@@ -546,7 +546,7 @@ module private UpdateTree =
 
     let private splitRead d key explicitAddresses rangeReader predicate isDefault makeSymbolic makeDefault =
         let concrete, symbolic = getSplittingAndSymbolicTree key (Node d) predicate
-        let gvs = RegionTree.foldl (fun acc _ utKey ->
+        let gvs = RegionTree.foldr (fun _ utKey acc ->
             if (utKey.key :> IMemoryKey<_,_>).IsRange then
                 let rangeReading = rangeReader key utKey
                 (UpdateTreeKey.guard utKey, rangeReading)::acc
@@ -562,7 +562,7 @@ module private UpdateTree =
             let symbolicCase = makeSymbolic (Node symbolic)
             let symbolicGuard = List.map (fun (g, _) -> !!g) gvs |> conjunction
             (symbolicGuard, symbolicCase)::gvs  
-        |> Merging.merge
+        |> Union
     
     ///Collects nodes that should have been on the top of update tree if we did not use splitting
     let rec private collectBranchLatestRecords (Node d) predicate latestRecords =
@@ -585,7 +585,6 @@ module private UpdateTree =
         PersistentDict.fold collectSubtreeNodes latestRecords d
 
     let rec private collectTreeTopNodes (Node tree) predicate =
-        // TODO possible several values with same time in one key
         PersistentDict.toSeq tree |> List.ofSeq |> List.map (fun (r, (k, t)) -> collectBranchLatestRecords t predicate [(r, k)]) |> List.concat
 
     let read (key : 'key) (tree : updateTree<'key, term, 'reg>) explicitAddresses rangeExtractor predicate isDefault makeSymbolic makeDefault =
@@ -728,7 +727,7 @@ module MemoryRegion =
                 let reading =  UpdateTree.read key mr.updates mr.explicitAddresses rangeReader valueIsConcreteHeapAddress isDefault makeSymbolic makeDefault
                 return
                     match reading.term with
-                    | Union gvs -> List.map (fun (g, v) -> (g &&& gKey, v)) gvs
+                    | Ite gvs -> List.map (fun (g, v) -> (g &&& gKey, v)) gvs
                     | _ -> [(gKey, reading)]
             } |> List.concat |> Merging.merge
 

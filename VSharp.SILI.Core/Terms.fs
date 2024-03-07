@@ -124,7 +124,7 @@ type termNode =
     // NOTE: use ptr only in case of reinterpretation: changed sight type or address arithmetic, otherwise use ref instead
     | Ptr of pointerBase * Type * term // base address * sight type * offset (in bytes)
     | Slice of term * list<term * term * term> // what term to slice * list of slices (start byte * end byte * position inside combine)
-    | Union of (term * term) list
+    | Ite of (term * term) list
 
     override x.ToString() =
         let getTerm (term : term) = term.term
@@ -182,7 +182,7 @@ type termNode =
                     results |> join ", " |> sprintf "Combine(%s)" |> k)
             | Struct(fields, t) ->
                 fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t |> k
-            | Union(guardedTerms) ->
+            | Ite(guardedTerms) ->
                 let guardedToString (guard, term) k =
                     toStringWithParentIndent indent guard (fun guardString ->
                     toStringWithParentIndent indent term (fun termString ->
@@ -340,7 +340,7 @@ module internal Terms =
     let ConcreteHeapAddress (addr : concreteHeapAddress) = Concrete addr addressType
     let Union gvs =
         if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
-        HashMap.addTerm (Union gvs)
+        HashMap.addTerm (Ite gvs)
 
     let isVoid = term >> function
         | Nop -> true
@@ -351,7 +351,7 @@ module internal Terms =
         | _ -> false
 
     let isUnion = term >> function
-        | Union _ -> true
+        | Ite _ -> true
         | _ -> false
 
     let isTrue = term >> function
@@ -388,7 +388,7 @@ module internal Terms =
     let commonTypeOf getType term =
         match term.term with
         | Nop -> typeof<System.Void>
-        | Union gvs -> typeOfUnion getType gvs
+        | Ite gvs -> typeOfUnion getType gvs
         | _ -> getType term
 
     let sightTypeOfPtr =
@@ -417,7 +417,7 @@ module internal Terms =
             | Struct(_, t) -> t
             | Ref _ -> (typeOfRef term).MakeByRefType()
             | Ptr _ -> (sightTypeOfPtr term).MakePointerType()
-            | Union gvs -> typeOfUnion getType gvs
+            | Ite gvs -> typeOfUnion getType gvs
             | _ -> internalfail $"getting type of unexpected term {term}"
         commonTypeOf getType term
 
@@ -443,20 +443,20 @@ module internal Terms =
     let rec isStruct term =
         match term.term with
         | Struct _ -> true
-        | Union gvs -> List.forall (snd >> isStruct) gvs
+        | Ite gvs -> List.forall (snd >> isStruct) gvs
         | _ -> false
 
     let rec isReference term =
         match term.term with
         | HeapRef _
         | Ref _ -> true
-        | Union gvs -> List.forall (snd >> isReference) gvs
+        | Ite gvs -> List.forall (snd >> isReference) gvs
         | _ -> false
 
     let rec isPtr term =
         match term.term with
         | Ptr _ -> true
-        | Union gvs -> List.forall (snd >> isPtr) gvs
+        | Ite gvs -> List.forall (snd >> isPtr) gvs
         | _ -> false
 
     let rec isRefOrPtr term =
@@ -464,7 +464,7 @@ module internal Terms =
         | HeapRef _
         | Ref _
         | Ptr _ -> true
-        | Union gvs -> List.forall (snd >> isRefOrPtr) gvs
+        | Ite gvs -> List.forall (snd >> isRefOrPtr) gvs
         | _ -> false
 
     let zeroAddress() =
@@ -575,7 +575,7 @@ module internal Terms =
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t), _
         | Expression(_, _, t), _ -> makeCast term t targetType
-        | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
+        | Ite gvs, _ -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
         | _ -> __unreachable__()
 
     // Detached pointer is pointer, which is not fixed to any object
@@ -614,7 +614,7 @@ module internal Terms =
         | Constant _
         | Expression _ ->
             makeDetachedPtr ptr typeof<Void>
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, nativeToPointer v)) |> Union
+        | Ite gvs -> gvs |> List.map (fun (g, v) -> (g, nativeToPointer v)) |> Union
         | _ -> internalfail $"nativeToPointer: unexpected pointer {ptr}"
 
     and negate term =
@@ -637,11 +637,11 @@ module internal Terms =
         | _ -> None
 
     and (|UnionT|_|) = term >> function
-        | Union gvs -> Some(UnionT gvs)
+        | Ite gvs -> Some(UnionT gvs)
         | _ -> None
 
     and (|GuardedValues|_|) = function // TODO: this could be ineffective (because of unzip)
-        | Union gvs -> Some(GuardedValues(List.unzip gvs))
+        | Ite gvs -> Some(GuardedValues(List.unzip gvs))
         | _ -> None
 
     and (|UnaryMinus|_|) = function
@@ -1007,7 +1007,7 @@ module internal Terms =
                 let pos = convert pos typeof<int> :?> int
                 simplify p s e pos
             | _ -> defaultCase()
-        | [{term = Union _}] -> defaultCase()
+        | [{term = Ite _}] -> defaultCase()
         | [nonSliceTerm] ->
             simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()
@@ -1017,7 +1017,7 @@ module internal Terms =
         | ConcreteHeapAddress addr -> addr
         | Constant(_, source, _) -> source.Time
         | HeapRef(address, _) -> timeOf address
-        | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
+        | Ite gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
         | _ -> internalfail $"timeOf : expected heap address, but got {address}"
 
     and compareTerms t1 t2 =

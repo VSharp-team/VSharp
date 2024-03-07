@@ -118,10 +118,6 @@ module API =
             | Concrete _ -> true
             | HeapRef(address, _) when isConcreteHeapAddress address -> true
             | _ -> false
-        let IsConcreteHeapAddress term =
-            match term.term with
-            | HeapRef(address, _) when isConcreteHeapAddress address -> true
-            | _ -> false
         let IsNullReference term = Pointers.isNull term
         let IsBadRef term = Pointers.isBadRef term
 
@@ -425,7 +421,7 @@ module API =
                         let index = indices[0]
                         t, mul index (TypeUtils.internalSizeOf t |> makeNumber)
                 Ptr baseAddress sightType (add offset indexOffset)
-            | Union gvs ->
+            | Ite gvs ->
                 let referenceArrayIndex term = ReferenceArrayIndex state term indices valueType
                 Merging.guardedMap referenceArrayIndex gvs
             | _ -> internalfail $"Referencing array index: expected reference, but got {arrayRef}"
@@ -491,7 +487,7 @@ module API =
             | Ref _ -> ReferenceField state term field |> Memory.read reporter state
             | Struct _ -> Memory.readStruct reporter state term field
             | Combined _ -> Memory.readFieldUnsafe reporter state term field
-            | Union gvs ->
+            | Ite gvs ->
                 List.filter (fun (_, v) -> True() <> IsBadRef v) gvs
                 |> Merging.guardedMap (fun t -> CommonReadField reporter state t field)
             | _ -> internalfail $"Reading field of {term}"
@@ -522,7 +518,7 @@ module API =
             | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = typeof<string> ->
                 let addr, arrayType = Memory.stringArrayInfo state addr None
                 Memory.readArrayIndex state addr [index] arrayType
-            | Union gvs ->
+            | Ite gvs ->
                 let readStringChar term = ReadStringChar state term index
                 Merging.guardedMap readStringChar gvs
             | _ -> internalfail $"Reading string char: expected reference, but got {reference}"
@@ -763,20 +759,20 @@ module API =
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> TypeUtils.rankOf |> makeNumber
-            | Union gvs -> Merging.guardedMap (ArrayRank state) gvs
+            | Ite gvs -> Merging.guardedMap (ArrayRank state) gvs
             | _ -> internalfail $"Getting rank of array: expected ref, but got {arrayRef}"
 
         let rec ArrayLengthByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLength state addr index
-            | Union gvs ->
+            | Ite gvs ->
                 let arrayLengthByDimension term = ArrayLengthByDimension state term index
                 Merging.guardedMap arrayLengthByDimension gvs
             | _ -> internalfail $"reading array length: expected heap reference, but got {arrayRef}"
         let rec ArrayLowerBoundByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLowerBound state addr index
-            | Union gvs ->
+            | Ite gvs ->
                 let arrayLowerBoundByDimension term = ArrayLowerBoundByDimension state term index
                 Merging.guardedMap arrayLowerBoundByDimension gvs
             | _ -> internalfail $"reading array lower bound: expected heap reference, but got {arrayRef}"
@@ -787,7 +783,7 @@ module API =
                 let arrayType = Memory.mostConcreteTypeOfHeapRef state address typ |> symbolicTypeToArrayType
                 let lens = List.init arrayType.dimension (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
                 List.fold mul (makeNumber 1) lens
-            | Union gvs -> Merging.guardedMap (CountOfArrayElements state) gvs
+            | Ite gvs -> Merging.guardedMap (CountOfArrayElements state) gvs
             | _ -> internalfail $"counting array elements: expected heap reference, but got {arrayRef}"
 
         let StringLength state strRef = Memory.lengthOfString state strRef

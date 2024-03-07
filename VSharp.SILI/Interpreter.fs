@@ -1224,7 +1224,11 @@ type ILInterpreter() as this =
                 | TypeUtils.Native -> cilState.Read target
                 | _ when addressNeeded -> Memory.ReferenceField cilState.state target fieldId
                 | _ -> cilState.ReadField target fieldId
-            cilState.Push value
+            let asd =
+                match value.term with
+                | Ite _ -> value
+                | _ -> value
+            cilState.Push asd
             k [cilState]
         x.NpeOrInvokeStatementCIL cilState target loadWhenTargetIsNotNull id
 

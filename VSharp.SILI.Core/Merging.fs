@@ -73,7 +73,7 @@ module internal Merging =
         | [(_, v)] -> v
         | gvs' -> Union gvs'
 
-    let merge2Terms g h u v =
+    let merge2Terms g h u v = // h false --> u, g true --> u, h true and (g false) --> v
         let g = guardOf u &&& g
         let h = guardOf v &&& h
         match g, h with
@@ -98,7 +98,7 @@ module internal Merging =
 
     let commonGuardedApplyk f term merge k =
         match term.term with
-        | Union gvs -> commonGuardedMapk f gvs merge k
+        | Ite gvs -> commonGuardedMapk f gvs merge k
         | _ -> f term k
     let commonGuardedApply f term merge = commonGuardedApplyk (Cps.ret f) term merge id
 
@@ -114,13 +114,13 @@ module internal Merging =
 
     let commonGuardedApplykWithPC pc f term merge k =
         match term.term with
-        | Union gvs -> commonGuardedMapkWithPC pc f gvs merge k
+        | Ite gvs -> commonGuardedMapkWithPC pc f gvs merge k
         | _ -> f term k
     let guardedApplykWithPC pc f term k = commonGuardedApplykWithPC pc f term merge k
     let guardedApplyWithPC pc f term = guardedApplykWithPC pc (Cps.ret f) term id
 
     let unguard = function
-        | {term = Union gvs} -> gvs
+        | {term = Ite gvs} -> gvs
         | t -> [(True(), t)]
 
     let unguardMerge = unguard >> merge
@@ -160,3 +160,15 @@ module internal Merging =
 
     let guardedCartesianProductK mapper terms ctor k =
         guardedCartesianProductRecK mapper ctor (True()) [] terms k
+
+module internal IteMerging =
+    let simplifyTrue (ite, e) =
+        let folder (g, v) (accIte, accElse) k =
+            let acc =
+                match g with
+                | True -> ([], v)
+                | _ -> ((g, v)::accIte, accElse)
+            k acc
+        Cps.List.foldrk folder ([], e) ite id
+    // let simplifyFalse (ite, e) =
+    //     let folder (g, v) (acc)

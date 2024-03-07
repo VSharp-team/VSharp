@@ -564,7 +564,7 @@ module internal Z3 =
                     | Constant(name, source, typ) -> x.EncodeConstant name.v source typ
                     | Expression(op, args, typ) -> x.EncodeExpression t op args typ
                     | HeapRef(address, _) -> x.EncodeTerm address
-                    | Union gvs -> x.EncodeUnion gvs
+                    | Ite gvs -> x.EncodeUnion gvs
                     | _ -> internalfail $"EncodeTerm: unexpected term: {t}"
                 let typ = TypeOf t
                 let result = if typ.IsEnum then x.AddEnumAssumptions typ result else result
@@ -747,7 +747,7 @@ module internal Z3 =
             | Slice(term, cuts) ->
                 let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
                 x.EncodeTerm term, slices
-            | Union gvs ->
+            | Ite gvs ->
                 let extractTerm slice =
                     match slice.term with
                     | Slice(t, _) -> t

@@ -65,7 +65,7 @@ module Substitution =
                     | Combine -> combine args' t'
             substituteManyK termSubst typeSubst timeSubst args ctor (fun gvs ->
             Merging.merge gvs |> k)
-        | Union gvs ->
+        | Ite gvs ->
             let tryAdd (g, v) k =
                 recur g (fun g' ->
                 let ggs = Merging.unguardMerge g'

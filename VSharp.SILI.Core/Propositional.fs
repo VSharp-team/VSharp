@@ -95,7 +95,7 @@ module internal Propositional =
             match x.term, y.term with
             | Nop, _ -> internalfailf "Invalid left operand of %O!" operation
             | _, Nop -> internalfailf "Invalid right operand of %O!" operation
-            | Union gvs1, Union gvs2 ->
+            | Ite gvs1, Ite gvs2 ->
                 Cps.List.mapk
                     (fun (g1, v1) k ->
                         Cps.List.mapk

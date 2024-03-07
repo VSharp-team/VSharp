@@ -8,7 +8,7 @@ module internal Branching =
 
     let commonGuardedStatedApplyk f state term mergeResults k =
         match term.term with
-        | Union gvs ->
+        | Ite gvs ->
             let filterUnsat (g, v) k =
                 let pc = PC.add state.pc g
                 if PC.isFalse pc then k None
