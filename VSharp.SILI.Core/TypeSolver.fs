@@ -551,7 +551,7 @@ module TypeSolver =
         evaledTypes
 
     let private solveTypesWithoutModel (state : state) =
-        let m = CallStack.stackTrace state.stack |> List.last
+        let m = CallStack.stackTrace state.memory.Stack |> List.last
         userAssembly <- Some m.DeclaringType.Assembly
         let typeParams, methodParams = getGenericParameters m
         let typeStorage = state.typeStorage
@@ -591,7 +591,8 @@ module TypeSolver =
             for entry in evalInModel model typeStorage do
                 let address = entry.Key
                 let typeForModel = entry.Value
-                modelState.allocatedTypes <- PersistentDict.add address typeForModel modelState.allocatedTypes
+                let memory = modelState.memory
+                memory.AllocatedTypes <- PersistentDict.add address typeForModel memory.AllocatedTypes
         | PrimitiveModel _ -> internalfail "Refining types in model: got primitive model"
 
     let solveTypes (model : model) (state : state) =
@@ -621,7 +622,7 @@ module TypeSolver =
         userAssembly <- Some ancestorMethod.DeclaringType.Assembly
         match thisRef.term with
         | HeapRef({term = ConcreteHeapAddress thisAddress}, _) when VectorTime.less state.startingTime thisAddress ->
-            state.allocatedTypes[thisAddress] |> Seq.singleton
+            state.memory.AllocatedTypes[thisAddress] |> Seq.singleton
         | HeapRef(thisAddress, _) ->
             let thisConstraints = List.singleton thisType |> typeConstraints.FromSuperTypes
             let typeStorage = state.typeStorage

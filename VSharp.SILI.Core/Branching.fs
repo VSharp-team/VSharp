@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open Memory
 
 module internal Branching =
 
@@ -17,13 +18,13 @@ module internal Branching =
             match pcs with
             | [] -> k []
             | (pc, v)::pcs ->
-                let copyState (pc, v) k = f (Memory.copy state pc) v k
+                let copyState (pc, v) k = f (state.Copy pc) v k
                 Cps.List.mapk copyState pcs (fun results ->
                     state.pc <- pc
                     f state v (fun r ->
                     r::results |> mergeResults |> k)))
         | _ -> f state term (List.singleton >> k)
-    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term Memory.mergeResults k
+    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term State.mergeResults k
     let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
 
     let guardedStatedMap mapper state term =
@@ -67,7 +68,7 @@ module internal Branching =
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat model ->
                     let thenState = conditionState
-                    let elseState = Memory.copy conditionState elsePc
+                    let elseState = conditionState.Copy elsePc
                     elseState.model <- model.mdl
                     assert(PC.toSeq elsePc |> conjunction |> elseState.model.Eval |> isTrue)
                     thenState.pc <- PC.add pc condition
@@ -103,7 +104,7 @@ module internal Branching =
                     elseBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat model ->
                     let thenState = conditionState
-                    let elseState = Memory.copy conditionState (PC.add pc notCondition)
+                    let elseState = conditionState.Copy (PC.add pc notCondition)
                     thenState.model <- model.mdl
                     assert(PC.toSeq thenPc |> conjunction |> thenState.model.Eval |> isTrue)
                     TypeStorage.addTypeConstraint typeStorageCopy.Constraints notCondition
@@ -117,6 +118,6 @@ module internal Branching =
         else __unreachable__())
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
-        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch Memory.merge2Results k
+        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch State.merge2Results k
     let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
         statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id

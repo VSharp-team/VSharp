@@ -54,21 +54,23 @@ module internal ArrayInitialization =
         assert (rawData.Length % size = 0)
         let dims = rankOf typeOfArray
         let arrayType = symbolicTypeToArrayType typeOfArray
-        let lbs = List.init dims (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType |> extractIntFromTerm)
-        let lens = List.init dims (fun dim -> Memory.readLength state address (makeNumber dim) arrayType |> extractIntFromTerm)
+        let memory = state.memory
+        let lbs = List.init dims (fun dim -> memory.ReadLowerBound address (makeNumber dim) arrayType |> extractIntFromTerm)
+        let lens = List.init dims (fun dim -> memory.ReadLength address (makeNumber dim) arrayType |> extractIntFromTerm)
         let allIndices = Array.allIndicesViaLens lbs lens
         let indicesAndValues =
             Seq.mapi (fun i indices -> List.map makeNumber indices, termCreator rawData (i * size)) allIndices
-        Memory.initializeArray state address indicesAndValues arrayType
+        memory.InitializeArray address indicesAndValues arrayType
 
-    let commonInitializeArray state address typ (handle : RuntimeFieldHandle) =
-        let cm = state.concreteMemory
+    let commonInitializeArray (state : state) address typ (handle : RuntimeFieldHandle) =
+        let memory = state.memory
+        let cm = memory.ConcreteMemory
         match address.term with
         | ConcreteHeapAddress a when cm.Contains a ->
             cm.InitializeArray a handle
         | _ ->
             let fieldInfo = FieldInfo.GetFieldFromHandle handle
-            let arrayType = Memory.mostConcreteTypeOfHeapRef state address typ
+            let arrayType = memory.MostConcreteTypeOfHeapRef address typ
             let t = arrayType.GetElementType()
             assert t.IsValueType // TODO: be careful about type variables
             let rawData = Reflection.byteArrayFromField fieldInfo
@@ -88,17 +90,17 @@ module internal ArrayInitialization =
             | _ when t = typedefof<char> -> fillArray charTermCreator sizeof<char>
             | _ -> __notImplemented__()
 
-    let initializeArray state arrayRef handleTerm =
+    let initializeArray (state : state) arrayRef handleTerm =
         assert(Terms.isStruct handleTerm)
-        match arrayRef.term, Memory.tryTermToObj state handleTerm with
+        match arrayRef.term, state.memory.TryTermToObj handleTerm with
         | HeapRef(address, typ), Some(:? RuntimeFieldHandle as rfh) ->
             commonInitializeArray state address typ rfh
         | _ -> internalfailf $"initializeArray: case for (arrayRef = {arrayRef}), (handleTerm = {handleTerm}) is not implemented"
 
-    let allocateOptimizedArray state (fieldInfo : FieldInfo) =
+    let allocateOptimizedArray (state : state) (fieldInfo : FieldInfo) =
         let arrayType = typeof<byte>.MakeArrayType()
         let lb = makeNumber 0
         let length = internalSizeOf fieldInfo.FieldType |> makeNumber
-        let array = Memory.allocateArray state arrayType [lb] [length]
+        let array = state.memory.AllocateArray arrayType [lb] [length]
         commonInitializeArray state array arrayType fieldInfo.FieldHandle
         HeapRef array arrayType

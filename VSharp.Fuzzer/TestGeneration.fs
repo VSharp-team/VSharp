@@ -17,7 +17,7 @@ module internal TestGeneration =
 
         Logger.traceTestGeneration "Creating state"
         let m = generationData.method
-        let state = Memory.EmptyState()
+        let state = Memory.EmptyIsolatedState()
         state.model <- Memory.EmptyModel m
         state.typeStorage <- generationData.typeStorage
 
@@ -117,7 +117,7 @@ module internal TestGeneration =
             | Returned obj ->
                 Logger.traceTestGeneration "Pushing result onto evaluation stack"
                 let returnedTerm = Memory.ObjectToTerm state obj m.ReturnType
-                state.evaluationStack <- EvaluationStack.Push returnedTerm state.evaluationStack
+                state.memory.EvaluationStack <- EvaluationStack.Push returnedTerm state.memory.EvaluationStack
                 Test
 
         Logger.traceTestGeneration "State to test started"

@@ -44,7 +44,7 @@ module TestGenerator =
         test.MemoryGraph.AddMockedClass mock fields index :> obj
 
     let private encodeType (state : state) cha =
-        match state.concreteMemory.TryVirtToPhys cha with
+        match state.memory.ConcreteMemory.TryVirtToPhys cha with
         | Some obj ->
             assert(obj :? Type)
             let t = obj :?> Type
@@ -122,10 +122,11 @@ module TestGenerator =
 
     let private encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         assert(TypeUtils.isArrayType typ)
-        if state.concreteMemory.Contains cha then
+        let memory = state.memory
+        if memory.ConcreteMemory.Contains cha then
             // TODO: Use compact representation for big arrays
             let contents =
-                state.concreteMemory.VirtToPhys cha :?> Array
+                memory.ConcreteMemory.VirtToPhys cha :?> Array
                 |> Array.mapToOneDArray test.MemoryGraph.Encode
             test.MemoryGraph.AddArray typ contents lengths lowerBounds index
         else
@@ -143,14 +144,14 @@ module TestGenerator =
             let arrays =
                 if isModelArray then
                     match model with
-                    | StateModel modelState -> modelState.arrays
+                    | StateModel modelState -> modelState.memory.Arrays
                     | _ -> __unreachable__()
-                else state.arrays
+                else state.memory.Arrays
             let elemType = arrayType.elemType
             let checkElem value =
                 match value.term, model with
                 | HeapRef({term = ConcreteHeapAddress address}, _), StateModel modelState ->
-                    match PersistentDict.tryFind modelState.allocatedTypes address with
+                    match PersistentDict.tryFind modelState.memory.AllocatedTypes address with
                     | Some(ConcreteType typ) -> Memory.IsSafeContextWrite typ elemType
                     | _ -> true
                 | _ -> internalfail $"checkElem: unexpected element {value}"
@@ -255,7 +256,7 @@ module TestGenerator =
         | _ when VectorTime.less address VectorTime.zero ->
             match model with
             | StateModel modelState ->
-                match PersistentDict.tryFind modelState.allocatedTypes address with
+                match PersistentDict.tryFind modelState.memory.AllocatedTypes address with
                 | Some typ ->
                     let eval address =
                         address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj
@@ -269,7 +270,7 @@ module TestGenerator =
             let term2Obj = model.Eval >> term2obj
             let eval address = Ref address |> Memory.Read state |> term2Obj
             let arr2Obj = encodeArrayCompactly state model term2Obj
-            let typ = state.allocatedTypes[address]
+            let typ = state.memory.AllocatedTypes[address]
             let encodeMock = encodeTypeMock model state indices mockCache implementations test
             obj2test state eval arr2Obj indices encodeMock test address typ
 

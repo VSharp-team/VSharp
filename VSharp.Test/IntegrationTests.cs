@@ -338,7 +338,7 @@ namespace VSharp.Test
             // evaluating state in "Debugger -> Thread & Variables" throws System.ArgumentException
             private void EnforceLoadCore()
             {
-                var x = API.Memory.EmptyState();
+                var x = API.Memory.EmptyIsolatedState();
                 Logger.writeLine($"Enforcing load VSharp.Core {x}");
             }
 

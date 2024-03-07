@@ -769,7 +769,7 @@ type ILInterpreter() as this =
 
     member private x.TryConcreteInvoke (method : Method) (termArgs : term list) thisOption (cilState : cilState) =
         let state = cilState.state
-        let changedStaticFields = state.concreteMemory.ChangedStaticFields()
+        let changedStaticFields = state.memory.ConcreteMemory.ChangedStaticFields()
         if method.CanCallConcrete changedStaticFields then
             // TODO: support out parameters
             let objArgs = List.choose (TryTermToFullyConcreteObj state) termArgs
@@ -855,16 +855,16 @@ type ILInterpreter() as this =
             | None -> ()
             fallThroughCall cilState |> List.singleton |> k
         elif method.IsExternalMethod then
-            let stackTrace = Memory.StackTraceString cilState.state.stack
+            let stackTrace = Memory.StackTraceString cilState.state.memory.Stack
             let message = "Not supported extern method"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.IsInternalCall then
             assert(not <| method.IsImplementedInternalCall)
-            let stackTrace = Memory.StackTraceString cilState.state.stack
+            let stackTrace = Memory.StackTraceString cilState.state.memory.Stack
             let message = "Not supported internal call"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.IsNotImplementedIntrinsic then
-            let stackTrace = Memory.StackTraceString cilState.state.stack
+            let stackTrace = Memory.StackTraceString cilState.state.memory.Stack
             let message = "Not supported intrinsic method"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.HasBody then
@@ -1896,7 +1896,7 @@ type ILInterpreter() as this =
 
     member x.CreateException (exceptionType : Type) arguments (cilState : cilState) =
         assert(not exceptionType.IsValueType)
-        let stackTrace = Memory.StackTrace cilState.state.stack |> List.map toString |> join "\n"
+        let stackTrace = Memory.StackTrace cilState.state.memory.Stack |> List.map toString |> join "\n"
         Logger.info $"{exceptionType}!\nStack trace:\n{stackTrace}"
         cilState.ClearEvaluationStackLastFrame()
         let constructors = exceptionType.GetConstructors()

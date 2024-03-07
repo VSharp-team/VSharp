@@ -55,7 +55,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
     let mutable isStopped = false
     let mutable isCoverageAchieved : unit -> bool = always false
 
-    let emptyState = Memory.EmptyState()
+    let emptyState = Memory.EmptyIsolatedState()
     let interpreter = ILInterpreter()
 
 
@@ -214,7 +214,7 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
                         Memory.NewStackFrame initialState None []
                         Memory.AllocateTemporaryLocalVariableOfType initialState "this" 0 declaringType |> Some
                     else
-                        let this = Memory.MakeSymbolicThis method
+                        let this = Memory.MakeSymbolicThis initialState method
                         !!(IsNullReference this) |> AddConstraint initialState
                         Some this
                 else None
@@ -508,7 +508,7 @@ type public Explorer(options : ExplorationOptions, reporter: IReporter) =
 
         try
             let trySubstituteTypeParameters method =
-                let emptyState = Memory.EmptyState()
+                let emptyState = Memory.EmptyIsolatedState()
                 (Option.defaultValue method (x.TrySubstituteTypeParameters emptyState method), emptyState)
             let isolated =
                 isolated
