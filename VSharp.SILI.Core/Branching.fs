@@ -9,20 +9,18 @@ module internal Branching =
 
     let commonGuardedStatedApplyk f state term mergeResults k =
         match term.term with
-        | Union gvs ->
+        | Ite {ite = ite; elseValue = e} ->
             let filterUnsat (g, v) k =
                 let pc = PC.add state.pc g
                 if PC.isFalse pc then k None
                 else Some (pc, v) |> k
-            Cps.List.choosek filterUnsat gvs (fun pcs ->
-            match pcs with
-            | [] -> k []
-            | (pc, v)::pcs ->
-                let copyState (pc, v) k = f (state.Copy pc) v k
-                Cps.List.mapk copyState pcs (fun results ->
-                    state.pc <- pc
-                    f state v (fun r ->
-                    r::results |> mergeResults |> k)))
+            Cps.List.choosek filterUnsat ite (fun pcs ->
+            let pc = state.pc
+            let copyState (pc, v) k = f (state.Copy pc) v k
+            Cps.List.mapk copyState pcs (fun results ->
+                state.pc <- pc // TODO remove?
+                f state e (fun r ->
+                r::results  |> mergeResults |> k)))
         | _ -> f state term (List.singleton >> k)
     let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term State.mergeResults k
     let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id

@@ -64,8 +64,11 @@ module Substitution =
                     | Application f -> standardFunction args' f
                     | Combine -> combine args' t'
             substituteManyK termSubst typeSubst timeSubst args ctor (fun gvs ->
-            Merging.merge gvs |> k)
-        | Union gvs ->
+                match gvs with
+                | [(_, v)] -> {elseValue = v; ite = []}
+                | gvs -> GenericIteType.IteFromGvs gvs
+                |> Merging.merge |> k)
+        | Ite iteType ->
             let tryAdd (g, v) k =
                 recur g (fun g' ->
                 let ggs = Merging.unguardMerge g'
@@ -73,8 +76,10 @@ module Substitution =
                 else
                     recur v (fun v' ->
                     Some (ggs, v') |> k))
-            Cps.List.choosek tryAdd gvs (fun gvs' ->
-            if gvs' = gvs then k term else Merging.merge gvs' |> k)
+            Cps.List.choosek tryAdd iteType.ite (fun ite' ->
+            recur iteType.elseValue (fun e' ->
+            let iteType' = {ite = ite'; elseValue = e'}
+            if iteType = iteType' then k term else Merging.merge iteType' |> k))
         | HeapRef(address, typ) ->
             recur address (fun addr' ->
             let typ' = typeSubst typ

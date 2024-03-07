@@ -10,68 +10,50 @@ module internal Merging =
         | GuardedValues(gs, _) -> disjunction gs
         | _ -> True()
 
-    let private boolMerge gvs =
-        let guard = List.fold (|||) (False()) (List.map fst gvs)
-        let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (False()) gvs
-        [(guard, value)]
+    let private boolMerge iteType =
+        let disjointIte, elseGuard = List.mapFold (fun disjG (g, v) -> (g &&& disjG , v) , !!g &&& disjG) (True()) iteType.ite
+        List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (elseGuard &&& iteType.elseValue) disjointIte
 
-    let rec private structMerge typ gvs =
-        let gs, vs = List.unzip gvs
-        let fss = vs |> List.map fieldsOf
-        let mergedFields = PersistentDict.merge gs fss merge
-        [(disjunction gs, Struct mergedFields typ)]
+    let rec private structMerge typ iteType =
+        let iteFs = iteType.ite |> List.map (fun (g, v) -> (g, fieldsOf v))
+        let e = iteType.elseValue |> fieldsOf
+        let union ite e = {ite = ite; elseValue = e}
+        let mergedFields = PersistentDict.merge iteFs e union merge
+        Struct mergedFields typ
 
-    and private simplify (|Unguard|_|) gvs =
-        let rec loop gvs out =
-            match gvs with
-            | [] -> out
-            | (True, _ as gv::_) -> [gv]
-            | (False, _)::gvs' -> loop gvs' out
-            | (g, Unguard us)::gvs' ->
-                let guarded = us |> List.map (fun (g', v) -> (g &&& g', v))
-                loop gvs' (List.append (simplify (|Unguard|_|) guarded) out)
-            | gv::gvs' -> loop gvs' (gv::out)
-        loop gvs []
-
-    and mergeSame<'a when 'a : equality> : (term * 'a) list -> (term * 'a) list = function
-        | [] -> []
-        | [_] as xs -> xs
-        | [(g1, v1); (g2, v2)] as gvs -> if v1 = v2 then [(g1 ||| g2, v1)] else gvs
-        | gvs ->
-            let rec loop gvs out =
-                match gvs with
-                | [] -> out
-                | (g, v)::gvs' ->
-                    let eq, rest = List.partition (snd >> (=) v) gvs'
-                    let joined = List.fold (|||) g (List.map fst eq)
-                    match joined with
-                    | True -> [(joined, v)]
-                    | False -> loop rest out
-                    | _ -> loop rest ((joined, v)::out)
-            loop gvs []
-
-    and private typedMerge = function
-        | Bool -> boolMerge
-        | StructType _ as typ -> structMerge typ
-        | _ -> id
+    and private simplify iteType =
+        let folder gv (accIte, accElse) =
+            match gv with
+            | True, IteT ite -> let simplified = simplify ite in simplified.ite, simplified.elseValue
+            | True, t -> [], t
+            | False, _ -> accIte, accElse
+            | g, IteT ite ->
+                let guarded = List.map (fun (g', v) -> (g &&& g', v)) ite.ite
+                let simplified = simplify {ite with ite = guarded}
+                simplified.ite @ (g, simplified.elseValue)::accIte, accElse
+            | gv -> gv::accIte, accElse
+        let accIte, accElse =
+            match iteType.elseValue with
+            | IteT t ->
+                let simplified = simplify t
+                simplified.ite, simplified.elseValue
+            | _ -> [], iteType.elseValue
+        let ite, e = List.foldBack folder iteType.ite (accIte, accElse)
+        {ite = ite; elseValue = e}
 
     and private compress = function
-        | [] -> []
-        | [(_, v)] -> [True(), v]
-        | [(_, v1); (_, v2)] as gvs when typeOf v1 = typeOf v2 -> typedMerge (typeOf v1) (mergeSame gvs)
-        | [_; _] as gvs -> gvs
-        | gvs ->
-            gvs
-            |> mergeSame
-            |> List.groupBy (snd >> typeOf)
-            |> List.collect (fun (t, gvs) -> if List.length gvs >= 2 then typedMerge t gvs else gvs)
+        // | [(_, v1); (_, v2)] as gvs when typeOf v1 = typeOf v2 -> typedMerge (typeOf v1) gvs
+        // | [_; _] as gvs -> gvs
+        | {ite = []; elseValue = e} -> e
+        | {ite = _; elseValue =  {term = Struct(_, t)}} as iteType -> structMerge t iteType
+        | {ite = _; elseValue = v} as iteType when isBool v -> boolMerge iteType
+        | iteType -> Ite iteType
 
-    and merge (gvs : (term * term) list) : term =
-        match compress (simplify (|UnionT|_|) gvs) with
-        | [(True, v)] -> v
-        | [(g, v)] when isBool v -> g &&& v
-        | [(_, v)] -> v
-        | gvs' -> Union gvs'
+    and merge ite : term =
+        match compress (simplify ite) with
+        | IteT {ite = []; elseValue = e} -> e
+        | IteT iteType -> Ite iteType
+        | t -> t
 
     let merge2Terms g h u v =
         let g = guardOf u &&& g
@@ -82,47 +64,51 @@ module internal Merging =
         | _, False -> u
         | False, _
         | _, True -> v
-        | _ -> merge [(g, u); (h, v)]
+        | _ -> merge {ite = [(g, u)]; elseValue = v}
 
 // ------------------------------------ Mapping non-term sequences ------------------------------------
 
-    let guardedMapWithoutMerge f gvs =
-        List.map (fun (g, v) -> (g, f v)) gvs
+    let commonGuardedMapk mapper iteType merge k =
+        Cps.List.mapk (fun (g, v) k -> mapper v (fun t -> k (g, t))) iteType.ite (fun ite' ->
+        mapper iteType.elseValue (fun e' ->
+        {ite = ite'; elseValue = e';} |> merge |> k))
 
-    let commonGuardedMapk mapper gvs merge k =
-        Cps.List.mapk (fun (g, v) k -> mapper v (fun t -> k (g, t))) gvs (merge >> k)
-
-    let guardedMap mapper gvs = commonGuardedMapk (Cps.ret mapper) gvs merge id
+    let guardedMap mapper iteType = commonGuardedMapk (Cps.ret mapper) iteType merge id
+    let guardedMapWithoutMerge mapper iteType = commonGuardedMapk (Cps.ret mapper) iteType id id
 
 // ---------------------- Applying functions to terms and mapping term sequences ----------------------
 
     let commonGuardedApplyk f term merge k =
         match term.term with
-        | Union gvs -> commonGuardedMapk f gvs merge k
+        | Ite iteType -> commonGuardedMapk f iteType merge k
         | _ -> f term k
     let commonGuardedApply f term merge = commonGuardedApplyk (Cps.ret f) term merge id
 
     let guardedApplyk f term k = commonGuardedApplyk f term merge k
     let guardedApply f term = guardedApplyk (Cps.ret f) term id
 
-    let commonGuardedMapkWithPC pc mapper gvs merge k =
-        let foldFunc gvs (g, v) k =
+    let commonGuardedMapkWithPC pc mapper iteType merge k =
+        let foldFunc (g, v) ite k =
             let pc' = PC.add pc g
-            if PC.isFalse pc' then k gvs
-            else mapper v (fun t -> k ((g, t) :: gvs))
-        Cps.List.foldlk foldFunc [] gvs (merge >> k)
+            if PC.isFalse pc' then k ite
+            else mapper v (fun t -> k ((g, t) :: ite))
+        Cps.List.foldrk foldFunc [] iteType.ite (fun ite' ->
+        mapper iteType.elseValue (fun e' ->
+        {ite = ite'; elseValue = e'} |> merge |> k))
 
     let commonGuardedApplykWithPC pc f term merge k =
         match term.term with
-        | Union gvs -> commonGuardedMapkWithPC pc f gvs merge k
+        | Ite iteType -> commonGuardedMapkWithPC pc f iteType merge k
         | _ -> f term k
     let guardedApplykWithPC pc f term k = commonGuardedApplykWithPC pc f term merge k
     let guardedApplyWithPC pc f term = guardedApplykWithPC pc (Cps.ret f) term id
 
     let unguard = function
-        | {term = Union gvs} -> gvs
+        | IteT iteType -> iteType
+        | t -> {ite = []; elseValue = t}
+    let unguardGvs = function
+        | GvsT gvs -> gvs
         | t -> [(True(), t)]
-
     let unguardMerge = unguard >> merge
 
 // ----------------------------------------------------------------------------------------------------
@@ -133,7 +119,7 @@ module internal Merging =
             | True -> List.singleton gv
             | False -> k acc
             | _ -> k (gv :: acc)
-        Cps.List.foldlk folder gvs List.empty id |> mergeSame
+        Cps.List.foldlk folder gvs List.empty id
 
     let rec private genericGuardedCartesianProductRec mapper gacc xsacc = function
         | x::xs ->
@@ -152,10 +138,10 @@ module internal Merging =
             let cartesian (g, v) k =
                 let g' = gacc &&& g
                 guardedCartesianProductRecK mapper ctor g' (xsacc @ [v]) xs k
-            mapper x (fun gvs ->
-            Cps.List.mapk cartesian gvs (fun cartesian ->
-            let gvs = List.concat cartesian
-            genericSimplify gvs |> k))
+            mapper x (fun iteType ->
+            Cps.List.mapk cartesian iteType.ite (fun iteCartesian ->
+            cartesian (True(), iteType.elseValue) (fun e' ->
+            (List.concat iteCartesian) @ e' |> k)))
         | [] -> List.singleton (gacc, ctor xsacc) |> k
 
     let guardedCartesianProductK mapper terms ctor k =

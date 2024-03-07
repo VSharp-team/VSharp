@@ -217,6 +217,7 @@ and IMemory =
     abstract ReadLength : term -> term -> arrayType -> term
 
     abstract ReadArrayIndex : term -> term list -> arrayType -> term
+    abstract SpecializedReading : heapArrayKey -> updateTreeKey<heapArrayKey, term> -> term
 
     abstract ReadArrayRange : term -> term list -> term list -> arrayType -> term
 
@@ -498,7 +499,7 @@ module internal State =
     type typeInitialized =
         {typ : Type; matchingTypes : symbolicTypeSet}
         interface IStatedSymbolicConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms = List.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<bool>
 

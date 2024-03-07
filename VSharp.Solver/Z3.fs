@@ -584,7 +584,7 @@ module internal Z3 =
                     | Constant(name, source, typ) -> x.EncodeConstant name.v source typ
                     | Expression(op, args, typ) -> x.EncodeExpression t op args typ
                     | HeapRef(address, _) -> x.EncodeTerm address
-                    | Union gvs -> x.EncodeUnion gvs
+                    | Ite iteType -> x.EncodeIte iteType
                     | _ -> internalfail $"EncodeTerm: unexpected term: {t}"
                 let typ = TypeOf t
                 let result = if typ.IsEnum then x.AddEnumAssumptions typ result else result
@@ -774,28 +774,34 @@ module internal Z3 =
             | Slice(term, cuts) ->
                 let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
                 x.EncodeTerm term, slices
-            | Union gvs ->
+            | Ite {ite = ite; elseValue = e} ->
                 let extractTerm slice =
                     match slice.term with
                     | Slice(t, _) -> t
                     | _ -> slice
-                let encodedTerm = List.map (fun (g, s) -> (g, extractTerm s)) gvs |> x.EncodeUnion
+                let encodedTerm = {ite = List.map (fun (g, s) -> (g, extractTerm s)) ite; elseValue = extractTerm e} |> x.EncodeIte
 
                 let extractCuts slice =
                     match slice.term with
                     | Slice(t, cuts) -> cuts
                     | _ -> List.empty
-                let unionCuts = List.map (fun (_, s) -> extractCuts s) gvs
-                assert(unionCuts |> List.forall (fun cuts -> (List.length cuts) = (unionCuts |> List.head |> List.length)))
-                let guardedSliceParts = unionCuts |> List.transpose |> List.map (List.map2 (fun (g, _) p -> (g, p)) gvs)
-                let encodeCutChar proj part =
-                    part |> List.map (fun (g, p) -> (g, proj p)) |> x.EncodeUnion
-                let encodeSlicePart part =
-                    let encodedStarts = encodeCutChar fst3 part
-                    let encodedEnds = encodeCutChar snd3 part
-                    let encodedPoss = encodeCutChar thd3 part
+                let iteCuts = List.map (fun (_, s) -> extractCuts s) ite
+                let elseCuts = extractCuts e
+                assert(iteCuts |> List.forall (fun cuts -> (List.length cuts) = (iteCuts |> List.head |> List.length)))
+                let iteSliceParts =
+                    iteCuts
+                    |> List.transpose // get ordered parts
+                    |> List.map (List.map2 (fun (g, _) p -> (g, p)) ite) // guard slice parts + add else value
+                let encodeCutChar proj itePart elsePart =
+                    let ite = itePart |> List.map (fun (g, p) -> (g, proj p))
+                    let elseChar = proj elsePart
+                    {ite = ite; elseValue = elseChar} |> x.EncodeIte
+                let encodeSlicePart itePart elsePart =
+                    let encodedStarts = encodeCutChar fst3 itePart elsePart
+                    let encodedEnds = encodeCutChar snd3 itePart elsePart
+                    let encodedPoss = encodeCutChar thd3 itePart elsePart
                     (encodedStarts, encodedEnds, encodedPoss)
-                let encodedSliceParts = List.map encodeSlicePart guardedSliceParts
+                let encodedSliceParts = List.map2 encodeSlicePart iteSliceParts elseCuts
                 encodedTerm, encodedSliceParts
             | _ -> x.EncodeTerm slice, List.empty
 
@@ -853,15 +859,15 @@ module internal Z3 =
             let decl = getFuncDecl name argsSort resultSort
             ctx.MkApp(decl, args)
 
-        member private x.EncodeUnion gvs =
+        member private x.EncodeIte iteType =
             // can be chosen arbitrary since unreachable
-            let {expr = deepestIteElseValue} = x.EncodeTerm (List.head gvs |> snd)
+            let {expr = elseValue} = x.EncodeTerm iteType.elseValue
             let constructUnion (g, v) (prevIte, assumptions) k =
                 let {expr = guard; assumptions = guardAssumptions} = x.EncodeTerm g
                 let {expr = value; assumptions = valueAssumptions} = x.EncodeTerm v
                 let assumptions = assumptions @ guardAssumptions @ valueAssumptions
                 (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
-            Cps.List.foldrk constructUnion (deepestIteElseValue, []) gvs (fun (ite, assumptions) ->
+            Cps.List.foldrk constructUnion (elseValue, []) iteType.ite (fun (ite, assumptions) ->
             {expr = ite; assumptions = assumptions})
             
         member private x.EncodeExpression term op args typ =

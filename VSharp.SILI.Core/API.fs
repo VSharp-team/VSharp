@@ -41,8 +41,6 @@ module API =
     let GuardedStatedApplyStatementK state term f k = Branching.guardedStatedApplyk f state term k
     let GuardedStatedApplyk f state term mergeStates k =
         Branching.commonGuardedStatedApplyk f state term mergeStates k
-    let GuardedMapWithoutMerge mapper gvs =
-        Merging.guardedMapWithoutMerge mapper gvs
 
     let ReleaseBranches() = Branching.branchesReleased <- true
     let AcquireBranches() = Branching.branchesReleased <- false
@@ -82,7 +80,7 @@ module API =
         let Ref address = Ref address
         let Ptr baseAddress typ offset = Ptr baseAddress typ offset
         let HeapRef address baseType = HeapRef address baseType
-        let Union gvs = Union gvs
+        let Ite iteType = Ite iteType
 
         let True() = True()
         let False() = False()
@@ -116,10 +114,6 @@ module API =
         let IsConcrete term =
             match term.term with
             | Concrete _ -> true
-            | HeapRef(address, _) when isConcreteHeapAddress address -> true
-            | _ -> false
-        let IsConcreteHeapAddress term =
-            match term.term with
             | HeapRef(address, _) when isConcreteHeapAddress address -> true
             | _ -> false
         let IsNullReference term = Pointers.isNull term
@@ -432,9 +426,9 @@ module API =
                         let index = indices[0]
                         t, mul index (TypeUtils.internalSizeOf t |> makeNumber)
                 Ptr baseAddress sightType (add offset indexOffset)
-            | Union gvs ->
+            | Ite iteType ->
                 let referenceArrayIndex term = ReferenceArrayIndex state term indices valueType
-                Merging.guardedMap referenceArrayIndex gvs
+                Merging.guardedMap referenceArrayIndex iteType
             | _ -> internalfail $"Referencing array index: expected reference, but got {arrayRef}"
 
         let ReferenceField state reference fieldId =
@@ -496,10 +490,10 @@ module API =
             | HeapRef _
             | Ptr _
             | Ref _ -> ReferenceField state term field |> state.memory.Read reporter
-                | Struct _ -> state.memory.ReadStruct reporter target field
-                | Combined _ -> state.memory.ReadFieldUnsafe reporter target f
-            | Union gvs ->
-                List.filter (fun (_, v) -> True() <> IsBadRef v) gvs
+                | Struct _ -> state.memory.ReadStruct reporter term field
+                | Combined _ -> state.memory.ReadFieldUnsafe reporter term field
+            | Ite iteType ->
+                GenericIteType.filter (fun v -> True() <> IsBadRef v) iteType
                 |> Merging.guardedMap (fun t -> CommonReadField reporter state t field)
             | _ -> internalfail $"Reading field of {term}"
 
@@ -529,9 +523,9 @@ module API =
             | HeapRef(addr, typ) when state.memory.MostConcreteTypeOfHeapRef addr typ = typeof<string> ->
                 let addr, arrayType = state.memory.StringArrayInfo addr None
                 state.memory.ReadArrayIndex addr [index] arrayType
-            | Union gvs ->
+            | Ite iteType ->
                 let readStringChar term = ReadStringChar state term index
-                Merging.guardedMap readStringChar gvs
+                Merging.guardedMap readStringChar iteType
             | _ -> internalfail $"Reading string char: expected reference, but got {reference}"
         let ReadStaticField state typ field = state.memory.ReadStaticField typ field
         let ReadDelegate state reference = state.memory.ReadDelegate reference
@@ -773,7 +767,7 @@ module API =
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
             | HeapRef(addr, typ) -> state.memory.MostConcreteTypeOfHeapRef addr typ |> TypeUtils.rankOf |> makeNumber
-            | Union gvs -> Merging.guardedMap (ArrayRank state) gvs
+            | Ite iteType -> Merging.guardedMap (ArrayRank state) iteType
             | _ -> internalfail $"Getting rank of array: expected ref, but got {arrayRef}"
 
         let rec ArrayLengthByDimension state arrayRef index =
@@ -781,18 +775,18 @@ module API =
             | HeapRef(addr, typ) ->
                 let memory = state.memory
                 memory.MostConcreteTypeOfHeapRef addr typ |> symbolicTypeToArrayType |> memory.ReadLength addr index
-            | Union gvs ->
+            | Ite iteType ->
                 let arrayLengthByDimension term = ArrayLengthByDimension state term index
-                Merging.guardedMap arrayLengthByDimension gvs
+                Merging.guardedMap arrayLengthByDimension iteType
             | _ -> internalfail $"reading array length: expected heap reference, but got {arrayRef}"
         let rec ArrayLowerBoundByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) ->
                 let memory = state.memory
                 memory.MostConcreteTypeOfHeapRef addr typ |> symbolicTypeToArrayType |> memory.ReadLowerBound addr index
-            | Union gvs ->
+            | Ite iteType ->
                 let arrayLowerBoundByDimension term = ArrayLowerBoundByDimension state term index
-                Merging.guardedMap arrayLowerBoundByDimension gvs
+                Merging.guardedMap arrayLowerBoundByDimension iteType
             | _ -> internalfail $"reading array lower bound: expected heap reference, but got {arrayRef}"
 
         let rec CountOfArrayElements state arrayRef =
@@ -802,7 +796,7 @@ module API =
                 let arrayType = memory.MostConcreteTypeOfHeapRef address typ |> symbolicTypeToArrayType
                 let lens = List.init arrayType.dimension (fun dim -> memory.ReadLength address (makeNumber dim) arrayType)
                 List.fold mul (makeNumber 1) lens
-            | Union gvs -> Merging.guardedMap (CountOfArrayElements state) gvs
+            | Ite iteType -> Merging.guardedMap (CountOfArrayElements state) iteType
             | _ -> internalfail $"counting array elements: expected heap reference, but got {arrayRef}"
 
         let StringLength state strRef = state.memory.LengthOfString strRef

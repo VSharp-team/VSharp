@@ -95,7 +95,7 @@ module internal Propositional =
             match x.term, y.term with
             | Nop, _ -> internalfailf "Invalid left operand of %O!" operation
             | _, Nop -> internalfailf "Invalid right operand of %O!" operation
-            | Union gvs1, Union gvs2 ->
+            | Gvs gvs1, Gvs gvs2 ->
                 Cps.List.mapk
                     (fun (g1, v1) k ->
                         Cps.List.mapk
@@ -104,13 +104,16 @@ module internal Propositional =
                                 simplifyConnective operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
                             gvs2 k)
                     gvs1
-                    (List.concat >> Union >> k)
-            | GuardedValues(gs, vs), _ ->
-                Cps.List.mapk (simplifyConnective operation opposite stopValue ignoreValue y) vs (fun xys ->
-                List.zip gs xys |> Union |> k)
-            | _, GuardedValues(gs, vs) ->
-                Cps.List.mapk (simplifyConnective operation opposite stopValue ignoreValue x) vs (fun xys ->
-                List.zip gs xys |> Union |> k)
+                    (List.concat >> GenericIteType.IteFromGvs >> Ite >> k)
+            | Ite {ite = ite; elseValue = e}, _ ->
+                Cps.List.mapk (fun (g, x) k ->
+                    simplifyConnective operation opposite stopValue ignoreValue x y (fun xy -> (g, xy) |> k)) ite (fun xys ->
+                    simplifyConnective operation opposite stopValue ignoreValue e y (fun ey ->
+                    {ite = xys; elseValue = ey } |> Ite |> k))
+            | _, Ite {ite = ite; elseValue = e} ->
+                Cps.List.mapk (fun (g, y) k -> simplifyConnective operation opposite stopValue ignoreValue x y (fun xy -> (g, xy) |> k)) ite (fun xys ->
+                    simplifyConnective operation opposite stopValue ignoreValue x e (fun xe ->
+                    {ite = xys; elseValue = xe} |> Ite |> k))
             | _ -> simplifyExt operation opposite stopValue ignoreValue x y k defaultCase
 
     and private simplifyExt op co stopValue ignoreValue x y matched unmatched =
@@ -204,8 +207,10 @@ module internal Propositional =
             | Negation x -> k x
             | Conjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalOr l bool |> k)
             | Disjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalAnd l bool |> k)
-            | GuardedValues(gs, vs) ->
-                Cps.List.mapk simplifyNegation vs (List.zip gs >> Union >> k)
+            | Ite{ite = ite; elseValue = e} ->
+                Cps.List.mapk (fun (g, v) k -> simplifyNegation v (fun v' -> (g, v') |> k)) ite (fun ite' ->
+                    simplifyNegation e (fun e' ->
+                    {ite = ite'; elseValue = e'} |> Ite |> k))
             | _ -> makeUnary OperationType.LogicalNot x bool |> k
 
     and private simplifyExtWithType op co stopValue ignoreValue _ x y matched unmatched =

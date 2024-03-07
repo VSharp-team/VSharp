@@ -142,7 +142,7 @@ module internal TypeCasting =
         | Ref address ->
             let rightType = address.TypeOfLocation
             typeIsType typ rightType
-        | Union gvs -> Merging.guardedMap (typeIsRef state typ) gvs
+        | Ite gvs -> Merging.guardedMap (typeIsRef state typ) gvs
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
     let rec refIsType state ref typ =
@@ -153,7 +153,7 @@ module internal TypeCasting =
         | Ref address ->
             let leftType = address.TypeOfLocation
             typeIsType leftType typ
-        | Union gvs ->
+        | Ite gvs ->
             let refIsType term = refIsType state term typ
             Merging.guardedMap refIsType gvs
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
@@ -166,7 +166,7 @@ module internal TypeCasting =
         | Ref address ->
             let leftType = address.TypeOfLocation
             makeBool (leftType = typ)
-        | Union gvs ->
+        | Ite gvs ->
             let refEqType term = refEqType state term typ
             Merging.guardedMap refEqType gvs
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
@@ -186,10 +186,10 @@ module internal TypeCasting =
             let leftType = memory.MostConcreteTypeOfHeapRef leftAddr leftSightType
             let rightType = rightAddress.TypeOfLocation
             addressIsType leftAddr leftType rightType
-        | Union gvs, _ ->
+        | Ite gvs, _ ->
             let refIsRef term = refIsRef state term rightRef
             Merging.guardedMap refIsRef gvs
-        | _, Union gvs -> Merging.guardedMap (refIsRef state leftRef) gvs
+        | _, Ite gvs -> Merging.guardedMap (refIsRef state leftRef) gvs
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
     type symbolicSubtypeSource with

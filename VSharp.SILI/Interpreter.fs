@@ -422,15 +422,18 @@ module internal InstructionsSet =
         | Ref _ when isValueType && implements.Value ->
             cilState.Push this
             cilState.PushMany args
+            [cilState]
         | Ref _ when isValueType ->
             let thisStruct = cilState.Read this
             let heapRef = Memory.BoxValueType state thisStruct
             cilState.Push heapRef
             cilState.PushMany args
+            [cilState]
         | Ref _ ->
             let this = cilState.Read this
             cilState.Push this
             cilState.PushMany args
+            [cilState]
         | Ptr(pointerBase, sightType, offset) ->
             match TryPtrToRef state pointerBase sightType offset with
             | Some(PrimitiveStackLocation _ as address) ->
@@ -440,6 +443,23 @@ module internal InstructionsSet =
                 // Inconsistent pointer, call will fork and filter this state
                 cilState.Push this
                 cilState.PushMany args
+                [cilState]
+        | Ite {ite = ite; elseValue = e} ->
+            // TODO fork on args if they are ITEs
+            match ite with
+            | [(g, v)] ->
+                cilState.StatedConditionalExecutionCIL
+                    (fun state k -> k (g, state))
+                    (fun cilState k -> constrainedImpl v method args cilState |> k)
+                    (fun cilState k -> constrainedImpl e method args cilState |> k)
+                    id
+            | (g, v)::xs ->
+                cilState.StatedConditionalExecutionCIL
+                    (fun state k -> k (g, state))
+                    (fun cilState k -> constrainedImpl v method args cilState |> k)
+                    (fun cilState k -> constrainedImpl (Ite {ite = xs; elseValue = e}) method args cilState |> k)
+                    id
+            | _ -> __unreachable__()
         | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {this}"
 
     // '.constrained' is prefix, which is used before 'callvirt' or 'call' instruction
@@ -459,6 +479,7 @@ module internal InstructionsSet =
             // In this case, next called static method will be called via type 'typ'
             assert(List.isEmpty cilState.prefixContext)
             cilState.PushPrefixContext (Constrained typ)
+            [cilState]
         else
             let args = method.GetParameters().Length |> cilState.PopMany
             let thisForCallVirt = cilState.Pop()
@@ -2274,7 +2295,7 @@ type ILInterpreter() as this =
             | OpCodeValues.Break -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
             | OpCodeValues.Calli -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
             | OpCodeValues.Ckfinite -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
-            | OpCodeValues.Constrained_ -> constrained |> fallThrough m offset cilState
+            | OpCodeValues.Constrained_ -> constrained |> forkThrough m offset cilState
             | OpCodeValues.Cpblk -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
             | OpCodeValues.Cpobj -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
             | OpCodeValues.Mkrefany -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState

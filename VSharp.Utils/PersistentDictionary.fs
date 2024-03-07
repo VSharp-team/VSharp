@@ -67,6 +67,8 @@ module public PersistentDict =
         d |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
     let public forall predicate (d : pdict<'a, 'b>) =
         d |> toSeq |> Seq.forall predicate
+    let public exists predicate (d : pdict<'a, 'b>) =
+        d |> toSeq |> Seq.exists predicate
 
     let public mapFold folder state (d : pdict<'a, 'b>) =
         d |> toSeq |> Seq.mapFold folder state |> mapfst ofSeq
@@ -86,16 +88,17 @@ module public PersistentDict =
         d |> toSeq |> Seq.groupBy mapper |> ofSeq
 
     // WARNING: Assumes that all dictionaries have the same set of keys, but does not validate it!
-    let public unify acc guards (dicts : pdict<'a, 'b> list) unifier =
+    let public unify acc (dicts : ('b * pdict<'a, 'b>) list) (elseValue : pdict<'a, 'b>) union unifier =
         assert (not <| dicts.IsEmpty)
         let unifyOneKey acc k =
-            let hgvs = List.map2 (fun g h -> (g, find h k)) guards dicts
-            unifier acc k hgvs
-        Seq.fold unifyOneKey acc (keys dicts.Head)
+            let ite = List.map (fun (g, d) -> (g, find d k)) dicts
+            let e = find elseValue k
+            unifier acc k (union ite e)
+        Seq.fold unifyOneKey acc (keys elseValue)
 
     // WARNING: Assumes that d1 and d2 have the same set of keys, but does not validate it!
-    let public merge guards (dicts : pdict<'a, 'b> list) resolve =
-        unify dicts.Head guards dicts (fun acc k hgvs -> add k (resolve hgvs) acc)
+    let public merge (dicts : ('b * pdict<'a, 'b>) list) (elseValue : pdict<'a, 'b>) union resolve =
+        unify elseValue dicts elseValue union (fun acc k hgvs -> add k (resolve hgvs) acc)
 
     // WARNING: Assumes that d1 and d2 have the same set of keys, but does not validate it!
     let public unify2 acc (d1 : pdict<'a, 'b>) (d2 : pdict<'a, 'b>) unifier =

@@ -111,7 +111,7 @@ module internal Memory =
         match reference.term with
         | HeapRef(address, _) -> address
         | Ptr(HeapLocation(address, _), _, _) -> address
-        | Union gvs -> Merging.guardedMap extractAddress gvs
+        | Ite gvs -> Merging.guardedMap extractAddress gvs
         | _ -> internalfail $"Extracting heap address: expected heap reference or pointer, but got {reference}"
 
     let rec extractPointerOffset ptr =
@@ -119,7 +119,7 @@ module internal Memory =
         | Ptr(_, _, offset) -> offset
         | Ref address -> Pointers.addressToBaseAndOffset address |> snd
         | HeapRef _ -> makeNumber 0
-        | Union gvs -> Merging.guardedMap extractPointerOffset gvs
+        | Ite gvs -> Merging.guardedMap extractPointerOffset gvs
         | _ -> internalfail $"Extracting pointer offset: expected reference or pointer, but got {ptr}"
 
     [<StructuralEquality;NoComparison>]
@@ -275,15 +275,6 @@ module internal Memory =
         match src with
         | :? pointerOffsetSource as address -> Some(address.baseSource)
         | _ -> None
-
-    [<StructuralEquality;NoComparison>]
-    type private typeInitialized =
-        {typ : Type; matchingTypes : symbolicTypeSet}
-        interface IStatedSymbolicConstantSource  with
-            override x.SubTerms = List.empty
-            override x.Time = VectorTime.zero
-            override x.TypeOfLocation = typeof<bool>
-
     let (|TypeInitializedSource|_|) (src : IStatedSymbolicConstantSource) =
         match src with
         | :? State.typeInitialized as ti -> Some(ti.typ, ti.matchingTypes)
@@ -315,7 +306,7 @@ module internal Memory =
         | HeapRef(address, typ) ->
             assert(isBoxedType typ)
             Ref (BoxedLocation(address, typ))
-        | Union gvs -> Merging.guardedMap heapReferenceToBoxReference gvs
+        | Ite gvs -> Merging.guardedMap heapReferenceToBoxReference gvs
         | _ -> internalfailf $"Unboxing: expected heap reference, but got {reference}"
 
     let private ensureConcreteType typ =
@@ -523,12 +514,13 @@ module internal Memory =
                             match PersistentDict.tryFind dict k with
                             | Some mr -> mr
                             | None -> MemoryRegion.empty mr'.typ
-                        MemoryRegion.compose mr mr' |> List.map (fun (g, mr) -> (g, PersistentDict.add k mr dict))
+                        MemoryRegion.compose mr mr' |> GenericIteType.mapValues (fun mr -> PersistentDict.add k mr dict) |> IteAsGvs
                     return (g &&& g', mr)
                 }
             dict'
                 |> PersistentDict.map id (MemoryRegion.map substTerm substType substTime)
                 |> PersistentDict.fold composeOneRegion [(True(), dict)]
+                |> GenericIteType.IteFromGvs
 
         let composeEvaluationStacksOf evaluationStack =
             EvaluationStack.map state.FillHoles evaluationStack
@@ -698,19 +690,19 @@ module internal Memory =
             let name = picker.mkName key
             self.MakeSymbolicValue source name typ
 
-        member self.MakeArraySymbolicHeapRead picker (key : heapArrayKey) time typ memoryObject (singleValue : updateTreeKey<heapArrayKey, term> option) =
+        member self.MakeArraySymbolicHeapRead picker (key : heapArrayKey) time typ memoryObject =
             let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
             let name = picker.mkName key
             self.MakeSymbolicValue source name typ
         member self.RangeReadingUnreachable _ _ = __unreachable__()
-        member self.RangeReading (readKey : heapArrayKey) utKey =
+        member self.SpecializedReading (readKey : heapArrayKey) utKey =
             match utKey with
             | {key = key'; value = {term = HeapRef({term = Constant(_, HeapAddressSource(ArrayRangeReading(mo, srcA, srcF, srcT, picker, _)), _)}, _)}}
             | {key = key'; value = {term = Constant(_, ArrayRangeReading(mo, srcA, srcF, srcT, picker, _), _)}} ->
                 let key = readKey.Specialize key' srcA srcF srcT
                 let inst typ memoryObject =
                     self.MakeArraySymbolicHeapRead picker key state.startingTime typ memoryObject
-                MemoryRegion.read mo key (picker.isDefaultKey state) inst self.RangeReading
+                MemoryRegion.read mo key (picker.isDefaultKey state) inst self.SpecializedReading
             | _ -> utKey.value
 
         member private self.ReadLowerBoundSymbolic address dimension arrayType =
@@ -758,7 +750,7 @@ module internal Memory =
                     if isValueType typ then state.startingTime
                     else MemoryRegion.maxTime region.updates state.startingTime
                 self.MakeArraySymbolicHeapRead picker key time typ memory
-            MemoryRegion.read region key (isDefault state) instantiate self.RangeReading
+            MemoryRegion.read region key (isDefault state) instantiate self.SpecializedReading
 
         member private self.ReadArrayKeySymbolic key arrayType =
             let extractor (state : state) =
@@ -786,7 +778,7 @@ module internal Memory =
             Seq.map prepareData data |> MemoryRegion.memset region
 
         member private self.ArrayRegionFromData concreteAddress data regionType =
-            let region = MemoryRegion.emptyWithExplicit regionType
+            let region = MemoryRegion.emptyWithExplicit regionType concreteAddress
             self.ArrayRegionMemsetData concreteAddress data regionType region
 
         member private self.ReadRangeFromConcreteArray concreteAddress arrayData fromIndices toIndices arrayType =
@@ -1012,11 +1004,11 @@ module internal Memory =
             | Constant _, _
             | Expression _, _ ->
                 self.SliceTerm term startByte endByte pos stablePos |> List.singleton
-            | Union gvs, _ ->
-            let mapper term = self.CommonReadTermUnsafe reporter term startByte endByte pos stablePos sightType
-            let mapped = Merging.guardedMapWithoutMerge mapper gvs
-            assert List.forall (fun (_, list) -> List.length list = 1) mapped
-            mapped |> List.map (fun (g, list) -> g, List.head list) |> Union |> List.singleton
+            | Ite iteType, _ ->
+                let mapper term = self.CommonReadTermUnsafe reporter term startByte endByte pos stablePos sightType
+                let mappedIte = GenericIteType.mapValues mapper iteType
+                assert(List.forall (fun (_, list) -> List.length list = 1) mappedIte.ite && List.length mappedIte.elseValue = 1)
+                GenericIteType.mapValues List.head mappedIte |> Ite |> List.singleton
             | _ -> internalfailf $"readTermUnsafe: unexpected term {term}"
 
         member private self.ReadTermUnsafe reporter term startByte endByte sightType =
@@ -1269,7 +1261,7 @@ module internal Memory =
             | Ptr(baseAddress, _, offset) ->
                 let fieldOffset = Reflection.getFieldIdOffset fieldId |> makeNumber
                 Ptr baseAddress fieldId.typ (add offset fieldOffset)
-            | Union gvs ->
+            | Ite gvs ->
                 let referenceField term = self.ReferenceField term fieldId
                 Merging.guardedMap referenceField gvs
             | _ -> internalfailf $"Referencing field: expected reference, but got {reference}"
@@ -1285,8 +1277,8 @@ module internal Memory =
                 Nop()
             | Ptr(baseAddress, sightType, offset) ->
                 self.ReadUnsafe reporter baseAddress offset sightType
-            | Union gvs ->
-                List.filter (fun (_, v) -> True() <> Pointers.isBadRef v) gvs
+            | Ite iteType ->
+                GenericIteType.filter (fun v -> True() <> Pointers.isBadRef v) iteType
                 |> Merging.guardedMap (self.Read reporter) 
             | _ when typeOf reference |> isNative ->
                 reporter.ReportFatalError "reading by detached pointer" (True()) |> ignore
@@ -1400,7 +1392,7 @@ module internal Memory =
                     let valueSlices = self.ReadTermUnsafe reporter value (neg startByte) (sub termSize startByte) None
                     let right = self.ReadTermPartUnsafe reporter term (add startByte valueSize) termSize None
                     combine (left @ valueSlices @ right) termType
-             | Union gvs ->
+             | Ite gvs ->
                   let mapper term = self.WriteTermUnsafe reporter term startByte value
                   Merging.guardedMap mapper gvs
             | _ -> internalfailf $"writeTermUnsafe: unexpected term {term}"
@@ -1875,7 +1867,7 @@ module internal Memory =
             | HeapRef(address, typ) ->
                 assert(typ = typeof<string>)
                 self.ReadClassField address Reflection.stringLengthField
-            | Union gvs -> Merging.guardedMap self.LengthOfString gvs
+            | Ite gvs -> Merging.guardedMap self.LengthOfString gvs
             | _ -> internalfail "Getting length of string: expected heap reference, but got %O" heapRef
 
         // ------------------------------- Delegates -------------------------------
@@ -1893,10 +1885,9 @@ module internal Memory =
                 else self.ObjToDelegate d |> Some
             | HeapRef({term = ConcreteHeapAddress address}, _) -> delegates[address] |> Some
             | HeapRef _ -> None
-            | Union gvs ->
-                let delegates = gvs |> List.choose (fun (g, v) ->
-                    Option.bind (fun d -> Some(g, d)) (self.ReadDelegate v))
-                if delegates.Length = gvs.Length then delegates |> Merging.merge |> Some else None
+            | Ite iteType ->
+                let delegates = GenericIteType.choose self.ReadDelegate iteType
+                if delegates.ite.Length = iteType.ite.Length then delegates |> Merging.merge |> Some else None
             | _ -> internalfailf $"Reading delegate: expected heap reference, but got {reference}"
 
         member private self.AllocateDelegate (methodInfo : MethodInfo) target delegateType =
@@ -2070,6 +2061,7 @@ module internal Memory =
             member self.MostConcreteTypeOfRef ref = self.MostConcreteTypeOfRef ref
             member self.NewStackFrame method frame = self.NewStackFrame method frame
             member self.PopFrame() = self.PopFrame()
+            member self.SpecializedReading readKey utKey = self.SpecializedReading readKey utKey
             member self.ReadArrayRange address fromIndices toIndices arrayType =
                 self.ReadArrayRange address fromIndices toIndices arrayType
             member self.ReadDelegate reference = self.ReadDelegate reference
@@ -2096,8 +2088,8 @@ module internal Memory =
                     assert(state.memory :? Memory)
                     let memory = state.memory :?> Memory
                     let inst typ region = memory.MakeSymbolicHeapRead x.picker key state.startingTime typ region
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst state.memory.RangeReadingUnreachable
-                afters |> List.map (mapsnd read) |> Merging.merge
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst (fun _ _ -> __unreachable__())
+                afters |> GenericIteType.mapValues read |> Merging.merge
 
     type arrayReading with
         interface IMemoryAccessConstantSource with
@@ -2113,13 +2105,13 @@ module internal Memory =
                         let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                         let before = x.picker.extract state
                         MemoryRegion.compose before effect
-                    else List.singleton (True(), x.memoryObject)
+                    else { ite = []; elseValue = x.memoryObject}
                 let read region =
                     assert(state.memory :? Memory)
                     let memory = state.memory :?> Memory
                     let inst = memory.MakeArraySymbolicHeapRead x.picker key state.startingTime
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst state.memory.RangeReading
-                afters |> List.map (mapsnd read) |> Merging.merge
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst state.memory.SpecializedReading
+                afters |> GenericIteType.mapValues read |> Merging.merge
 
     type state with
         static member MakeEmpty complete =

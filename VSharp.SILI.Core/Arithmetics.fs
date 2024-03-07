@@ -886,8 +886,6 @@ module internal Arithmetics =
 // ------------------------------- Simplification of "/" -------------------------------
 
     and simplifyConcreteDivision isSigned t x (y : obj) =
-        if y = 0L then
-            internalfailf "asd"
         let result =
             if isSigned then ILCalculator.div(x, y, t)
             else ILCalculator.divUn(x, y, t)
@@ -900,7 +898,7 @@ module internal Arithmetics =
                 match x, y with
                 // 0 / y = 0
                 | ConcreteT(xval, _), _ when ILCalculator.isZero(xval) -> x |> k
-                // x / 1 = xto
+                // x / 1 = x
                 | _, ConcreteT(yval, _) when ILCalculator.equal yval (convert 1 (typeOf y)) -> x |> k
                 // x / -1 = -x
                 | _, ConcreteT(yval, _) when not <| isUnsigned t && ILCalculator.equal yval (convert -1 (typeOf y)) ->
@@ -1379,27 +1377,23 @@ module internal Arithmetics =
                         | _ when b = zero ->
                             let pIsLessZero = p << zeroTerm
                             let pIsZero = p === zeroTerm
-                            Union([(pIsZero, oneTerm); (pIsLessZero, infTerm);
-                                   (!!pIsLessZero, zeroTerm)])
+                            Ite {ite = [(pIsZero, oneTerm); (pIsLessZero, infTerm)]; elseValue = zeroTerm}
                         | _ when b = one -> oneTerm
                         | _ when isNaN b ->
                             // NOTE hack for .NET 5, msdn says: if any operand is NaN, result is NaN
                             let pIsZero = p === zeroTerm
-                            Union([(pIsZero, oneTerm); (!!pIsZero, bConc)])
+                            Ite {ite = [(pIsZero, oneTerm)]; elseValue = bConc}
                         | _ when isPosInf b ->
                             let pIsZero = p === zeroTerm
                             let pIsLessZero = p << zeroTerm
-                            Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm);
-                                  (!!pIsZero &&& !!pIsLessZero, infTerm)])
+                            Ite {ite = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm)]; elseValue = infTerm}
                         | _ when isNegInf b ->
                             let pIsZero = p === zeroTerm
                             let pIsLessZero = p << zeroTerm
                             if isIntegral t then
                                 let pIsGreaterZeroAndEven = (p %%% (Concrete 2 t)) === makeNumber 0
-                                Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm); (pIsGreaterZeroAndEven, infTerm);
-                                       (!!pIsZero &&& !!pIsLessZero &&& !!pIsGreaterZeroAndEven, makeNumber minusInf)])
-                            else Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm);
-                                        (!!pIsZero &&& !!pIsLessZero, infTerm)])
+                                Ite {ite = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm); (pIsGreaterZeroAndEven, infTerm)]; elseValue = makeNumber minusInf}
+                            else Ite {ite = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm)]; elseValue = infTerm}
                         | _ -> mkPowExpr [bConc; p] t
                     | term -> internalfailf $"expected number for power, but {term} got!")
             | Constant(_, _, t) | Expression(_, _, t) ->
@@ -1417,16 +1411,14 @@ module internal Arithmetics =
                             let bIsOne = b === oneTerm
                             let bIsMinusOne = b === minusOneTerm
                             let bIsBetweenMinOneOne = (minusOneTerm << b) &&& (b << oneTerm)
-                            Union([(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan);
-                                   (bIsBetweenMinOneOne, zeroTerm);
-                                   (!!bIsOne &&& !!bIsMinusOne &&& !!bIsBetweenMinOneOne, infTerm)])
+                            Ite {ite = [(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan); (bIsBetweenMinOneOne, zeroTerm)]
+                                 elseValue = infTerm}
                         | p when isNegInf p ->
                             let bIsOne = b === oneTerm
                             let bIsMinusOne = b === minusOneTerm
                             let bIsBetweenMinOneOne = (minusOneTerm << b) &&& (b << oneTerm)
-                            Union([(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan);
-                                   (bIsBetweenMinOneOne, infTerm);
-                                   (!!bIsOne &&& !!bIsMinusOne &&& !!bIsBetweenMinOneOne, zeroTerm)])
+                            Ite {ite = [(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan); (bIsBetweenMinOneOne, infTerm)]
+                                 elseValue =  zeroTerm}
                         | _ -> mkPowExpr [b; pConc] t
                     | Constant(_, _, t) | Expression(_, _, t) ->
                         mkPowExpr [b; term] t
@@ -1454,7 +1446,7 @@ module internal Arithmetics =
                         | y when isNan y -> yConc
                         | y when isInf y ->
                               let xIsInf = x === makeNumber inf
-                              Union([(xIsInf, makeNumber Nan); (!!xIsInf, exp)])
+                              Ite {ite = [(xIsInf, makeNumber Nan)]; elseValue =  exp}
                         | _ -> exp
                     | term -> internalfailf $"expected number for x, but {term} got!")
             | Constant(_, _, t)
@@ -1470,7 +1462,7 @@ module internal Arithmetics =
                         | x when isNan x -> xConc
                         | x when isInf x ->
                             let yIsInf = y === makeNumber inf
-                            Union([(yIsInf, makeNumber Nan); (!!yIsInf, exp)])
+                            Ite {ite = [(yIsInf, makeNumber Nan)]; elseValue = exp}
                         | _ -> exp
                     | Constant(_, _, t)
                     | Expression(_, _, t) ->

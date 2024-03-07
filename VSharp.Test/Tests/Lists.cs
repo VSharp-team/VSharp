@@ -519,7 +519,7 @@ namespace IntegrationTests
             return 3;
         }
         
-        [TestSvm(95)]
+        [TestSvm(94)]
         public static int TestSolvingCopyOverwrittenValueUnreachable1(string[] a, string[] b)
         {
             if (a != null && b != null && a.Length > b.Length)
@@ -527,7 +527,7 @@ namespace IntegrationTests
                 a[0] = "42";
                 b[0] = "4";
                 Array.Copy(a, 0, b, 0, b.Length);
-                if (b.Length > 0 && b[0] != "42") // unreachable
+                if (b[0] != "42") // unreachable
                 {
                     return -1;
                 }
@@ -1378,15 +1378,16 @@ namespace IntegrationTests
         {
             a[i] = "a";
             a[1] = "b";
-            var b = new String[a.Length];
+            var b = new string[a.Length];
             Array.Copy(a, 0, b, 0, a.Length);
             if (i == 1 && b[i] == "a") // unreachable
-                // record b[i], 0 exists only if i != 1
+                // record b[i], "a" exists only if i != 1
                 return -1;
             if (i != 1 && b[i] != "a") // unreachable
             {
                 return -2;
             }
+
             return 1;
         }
 

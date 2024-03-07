@@ -29,22 +29,24 @@ module internal Common =
         | Concrete(xval, typeofX) -> concrete x xval typeofX |> matched
         | GuardedValues(guards, values) ->
             Cps.List.mapk (fun term matched -> simplifyGenericUnary name term matched concrete unmatched) values (fun values' ->
-                Merging.merge (List.zip guards values') |> matched)
+            (List.zip guards values') |> GenericIteType.IteFromGvs |> Merging.merge |> matched)
         | _ -> unmatched x matched
 
-    let simplifyGenericBinary _ x y matched concrete unmatched repeat =
+    let rec simplifyGenericBinary _ x y matched concrete unmatched repeat =
         match x.term, y.term with
         | Concrete(xval, typeOfX), Concrete(yval, typeOfY) -> concrete x y xval yval typeOfX typeOfY |> matched
-        | Union(gvsx), Union(gvsy) ->
+        | Gvs gvsx, Gvs gvsy ->
             let compose (gx, vx) (gy, vy) matched = repeat vx vy (fun xy -> (gx &&& gy, xy) |> matched)
             let join (gx, vx) k = Cps.List.mapk (compose (gx, vx)) gvsy k
-            Cps.List.mapk join gvsx (fun gvss -> Merging.merge (List.concat gvss) |> matched)
-        | GuardedValues(guardsX, valuesX), _ ->
-            Cps.List.mapk (fun x matched -> repeat x y matched) valuesX (fun values' ->
-            Merging.merge (List.zip guardsX values') |> matched)
-        | _, GuardedValues(guardsY, valuesY) ->
-            Cps.List.mapk (fun y matched -> repeat x y matched) valuesY (fun values' ->
-            Merging.merge (List.zip guardsY values') |> matched)
+            Cps.List.mapk join gvsx (List.concat >> GenericIteType.IteFromGvs >> Merging.merge >> matched)
+        | Ite {ite = ite; elseValue = e}, _ ->
+            Cps.List.mapk (fun (g, x) matched -> repeat x y (fun x' -> matched (g, x'))) ite (fun ite' ->
+            repeat e y (fun ey ->
+            {ite = ite'; elseValue = ey} |> Merging.merge |> matched))
+        | _, Ite {ite = ite; elseValue = e} ->
+            Cps.List.mapk (fun (g, y) matched -> repeat x y (fun x' -> matched (g, x'))) ite (fun ite' ->
+            repeat x e (fun xe ->
+            {ite = ite'; elseValue = xe} |> Merging.merge |> matched))
         | _ -> unmatched x y matched
 
 // ---------------------------------------- Branching ---------------------------------------
