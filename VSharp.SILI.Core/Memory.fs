@@ -322,7 +322,10 @@ module internal Memory =
         assert(neededType <> typeof<Void>)
         neededType = actualType
         || canCastImplicitly actualType neededType
-        && internalSizeOf actualType = internalSizeOf neededType
+        && (
+            not (actualType.IsValueType && neededType.IsValueType)
+            || internalSizeOf actualType = internalSizeOf neededType
+        )
 
     type stackReading with
         interface IMemoryAccessConstantSource with

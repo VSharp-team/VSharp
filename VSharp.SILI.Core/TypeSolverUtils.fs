@@ -98,6 +98,11 @@ module private CommonUtils =
         elif t.IsGenericParameter || u.IsGenericParameter then true
         else TypeUtils.getTypeDef t = TypeUtils.getTypeDef u
 
+    let isValueType (t : Type) =
+        t.IsValueType
+        || t = typeof<ValueType>
+        || t = typeof<Enum>
+
 // TODO: use set instead of list? #type
 type typeConstraints =
     {
@@ -231,6 +236,9 @@ with
     member x.AddEqual(equal : Type) =
         x.equal <- equal :: x.equal
 
+    member x.AddNotSupertype(notSupertype : Type) =
+        x.notSupertypes <- notSupertype :: x.notSupertypes |> List.distinct
+
     member x.IsSuitable substitute (candidate : Type) =
         // TODO: need to find subst to generic parameters satisfying constraints
         x.equal |> List.forall (fun t -> candidate = (substitute t)) &&
@@ -275,16 +283,11 @@ type typeParameterConstraints(parameter : Type, constraints : typeConstraints) =
     do assert parameter.IsGenericParameter
     let specialConstraints = specialConstraints.FromParameter parameter
 
-    let isValueType (t : Type) =
-        t.IsValueType
-        || t = typeof<ValueType>
-        || t = typeof<Enum>
-
     let potentiallyIsValueType (t : Type) =
-        t.IsGenericParameter || isValueType t
+        t.IsGenericParameter || CommonUtils.isValueType t
 
     let potentiallyIsValueTypeOrInterface (t : Type) =
-        t.IsGenericParameter || isValueType t || t.IsInterface
+        t.IsGenericParameter || CommonUtils.isValueType t || t.IsInterface
 
     member x.Merge(other : typeConstraints) =
         constraints.Merge other
@@ -296,7 +299,7 @@ type typeParameterConstraints(parameter : Type, constraints : typeConstraints) =
                 || constraints.subtypes |> List.exists (potentiallyIsValueType >> not))
         let isReferenceTypeContradiction =
             specialConstraints.isReferenceType
-            && constraints.supertypes |> List.exists isValueType
+            && constraints.supertypes |> List.exists CommonUtils.isValueType
 
         isNotNullableValueTypeContradiction
         || isReferenceTypeContradiction
@@ -944,12 +947,10 @@ and arrayCandidate private(kind, parameterSubstitutions : parameterSubstitutions
     let (|Array|_|) (t : Type) =
         match t with
         | TypeUtils.ArrayType(elementType, dim) ->
-            let kind =
-                match dim with
-                | Vector -> OneDimensionalArray
-                | ConcreteDimension rank -> MultidimensionalArray rank
-                | SymbolicDimension -> __unreachable__()
-            Array(elementType, kind) |> Some
+            match dim with
+            | Vector -> Array(elementType, OneDimensionalArray) |> Some
+            | ConcreteDimension rank -> Array(elementType, MultidimensionalArray rank) |> Some
+            | SymbolicDimension -> None
         | _ -> None
 
     let (|GenericInterface|_|) (t : Type) =
@@ -973,7 +974,7 @@ and arrayCandidate private(kind, parameterSubstitutions : parameterSubstitutions
             | GenericInterface(parameter) -> Some parameter
             | Interface -> None
             | Supertype -> None
-            | Array(typElementType, typKind) when typKind = kind -> Some typElementType
+            | Array(elementType, typKind) when typKind = kind -> Some elementType
             | _ -> isPropagated <- false; None
         Option.iter onPropagated propagatedTyp
         isPropagated
@@ -982,6 +983,7 @@ and arrayCandidate private(kind, parameterSubstitutions : parameterSubstitutions
         let mutable isPropagated = true
         let propagatedTyp =
             match typ with
+            | Supertype -> None
             | Array(typElementType, typKind) when typKind = kind -> Some typElementType
             | _ -> isPropagated <- false; None
         Option.iter onPropagated propagatedTyp
@@ -994,7 +996,7 @@ and arrayCandidate private(kind, parameterSubstitutions : parameterSubstitutions
             | GenericInterface _ -> isPropagated <- false; None
             | Interface -> isPropagated <- false; None
             | Supertype -> isPropagated <- false; None
-            | Array(typElementType, typKind) when typKind = kind -> Some typElementType
+            | Array(elementType, typKind) when typKind = kind -> Some elementType
             | _ -> None
         Option.iter onPropagated propagatedTyp
         isPropagated
@@ -1002,10 +1004,15 @@ and arrayCandidate private(kind, parameterSubstitutions : parameterSubstitutions
     let propagateStrictNot onPropagated typ =
         let propagatedTyp =
             match typ with
-            | Array(typElementType, typKind) when typKind = kind -> Some typElementType
+            | Array(elementType, typKind) when typKind = kind -> Some elementType
             | _ -> None
         Option.iter onPropagated propagatedTyp
         true
+
+    let isReferenceArray typ =
+        match typ with
+        | Array(elementType, _) -> CommonUtils.isValueType elementType |> not
+        | _ -> false
 
     let mkArray (t : Type) =
         match kind with
@@ -1040,6 +1047,20 @@ and arrayCandidate private(kind, parameterSubstitutions : parameterSubstitutions
                 && List.forall (propagateStrict propagatedConstraints.AddSubType) constraints.subtypes
                 && List.forall (propagateStrict propagatedConstraints.AddEqual) constraints.equal
             then
+                if List.exists isReferenceArray constraints.supertypes then
+                    propagatedConstraints.AddNotSupertype(typeof<ValueType>)
+                    propagatedConstraints.AddNotSupertype(typeof<Enum>)
+
+                // need to add value types to equal constraints because of array parameter invariance for value types
+                let equalFromSupertypes, supertypes = propagatedConstraints.supertypes |> List.partition CommonUtils.isValueType
+                let equalFromSubtypes, subtypes = propagatedConstraints.subtypes |> List.partition (fun t -> t.IsValueType)
+
+                List.iter propagatedConstraints.AddEqual equalFromSupertypes
+                List.iter propagatedConstraints.AddEqual equalFromSubtypes
+
+                propagatedConstraints.supertypes <- supertypes
+                propagatedConstraints.subtypes <- subtypes
+
                 let parametersConstraints = Dictionary()
                 parametersConstraints.Add(x.Parameter, propagatedConstraints)
                 parameterSubstitutions.AddConstraints parametersConstraints

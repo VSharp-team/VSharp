@@ -562,11 +562,25 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int MultidimensionalArray2(object o)
         {
-            var x = new object[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
             if (o is object[,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,])
             {
                 if (o is string[,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,])
                     return 3;
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(76)]
+        public static int MultidimensionalArray3(object o)
+        {
+            if (o is object[,])
+            {
+                if (o is object[,,])
+                    return 3;
+                if (o is string[,,])
+                    return 4;
                 return 2;
             }
 
@@ -596,6 +610,54 @@ namespace IntegrationTests
                 return 2;
             }
 
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int ArrayWithGeneric3(object o)
+        {
+            if (o is IEnumerable<object>[,])
+            {
+                if (o is IEnumerable<object[]>[,])
+                {
+                    if (o is IEnumerable<int[][,,]>[,])
+                        return 4;
+                    return 3;
+                }
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(100)]
+        public static int ArrayWithGeneric4(object o)
+        {
+            if (o is IForSpecialConstraints<object>[] array)
+            {
+                if (array[0] is ValueType)
+                {
+                    return 3;
+                }
+
+                return 2;
+            }
+
+            return 1;
+        }
+
+        [TestSvm(83)]
+        public static int ArrayWithGeneric5(object o)
+        {
+            if (o is ValueType[])
+            {
+                if (o is IForSpecialConstraints<object>[])
+                {
+                    return 3;
+                }
+
+                return 2;
+            }
             return 1;
         }
 
