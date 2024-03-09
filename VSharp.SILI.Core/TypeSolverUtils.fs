@@ -1098,10 +1098,10 @@ with
         }
 
 and CandidateGroups = {
-    publicBuiltIn : candidate list
-    publicUser : candidate list
-    privateUser : candidate list
-    rest : candidate list
+    publicBuiltIn : candidate seq
+    publicUser : candidate seq
+    privateUser : candidate seq
+    rest : candidate seq
 }
 with
     static member GroupBy (userAssembly : Assembly) (items: _ list) (toCandidate : _ -> candidate) toType =
@@ -1122,10 +1122,10 @@ with
 
     member x.Filter shouldBeTaken =
         {
-            publicBuiltIn = List.choose shouldBeTaken x.publicBuiltIn
-            publicUser = List.choose shouldBeTaken x.publicUser
-            privateUser = List.choose shouldBeTaken x.privateUser
-            rest = List.choose shouldBeTaken x.rest
+            publicBuiltIn = Seq.choose shouldBeTaken x.publicBuiltIn
+            publicUser = Seq.choose shouldBeTaken x.publicUser
+            privateUser = Seq.choose shouldBeTaken x.privateUser
+            rest = Seq.choose shouldBeTaken x.rest
         }
 
     member x.Joined =
@@ -1215,7 +1215,6 @@ and candidates private(typeGroups : CandidateGroups, genericGroups: CandidateGro
         candidates(types, mock, userAssembly)
 
     member x.Eval() =
-        let arrays = Seq.toList arrays
         candidates(typeGroups.Eval(), genericGroups.Eval(), arrays, mock, userAssembly)
 
 type typeStorage private (constraints, addressesTypes, typeMocks, classesParams, methodsParams) =
