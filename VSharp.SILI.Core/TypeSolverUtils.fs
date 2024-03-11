@@ -789,7 +789,7 @@ and genericCandidate private (
             if success then
                 success <- propagateEqual constraints typedef equalType
 
-        if typedef.IsInterface then
+        if success && typedef.IsInterface then
             success <- success && List.isEmpty supertypes
             // TODO: make proper propagation when 'typedef' is interface
             for iSuperType in sptInterfaces do
@@ -801,8 +801,8 @@ and genericCandidate private (
             // TODO: try to propagate 'subtypes'
             if success then Some constraints
             else None
-        else
-            success <- success && List.isEmpty sbtInterfaces
+        elif success then
+            success <- List.isEmpty sbtInterfaces
             for superType in supertypes do
                 if success then
                     success <- propagateSupertype constraints typedef supertypesDefs superType
@@ -815,6 +815,7 @@ and genericCandidate private (
             if success then
                 Some constraints
             else None
+        else None
 
     let propagateNotEqual constraints (typedef : Type) (notEqual : Type) =
         assert(notEqual.GetGenericArguments().Length = 1)
