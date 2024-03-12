@@ -294,14 +294,17 @@ internal class CodeRenderer
             "unchecked", "unsafe", "operator", "implicit", "explicit"
         };
 
-    private static ArrayTypeSyntax RenderArrayType(TypeSyntax elemType, int rank)
+    private static ArrayTypeSyntax RenderArrayType(TypeSyntax elemType, IEnumerable<int> ranks)
     {
-        var dims = Enumerable.Repeat(OmittedArraySizeExpression(), rank);
-        var arrayRankSpecifier = ArrayRankSpecifier(SeparatedList<ExpressionSyntax>(dims));
+        var arrayRankSpecifiers = ranks.Select(rank =>
+        {
+            var dims = Enumerable.Repeat(OmittedArraySizeExpression(), rank);
+            return ArrayRankSpecifier(SeparatedList<ExpressionSyntax>(dims));
+        });
         return
             ArrayType(
                 elemType,
-                SingletonList(arrayRankSpecifier)
+                new SyntaxList<ArrayRankSpecifierSyntax>(arrayRankSpecifiers)
             );
     }
 
@@ -319,15 +322,31 @@ internal class CodeRenderer
         return genericName;
     }
 
+    private ArrayTypeSyntax RenderArrayType(Type arrayType)
+    {
+        Debug.Assert(arrayType.IsArray);
+        var currentElementType = arrayType.GetElementType();
+        Debug.Assert(currentElementType != null);
+        var ranks = new List<int>();
+        ranks.Add(arrayType.GetArrayRank());
+
+        while (currentElementType.IsArray)
+        {
+            ranks.Add(currentElementType.GetArrayRank());
+            currentElementType = currentElementType.GetElementType();
+            Debug.Assert(currentElementType != null);
+        }
+
+        return RenderArrayType(RenderType(currentElementType), ranks);
+    }
+
     public TypeSyntax RenderType(Type type)
     {
         Debug.Assert(type != null);
 
         if (type.IsArray)
         {
-            var elemType = type.GetElementType();
-            Debug.Assert(elemType != null);
-            return RenderArrayType(RenderType(elemType), type.GetArrayRank());
+            return RenderArrayType(type);
         }
 
         if (type.IsPointer)
@@ -721,13 +740,17 @@ internal class CodeRenderer
 
     public static ArrayCreationExpressionSyntax RenderArrayCreation(ArrayTypeSyntax type, params int[] lengths)
     {
-        var arrayRankSpecifier =
-            ArrayRankSpecifier(
+        var rankSpecifiers = type.RankSpecifiers.ToList();
+
+        // need to add length only for top-level array
+        var rankSpecifierWithLengths = rankSpecifiers[0].WithSizes(
                 SeparatedList<ExpressionSyntax>(
                     lengths.Select(RenderLiteral)
-                )
+                    )
             );
-        type = type.WithRankSpecifiers(SingletonList(arrayRankSpecifier));
+        rankSpecifiers[0] = rankSpecifierWithLengths;
+
+        type = type.WithRankSpecifiers(List(rankSpecifiers));
         return
             ArrayCreationExpression(
                 Token(SyntaxKind.NewKeyword),

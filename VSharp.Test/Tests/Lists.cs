@@ -572,7 +572,7 @@ namespace IntegrationTests
             return 3;
         }
 
-        [Ignore("Need to add arrays into type candidates")]
+        [TestSvm(90)]
         public static int ArrayAliasWrite(object[] o, string[] s, string str1, string str2)
         {
             if (o[42] == str1)
