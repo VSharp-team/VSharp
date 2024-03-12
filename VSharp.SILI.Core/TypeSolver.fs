@@ -659,7 +659,7 @@ module TypeSolver =
                 match t with
                 | Candidate t as c when ancestorMethod.IsImplementedInType t -> Some c
                 | Candidate _ -> None
-                // TODO: check generic candidate #types
+                // TODO: check generic and array candidate #types
                 | GenericCandidate _ -> None
                 | ArrayCandidate _ -> None
             let getMock = getMock typeStorage.TypeMocks
@@ -668,6 +668,7 @@ module TypeSolver =
             | TypeSat ->
                 let candidates = typeStorage[thisAddress].Value
                 let resolveOverride candidate =
+                    // TODO: resolve override for array candidates #types
                     match candidate with
                     | Candidate t ->
                         let overridden = ancestorMethod.ResolveOverrideInType t
@@ -675,6 +676,7 @@ module TypeSolver =
                     | GenericCandidate gc ->
                         let overridden = ancestorMethod.ResolveOverrideInType gc.Typedef
                         overridden.DeclaringType
+                    | ArrayCandidate _ -> __notImplemented__()
                 let checkMockOverrides (m : ITypeMock) =
                     if ancestorMethod.MethodBase.IsPublic then Some m
                     else None

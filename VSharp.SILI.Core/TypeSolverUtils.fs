@@ -1130,12 +1130,12 @@ with
         }
 
     member x.Joined =
-        [
+        seq {
             yield! x.publicBuiltIn
             yield! x.publicUser
             yield! x.privateUser
             yield! x.rest
-        ]
+        }
 
     member x.Eval() =
         {
@@ -1143,6 +1143,14 @@ with
             publicUser = Seq.toList x.publicUser
             privateUser = Seq.toList x.privateUser
             rest = Seq.toList x.rest
+        }
+
+    member x.DistinctBy keySelector =
+        {
+            publicBuiltIn = Seq.distinctBy keySelector x.publicBuiltIn
+            publicUser = Seq.distinctBy keySelector x.publicUser
+            privateUser = Seq.distinctBy keySelector x.privateUser
+            rest = Seq.distinctBy keySelector x.rest
         }
 
 and candidates private(typeGroups : CandidateGroups, genericGroups: CandidateGroups, arrays : candidate list, mock, userAssembly) =
@@ -1205,8 +1213,10 @@ and candidates private(typeGroups : CandidateGroups, genericGroups: CandidateGro
     member x.KeepOnlyMock() = candidates(Seq.empty, mock, userAssembly)
 
     member x.DistinctBy(keySelector : candidate -> 'a) =
-        let distinctOrderedTypes = Seq.distinctBy keySelector orderedCandidates
-        candidates(distinctOrderedTypes, mock, userAssembly)
+        let distinctTypeGroups = typeGroups.DistinctBy keySelector
+        let distinctGenericGroups = genericGroups.DistinctBy keySelector
+        let distinctArrays = List.distinctBy keySelector arrays
+        candidates(distinctTypeGroups, distinctGenericGroups, distinctArrays, mock, userAssembly)
 
     member x.Take(count) =
         let types =
