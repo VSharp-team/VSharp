@@ -137,11 +137,12 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
         try
             let isNewHistory() =
                 let methodHistory = Set.filter (fun h -> h.method.InCoverageZone) cilState.history
-                Set.exists (not << statistics.IsBasicBlockCoveredByTest) methodHistory
+                Set.isEmpty methodHistory
+                || Set.exists (not << statistics.IsBasicBlockCoveredByTest) methodHistory
             let isError = suite.IsErrorSuite
             let isNewTest =
                 match suite with
-                | Test -> Set.isEmpty cilState.history || isNewHistory()
+                | Test -> isNewHistory()
                 | Error(msg, isFatal) -> statistics.IsNewError cilState msg isFatal
             if isNewTest then
                 let state = cilState.state
