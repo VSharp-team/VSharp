@@ -1119,11 +1119,13 @@ type ILInterpreter() as this =
             | Some (ConcreteDelegate info) ->
                 let mi = Application.getMethod info.methodInfo
                 // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
-                let this =
-                    match info.target with
-                    | NullRef _ -> this
-                    | target -> target
-                x.CommonCallVirt mi this args cilState
+                match info.target with
+                | NullRef _ ->
+                    assert(not mi.HasThis)
+                    x.CommonCall mi args None cilState id
+                | target ->
+                    assert mi.HasThis
+                    x.CommonCall mi args (Some target) cilState id
             | Some (CombinedDelegate delegates) ->
                 assert(List.length delegates > 1)
                 let argTypes = List.map TypeOf args
