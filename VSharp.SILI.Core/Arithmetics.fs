@@ -1143,32 +1143,78 @@ module internal Arithmetics =
         | Concrete(x, t1), Concrete(y, t2) ->
             let mutable noOverflow = true
             assert(isNumeric t1 && isNumeric t2)
+            let retType = deduceSimpleArithmeticOperationTargetType t1 t2
             try
-                if isUnsigned t1 then
-                    ILCalculator.addOvfUn(x, y, t1) |> ignore
-                elif isUnsigned t2 then
-                    ILCalculator.addOvfUn(x, y, t2) |> ignore
-                else ILCalculator.addOvf(x, y, t1) |> ignore
+                ILCalculator.addOvf(x, y, retType) |> ignore
             with :? System.OverflowException ->
                 noOverflow <- false
             makeBool noOverflow
         | _ -> makeBinary OperationType.AddNoOvf x y bool
+
+    let simplifyAddNoOvfUn x y =
+        match x.term, y.term with
+        | Concrete(x, t1), Concrete(y, t2) ->
+            let mutable noOverflow = true
+            assert(isNumeric t1 && isNumeric t2)
+            let retType = deduceSimpleArithmeticOperationTargetType t1 t2
+            try
+                ILCalculator.addOvfUn(x, y, retType) |> ignore
+            with :? System.OverflowException ->
+                noOverflow <- false
+            makeBool noOverflow
+        | _ -> makeBinary OperationType.AddNoOvf_Un x y bool
 
     let simplifyMultiplyNoOvf x y =
         match x.term, y.term with
         | Concrete(x, t1), Concrete(y, t2) ->
             let mutable noOverflow = true
             assert(isNumeric t1 && isNumeric t2)
+            let retType = deduceSimpleArithmeticOperationTargetType t1 t2
             try
-                if isUnsigned t1 then
-                    ILCalculator.mulOvfUn(x, y, t1) |> ignore
-                elif isUnsigned t2 then
-                    ILCalculator.mulOvfUn(x, y, t2) |> ignore
-                else ILCalculator.mulOvf(x, y, t1) |> ignore
+                ILCalculator.mulOvf(x, y, retType) |> ignore
             with :? System.OverflowException ->
                 noOverflow <- false
             makeBool noOverflow
         | _ -> makeBinary OperationType.MultiplyNoOvf x y bool
+
+    let simplifyMultiplyNoOvfUn x y =
+        match x.term, y.term with
+        | Concrete(x, t1), Concrete(y, t2) ->
+            let mutable noOverflow = true
+            assert(isNumeric t1 && isNumeric t2)
+            let retType = deduceSimpleArithmeticOperationTargetType t1 t2
+            try
+                ILCalculator.mulOvfUn(x, y, retType) |> ignore
+            with :? System.OverflowException ->
+                noOverflow <- false
+            makeBool noOverflow
+        | _ -> makeBinary OperationType.MultiplyNoOvf_Un x y bool
+
+    let simplifySubNoOvf x y =
+        match x.term, y.term with
+        | Concrete(x, t1), Concrete(y, t2) ->
+            let mutable noOverflow = true
+            assert(isNumeric t1 && isNumeric t2)
+            let retType = deduceSimpleArithmeticOperationTargetType t1 t2
+            try
+                ILCalculator.subOvf(x, y, retType) |> ignore
+            with :? System.OverflowException ->
+                noOverflow <- false
+            makeBool noOverflow
+        | _ -> makeBinary OperationType.SubNoOvf x y bool
+
+    let simplifySubNoOvfUn x y =
+        match x.term, y.term with
+        | Concrete(x, t1), Concrete(y, t2) ->
+            let mutable noOverflow = true
+            assert(isNumeric t1 && isNumeric t2)
+            let retType = deduceSimpleArithmeticOperationTargetType t1 t2
+            try
+                ILCalculator.subOvfUn(x, y, retType) |> ignore
+            with :? System.OverflowException ->
+                noOverflow <- false
+            makeBool noOverflow
+        | _ -> makeBinary OperationType.SubNoOvf_Un x y bool
 
 // ------------------------------- General functions -------------------------------
 
@@ -1226,7 +1272,11 @@ module internal Arithmetics =
         | OperationType.BitwiseOr
         | OperationType.BitwiseXor -> simplifyBitwise op x y t k
         | OperationType.AddNoOvf -> simplifyAddNoOvf x y |> k
+        | OperationType.AddNoOvf_Un -> simplifyAddNoOvfUn x y |> k
         | OperationType.MultiplyNoOvf -> simplifyMultiplyNoOvf x y |> k
+        | OperationType.MultiplyNoOvf_Un -> simplifyMultiplyNoOvfUn x y |> k
+        | OperationType.SubNoOvf -> simplifySubNoOvf x y |> k
+        | OperationType.SubNoOvf_Un -> simplifySubNoOvfUn x y |> k
         | _ -> internalfailf $"{op} is not a binary arithmetical operator"
 
     let simplifyUnaryOperation op x t k =
@@ -1240,9 +1290,13 @@ module internal Arithmetics =
         match op with
         | OperationType.Add
         | OperationType.AddNoOvf
+        | OperationType.AddNoOvf_Un
         | OperationType.Subtract
+        | OperationType.SubNoOvf
+        | OperationType.SubNoOvf_Un
         | OperationType.Multiply
         | OperationType.MultiplyNoOvf
+        | OperationType.MultiplyNoOvf_Un
         | OperationType.Divide
         | OperationType.Divide_Un
         | OperationType.Remainder
@@ -1270,13 +1324,12 @@ module internal Arithmetics =
     let checkEqualZero y k =
         simplifyEqual y (castConcrete 0 (typeOf y)) k
 
-    // TODO: implement without using of expression AddNoOvf or MultiplyNoOvf:
-    // TODO: - if signed, then it should keep the sign
     let makeExpressionNoOvf expr =
         let collectConditions acc expr next into =
             match expr with
-            | Add(x, y, _) -> acc &&& simplifyAddNoOvf x y |> next
-            | Mul(x, y, _) -> acc &&& simplifyMultiplyNoOvf x y |> next
+            | Add(x, y, t) -> acc &&& (if isSigned t then simplifyAddNoOvf x y else simplifyAddNoOvfUn x y) |> next
+            | Sub(x, y, t) -> acc &&& (if isSigned t then simplifySubNoOvf x y else simplifySubNoOvfUn x y) |> next
+            | Mul(x, y, t) -> acc &&& (if isSigned t then simplifyMultiplyNoOvf x y else simplifyMultiplyNoOvfUn x y) |> next
             | {term = Expression _ } -> into acc
             | _ -> next acc
         Seq.singleton expr |> fold collectConditions (True())
