@@ -16,7 +16,7 @@ module internal Operators =
             simplifyBinaryConnective op left right k
         | op when isArithmeticalOperation op t1 t2 ->
             simplifyBinaryOperation op left right k
-        | _ -> internalfailf "simplifyBinary of: %O %O %O" left op right
+        | _ -> internalfail $"simplifyBinary of: {left} {op} {right}"
 
     let ksimplifyEquality x y k =
         simplifyBinaryOperation OperationType.Equal x y k

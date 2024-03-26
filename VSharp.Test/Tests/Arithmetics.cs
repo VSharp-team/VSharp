@@ -7,7 +7,6 @@ using VSharp.Test;
 namespace IntegrationTests
 {
     [TestSvmFixture]
-    [Ignore("Need exceptions for all tests")]
     [IgnoreFuzzer("(Known bug) Reproducing tests failed")]
     public sealed class Arithmetics_CIL
     {
@@ -163,6 +162,12 @@ namespace IntegrationTests
             return checked(a * b);
         }
 
+        [TestSvm]
+        public static IntPtr Mul_Ovf_Un1(int x)
+        {
+            return checked(unchecked((IntPtr)(uint)x) * sizeof(long));
+        }
+
         // overflow exceptions possible
         [TestSvm]
         public static int Mul_Ovf(int a, int b)
@@ -294,7 +299,7 @@ namespace IntegrationTests
             return Sub_Ovf_Un(5, 4);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static uint Sub_Ovf_Un_Overflow1()
         {
             return Sub_Ovf_Un(4, 5);
@@ -302,7 +307,7 @@ namespace IntegrationTests
 
         // if a = UInt32.MaxValue then a
         // else overflow
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static uint Sub_Ovf_Un_Overflow2(uint a)
         {
             return Sub_Ovf_Un(a, a + 1);
@@ -398,13 +403,13 @@ namespace IntegrationTests
             return a % b;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int Rem_Ints_DivideOnZero(int a)
         {
             return Rem_Ints(a, 0);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int Rem_Ints_Overflow()
         {
             return Rem_Ints(int.MinValue, -1);
@@ -416,7 +421,7 @@ namespace IntegrationTests
             return a % b;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static uint RemUn_Ints_DivideOnZero(uint a)
         {
             return RemUn_Ints(a, 0);
@@ -435,10 +440,43 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    public class SwitchStatement
+    {
+        public SwitchStatement(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        private int X { get; }
+        private int Y { get; }
+
+        [TestSvm(100)]
+        public bool SimpleSwitchWithAdditionAndMultiplication()
+        {
+            if (X <= 0 || Y <= 0)
+            {
+                return false;
+            }
+
+            switch (checked(X + Y + X * Y + 1))
+            {
+                case 256: return true;
+                case 512: return false;
+                case 1024: return false;
+            }
+
+            return false;
+
+        }
+
+    }
+
+    [TestSvmFixture]
     public sealed class Arithmetics
     {
         // 7 + n
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int ArithmeticsMethod1(int n, int m)
         {
             return -((n - m) + (m - n) + (1 + m + 2 + 0 - m + 4 + m) - (m + n)) + 14 + (n * (5 - 4) + (5 - 7 + m / m) * n) / m;
@@ -459,7 +497,7 @@ namespace IntegrationTests
         }
 
         // 6*n - 126826
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         // [TestSvm]
         public static int ArithmeticsMethod4(int n, int m)
         {
@@ -514,7 +552,7 @@ namespace IntegrationTests
             return x2 - x1 == 1;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int CheckedUnchecked(int x0, int x1, int x2, int x3, int x4, int x5, int x6, int x7, int x8, int x9)
         {
             return checked(x0 + unchecked(x1 + checked(x2 + x3 + x4)) + unchecked(x5 - x6 * x7));
@@ -526,14 +564,14 @@ namespace IntegrationTests
         }
 
         // Expecting overflow error
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int CheckOverflow1(int x1)
         {
             return CheckOverflow0(2147483620, 2147483620 + x1);
         }
 
         // Expecting overflow error
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int CheckOverflow2(int x1)
         {
             int x = 1000 * 1000 * 1000;
@@ -589,7 +627,7 @@ namespace IntegrationTests
         }
 
         // Expecting devide by zero error
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int CheckDivideByZeroException0(int x1)
         {
             int x = 255;
@@ -598,7 +636,7 @@ namespace IntegrationTests
         }
 
         // Expecting 2000000000 + x1 + 2000000000
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int CheckOrder(int x1)
         {
             int x = 2000000000;

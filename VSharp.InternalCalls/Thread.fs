@@ -71,3 +71,21 @@ module Thread =
             (interpreter.Raise interpreter.ArgumentNullException)
             nonNullCase
             id
+
+    let MonitorWaitTimeout (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 2)
+        let obj = args[0]
+        let timeout = args[1]
+        let defaultCase (cilState : cilState) k =
+            cilState.Push (MakeBool true)
+            List.singleton cilState |> k
+        let nonNullCase (cilState : cilState) k =
+            cilState.StatedConditionalExecutionCIL
+                (fun state k -> k (Arithmetics.Less timeout (MakeNumber -1), state))
+                (interpreter.Raise interpreter.ArgumentOutOfRangeException)
+                defaultCase
+                k
+        cilState.BranchOnNullCIL obj
+            (interpreter.Raise interpreter.ArgumentNullException)
+            nonNullCase
+            id

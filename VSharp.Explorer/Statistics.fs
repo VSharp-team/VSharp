@@ -243,10 +243,10 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
             hasNewCoverage <- hasNewCoverage || isNewBlock && method.InCoverageZone
         hasNewCoverage
 
-    member x.IsBasicBlockCoveredByTest (blockStart : codeLocation) =
+    member x.IsBasicBlockCoveredByTest (blockEnd : codeLocation) =
         let mutable coveredBlocks = ref null
-        if blocksCoveredByTests.TryGetValue(generalizeIfNeeded blockStart.method, coveredBlocks) then
-            coveredBlocks.Value.ContainsKey blockStart.offset
+        if blocksCoveredByTests.TryGetValue(generalizeIfNeeded blockEnd.method, coveredBlocks) then
+            coveredBlocks.Value.ContainsKey blockEnd.offset
         else false
 
     member x.GetCurrentCoverage (methods : Method seq) =

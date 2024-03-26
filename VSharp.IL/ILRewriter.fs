@@ -1110,7 +1110,7 @@ module internal ILRewriter =
                 analyseResult = x.analyseResult.Union other.analyseResult
             }
 
-    let rec private checkCallee (checkedMethods : HashSet<MethodBase>) (failPredicate : analysisEvent -> bool) (m : MethodBase) k =
+    let rec private checkCallee (checkedMethods : HashSet<MethodBase>) failPredicate skipPredicate m k =
         // Recursive methods handling
         if checkedMethods.Add m then
             let result =
@@ -1124,22 +1124,23 @@ module internal ILRewriter =
                 let checkResult = { success = true; analyseResult = result }
                 if result.IsComplete then k checkResult
                 else
-                    checkDependencies checkedMethods failPredicate checkResult result.dependencies (fun checkResult ->
+                    let methods = result.dependencies
+                    checkDependencies checkedMethods failPredicate skipPredicate checkResult methods (fun checkResult ->
                     eventsCache[m] <- checkResult.analyseResult
                     k checkResult)
             else k { success = false; analyseResult = result }
         else checkResult.Empty m |> k
 
-    and private checkDependencies checkedMethods (failPredicate : analysisEvent -> bool) resultAcc dependencies k =
+    and private checkDependencies checkedMethods failPredicate skipPredicate resultAcc dependencies k =
         assert resultAcc.success
         let analyseDependencies (resultAcc : checkResult) method (k : checkResult -> 'a) =
-            if resultAcc.success then
-                checkCallee checkedMethods failPredicate method (fun calleeResult ->
+            if resultAcc.success && not (skipPredicate method) then
+                checkCallee checkedMethods failPredicate skipPredicate method (fun calleeResult ->
                 resultAcc.Union calleeResult |> k)
             else k resultAcc
         Cps.List.foldlk analyseDependencies resultAcc dependencies k
 
-    let analyseMethod (rawMethodBody : rawMethodBody) (m : MethodBase) (failPredicate : analysisEvent -> bool) =
+    let analyseMethod rawMethodBody m failPredicate skipPredicate =
         let result =
             let exists, result = eventsCache.TryGetValue m
             if exists then result
@@ -1154,8 +1155,8 @@ module internal ILRewriter =
                 checkedMethods.Add m |> ignore
                 let mutable checkResult = { success = true; analyseResult = result }
                 for method in result.dependencies do
-                    if checkResult.success then
-                        let calleeResult = checkCallee checkedMethods failPredicate method id
+                    if checkResult.success && not (skipPredicate method) then
+                        let calleeResult = checkCallee checkedMethods failPredicate skipPredicate method id
                         checkResult <- checkResult.Union calleeResult
                 eventsCache[m] <- checkResult.analyseResult
                 checkResult.success

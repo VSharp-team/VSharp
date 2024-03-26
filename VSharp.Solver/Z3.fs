@@ -47,15 +47,15 @@ module internal Z3 =
         { parts : pathPart list }
         with
         member x.StructField fieldId =
-            { x with parts = StructFieldPart fieldId :: x.parts }
+            { parts = StructFieldPart fieldId :: x.parts }
 
         member x.PointerAddress() =
             assert(List.isEmpty x.parts)
-            { x with parts = PointerAddress :: x.parts }
+            { parts = PointerAddress :: x.parts }
 
         member x.PointerOffset() =
             assert(List.isEmpty x.parts)
-            { x with parts = PointerOffset :: x.parts }
+            { parts = PointerOffset :: x.parts }
 
         member x.TypeOfLocation with get() =
             assert(List.isEmpty x.parts |> not)

@@ -60,3 +60,6 @@ module internal SystemArray =
 
     [<Implements("T[] System.GC.AllocateUninitializedArray(System.Int32, System.Boolean)")>]
     val AllocateUninitializedArray : state -> term list -> term
+
+    [<Implements("System.Byte& System.Runtime.InteropServices.MemoryMarshal.GetArrayDataReference(System.Array)")>]
+    val GetArrayDataReference : IInterpreter -> cilState -> term list -> cilState list

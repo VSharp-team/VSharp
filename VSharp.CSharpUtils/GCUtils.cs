@@ -6,13 +6,9 @@ namespace VSharp.CSharpUtils
     public static class GC
     {
         [Implements("System.Void System.GC.KeepAlive(System.Object)")]
-        public static void KeepAlive(object ptr)
-        {
-        }
+        public static void KeepAlive(object ptr) { }
 
         [Implements("System.Void System.GC._SuppressFinalize(System.Object)")]
-        public static void SuppressFinalize(object obj)
-        {
-        }
+        public static void SuppressFinalize(object obj) { }
     }
 }

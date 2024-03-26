@@ -148,9 +148,9 @@ type instructionPointer =
 
     override x.ToString() =
         match x with
-        | Instruction(offset, m) -> sprintf "{Instruction = %s; M = %s}" ((int offset).ToString("X")) m.FullName
-        | Exit m -> $"{{Exit from M = %s{m.FullName}}}"
-        | Leave(ip, _, offset, m) -> $"{{M = %s{m.FullName}; Leaving to %d{offset}\n;Currently in {ip}}}"
+        | Instruction(offset, m) -> $"{{Instruction = 0x{int offset:X}; M = {m.FullName}}}"
+        | Exit m -> $"{{Exit from M = {m.FullName}}}"
+        | Leave(ip, _, offset, m) -> $"{{M = {m.FullName}; Leaving to 0x{offset:X}\n;Currently in {ip}}}"
         | SearchingForHandler(ehcs, finallyEhcs, toObserve, checkFinally) ->
             $"SearchingForHandler({ehcs}, {finallyEhcs}, {toObserve}, {checkFinally})"
         | SecondBypass(ip, ehcs, lastEhcs, method, restFrames, handler) ->

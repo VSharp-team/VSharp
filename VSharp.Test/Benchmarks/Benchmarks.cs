@@ -110,7 +110,10 @@ internal static class Benchmarks
 
         using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
 
-        explorer.StartExploration(new[] {exploredMethodInfo}, new Tuple<MethodBase, string[]>[] { });
+        explorer.StartExploration(
+            new[] {exploredMethodInfo},
+            global::System.Array.Empty<Tuple<MethodBase, EntryPointConfiguration>>()
+        );
 
         var result = new BenchmarkResult(false, explorer.Statistics, unitTests, target);
 

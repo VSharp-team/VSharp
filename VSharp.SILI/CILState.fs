@@ -1,5 +1,6 @@
 namespace VSharp.Interpreter.IL
 
+open System.IO
 open VSharp
 open System.Text
 open System.Collections.Generic
@@ -74,6 +75,13 @@ module CilState =
                 cilState <- cilState.ChangeState state
                 stateConfigured <- true
 
+    and webConfiguration =
+        {
+            environmentName : string
+            contentRootPath : DirectoryInfo
+            applicationName : string
+        }
+
     and [<ReferenceEquality>] cilState =
         {
             mutable ipStack : ipStack
@@ -105,9 +113,10 @@ module CilState =
             /// Deterministic state id.
             /// </summary>
             internalId : uint
+            webConfiguration : webConfiguration option
         }
 
-        static member CreateInitial (m : Method) (state : state) =
+        static member private CommonCreateInitial (m : Method) (state : state) webConfiguration =
             let ip = Instruction(0<offsets>, m)
             let approximateLoc = ip.ToCodeLocation() |> Option.get
             {
@@ -128,11 +137,20 @@ module CilState =
                 history = Set.empty
                 entryMethod = Some m
                 internalId = getNextStateId()
+                webConfiguration = webConfiguration
             }
+
+        static member CreateInitial (m : Method) (state : state) =
+            cilState.CommonCreateInitial m state None
+
+        static member CreateWebInitial (m : Method) (state : state) (webConfiguration : webConfiguration) =
+            cilState.CommonCreateInitial m state (Some webConfiguration)
 
         member private x.ErrorReporter = lazy ErrorReporter(x)
 
         member x.IsIsolated with get() = x.entryMethod.IsNone
+
+        member x.WebExploration with get() = Option.isSome x.webConfiguration
 
         member x.EntryMethod with get() =
             if x.IsIsolated then invalidOp "Isolated state doesn't have an entry method"
@@ -411,6 +429,10 @@ module CilState =
             | ip :: _ -> x.MoveCodeLoc ip
             | [] -> ()
 
+        member x.ClearStack() =
+            Memory.ClearStack x.state
+            x.ipStack <- List.empty
+
         member x.Read ref =
             Memory.ReadUnsafe x.ErrorReporter.Value x.state ref
 
@@ -460,7 +482,7 @@ module CilState =
                 elseBranch
                 k
 
-        // -------------------- Changing inner state --------------------
+        // -------------------- Dumping --------------------
 
         member private x.DumpSectionValue section value (sb : StringBuilder) =
             let sb = Utils.PrettyPrinting.dumpSection section sb
@@ -482,7 +504,7 @@ module CilState =
         // -------------------- Changing inner state --------------------
 
         member x.Copy(state : state) =
-            { x with state = state }
+            { x with state = state; internalId = getNextStateId() }
 
         // This function copies cilState, instead of mutation
         member x.ChangeState state' : cilState =

@@ -48,3 +48,6 @@ module internal Thread =
 
     [<Implements("System.Boolean System.Threading.Monitor.Wait(System.Object)")>]
     val MonitorWait : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Boolean System.Threading.Monitor.Wait(System.Object, System.Int32)")>]
+    val MonitorWaitTimeout : IInterpreter -> cilState -> term list -> cilState list

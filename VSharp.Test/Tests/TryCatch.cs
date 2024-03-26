@@ -7,19 +7,6 @@ namespace IntegrationTests
     [TestSvmFixture]
     public class TryCatch
     {
-        [Ignore("Exceptions handling")]
-        public int SafeFunc(int n)
-        {
-            try
-            {
-                return 1;
-            }
-            catch
-            {
-                throw new Exception();
-            }
-        }
-
         private void CheckPositiveAndOdd(int n)
         {
             if (n == 0)
@@ -38,7 +25,7 @@ namespace IntegrationTests
             }
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm(100)]
         public bool MakeOdd(int n)
         {
             try
@@ -60,7 +47,7 @@ namespace IntegrationTests
             return n % 2 == 1;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int ThrowNull(int n)
         {
             try
@@ -127,7 +114,7 @@ namespace IntegrationTests
             }
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int UsingTest()
         {
             var myDispose = new MyDispose(new []{ 57 });
@@ -137,7 +124,7 @@ namespace IntegrationTests
             return num + myDispose.X_field[0]; // 67
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int UsingTestWithInheritance()
         {
             var myDispose = new AnotherDisposable(new []{ 57 });
@@ -147,7 +134,7 @@ namespace IntegrationTests
             return num + myDispose.X_field[0]; // 67
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int UsingTestWithInheritance1()
         {
             var myDispose = new AnotherDisposable1(new []{ 57 });
@@ -157,7 +144,7 @@ namespace IntegrationTests
             return num + myDispose.X_field[0]; // 77
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int AnotherUsingTestWithInheritance1()
         {
             var myDispose = new YetAnotherDisposable1(new []{ 57 });
@@ -167,7 +154,7 @@ namespace IntegrationTests
             return num + myDispose.X_field[0]; // 67
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int AnotherUsingTestWithInheritance2()
         {
             var myDispose = new YetAnotherDisposable2(new []{ 57 });
@@ -209,7 +196,7 @@ namespace IntegrationTests
             }
         }
 
-        [Ignore("Exceptions handling")]
+        [Ignore("handle recursion")]
         [IgnoreFuzzer("Need StackOverflow handling")]
         public int CheckFactSafe(int n)
         {
@@ -223,7 +210,7 @@ namespace IntegrationTests
             }
         }
 
-        [Ignore("Exceptions handling")]
+        [Ignore("handle recursion")]
         [IgnoreFuzzer("Need StackOverflow handling")]
         public int CheckFactUnsafe(int n)
         {

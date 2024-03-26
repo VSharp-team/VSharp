@@ -408,9 +408,13 @@ module internal Memory =
 
         let castAndSet (fieldInfo : FieldInfo) structObj v =
             let v =
-                if v <> null && v.GetType() <> fieldInfo.FieldType && fieldInfo.FieldType = typeof<IntPtr> then
-                    let gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(v)
-                    System.Runtime.InteropServices.GCHandle.ToIntPtr(gcHandle) :> obj
+                if v <> null && v.GetType() <> fieldInfo.FieldType then
+                    let fieldType = fieldInfo.FieldType
+                    if fieldType = typeof<IntPtr> then
+                        let gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(v)
+                        System.Runtime.InteropServices.GCHandle.ToIntPtr(gcHandle) :> obj
+                    elif fieldType.IsPrimitive then convert v fieldType
+                    else v
                 else v
             fieldInfo.SetValue(structObj, v)
 
@@ -580,7 +584,7 @@ module internal Memory =
                     typeVariables = (MappedStack.empty, Stack.empty)
                     currentTime = [1]
                     startingTime = VectorTime.zero
-                    exceptionsRegister = exceptionRegisterStack.singleton NoException
+                    exceptionsRegister = exceptionRegisterStack.Initial
                     model = PrimitiveModel (Dictionary())
                     memory = self
                     complete = false
@@ -1917,10 +1921,7 @@ module internal Memory =
                 let source = source :?> Delegate
                 let result = Delegate.Remove(source, toRemove :?> Delegate)
                 if Object.ReferenceEquals(result, source) then sourceRef
-                else
-                    let concreteAddress = self.AllocateConcreteType typ
-                    concreteMemory.Allocate concreteAddress result
-                    HeapRef (ConcreteHeapAddress concreteAddress) typ
+                else self.ObjToTerm typeof<Delegate> result
             | _, HeapRef({term = ConcreteHeapAddress a}, _), _ ->
                 let sourceDelegates = self.GetDelegates a
                 let removeDelegates = self.SimplifyDelegate toRemoveRef
@@ -1937,7 +1938,6 @@ module internal Memory =
         member internal _.State
             with get() = state
             and set value = state <- value
-
 
         interface IMemory with
 
@@ -1968,7 +1968,9 @@ module internal Memory =
             override _.MemoryMode
                 with get() = memoryMode
                 and set value = memoryMode <- value
-            override _.Stack with get() = stack
+            override _.Stack
+                with get() = stack
+                and set(callStack: callStack) = stack <- callStack
             override _.StackBuffers
                 with get() = stackBuffers
                 and set value = stackBuffers <- value
@@ -2059,7 +2061,6 @@ module internal Memory =
             member self.Write reporter reference value = self.Write reporter reference value
             member self.WriteStaticField typ field value = self.WriteStaticField typ field value
 
-
     type heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
@@ -2099,7 +2100,6 @@ module internal Memory =
                     let inst = memory.MakeArraySymbolicHeapRead x.picker key state.startingTime
                     MemoryRegion.read region key (x.picker.isDefaultKey state) inst
                 afters |> List.map (mapsnd read) |> Merging.merge
-
 
     type state with
         static member MakeEmpty complete =

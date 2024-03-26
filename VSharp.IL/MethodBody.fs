@@ -24,7 +24,7 @@ type MethodWithBody internal (m : MethodBase) =
     let parameters = m.GetParameters()
     let hasThis = Reflection.hasThis m
     let hasNonVoidResult = lazy(Reflection.hasNonVoidResult m)
-    let isDynamic = m :? DynamicMethod
+    let isDynamic = Reflection.methodIsDynamic m
     let metadataToken = if isDynamic then m.GetHashCode() else m.MetadataToken
     let isStatic = m.IsStatic
     let isAbstract = m.IsAbstract
@@ -43,6 +43,9 @@ type MethodWithBody internal (m : MethodBase) =
     let tryFSharpInternalCall = lazy(Map.tryFind fullGenericMethodName.Value Loader.FSharpImplementations)
     let isFSharpInternalCall = lazy(Option.isSome tryFSharpInternalCall.Value)
     let isCSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.CSharpImplementations)
+    let isAspNetStart = lazy(Loader.isAspNetStart fullGenericMethodName.Value)
+    let isAspNetConfiguration = lazy(Loader.isAspNetConfiguration fullGenericMethodName.Value)
+    let isExecutorExecute = lazy(Loader.isExecutorExecute fullGenericMethodName.Value)
     let isShimmed = lazy(Loader.isShimmed fullGenericMethodName.Value)
     let isConcreteCall = lazy(Loader.isInvokeInternalCall fullGenericMethodName.Value)
     let isRuntimeException = lazy(Loader.isRuntimeExceptionsImplementation fullGenericMethodName.Value)
@@ -64,7 +67,8 @@ type MethodWithBody internal (m : MethodBase) =
         )
     let isExternalCall = lazy Reflection.isExternalMethod m
 
-    let externInvocationForbidden = lazy(
+    let externInvocationForbidden =
+        lazy(
             match DllManager.parseDllImport m with
             | Some info -> Loader.isExternInvocationForbidden info
             | None -> false
@@ -211,12 +215,12 @@ type MethodWithBody internal (m : MethodBase) =
         | Some body -> body.ehs
         | None -> Array.empty
 
-    member internal x.AnalyseMethod (failPredicate : analysisEvent -> bool) =
+    member internal x.AnalyseMethod (failPredicate : analysisEvent -> bool) (skipPredicate : MethodBase -> bool) =
         let rawBody =
             match rawBody.Value with
             | Some rawBody when not isCSharpInternalCall.Value -> rawBody
             | _ -> rawMethodBody.Create m
-        ILRewriter.analyseMethod rawBody m failPredicate
+        ILRewriter.analyseMethod rawBody m failPredicate skipPredicate
 
     member x.ParsedInstructions with get() =
         assert(methodBodyBytes <> null)
@@ -263,11 +267,43 @@ type MethodWithBody internal (m : MethodBase) =
 
     member private x.Descriptor = desc
 
-    member x.ResolveMethod token = Reflection.resolveMethod actualMethod token
-    member x.ResolveFieldFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveField actualMethod
-    member x.ResolveTypeFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveType actualMethod
-    member x.ResolveMethodFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveMethod actualMethod
-    member x.ResolveTokenFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveToken actualMethod
+    member x.ResolveMethod token =
+        let method = Reflection.resolveMethod actualMethod token
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        method
+
+    member x.ResolveFieldFromMetadata offset =
+        let field =
+            NumberCreator.extractInt32 x.ILBytes offset
+            |> Reflection.resolveField actualMethod
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        field
+
+    member x.ResolveTypeFromMetadata offset =
+        let t =
+            NumberCreator.extractInt32 x.ILBytes offset
+            |> Reflection.resolveType actualMethod
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        t
+
+    member x.ResolveMethodFromMetadata offset =
+        let method =
+            NumberCreator.extractInt32 x.ILBytes offset
+            |> Reflection.resolveMethod actualMethod
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        method
+
+    member x.ResolveTokenFromMetadata offset =
+        let memberInfo =
+            NumberCreator.extractInt32 x.ILBytes offset
+            |> Reflection.resolveToken actualMethod
+        if isCSharpInternalCall.Value then
+            Logger.warning "Resolving in C# internal calls may lead to wrong types"
+        memberInfo
 
     member x.IsEntryPoint with get() =
         m = (m.Module.Assembly.EntryPoint :> MethodBase)
@@ -284,11 +320,17 @@ type MethodWithBody internal (m : MethodBase) =
             | CallVirt _ -> true
             | Ldsfld f -> changedStaticFields.Contains f
             | Stsfld _ -> true
+        let skipPredicate (method : MethodBase) =
+            let methodName = Reflection.fullGenericMethodName method
+            Loader.isInvokeInternalCall methodName
         x.IsConcretelyInvokable &&
-        (isConcreteCall.Value || shouldAnalyseInvokable.Value && x.AnalyseMethod failPredicate)
+        (isConcreteCall.Value || shouldAnalyseInvokable.Value && x.AnalyseMethod failPredicate skipPredicate)
 
     member x.IsFSharpInternalCall with get() = isFSharpInternalCall.Value
     member x.IsCSharpInternalCall with get() = isCSharpInternalCall.Value
+    member x.IsAspNetStart with get() = isAspNetStart.Value
+    member x.IsAspNetConfiguration with get() = isAspNetConfiguration.Value
+    member x.IsExecutorExecute with get() = isExecutorExecute.Value
 
     member x.GetInternalCall with get() =
         match tryFSharpInternalCall.Value with

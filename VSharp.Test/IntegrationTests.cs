@@ -476,7 +476,7 @@ namespace VSharp.Test
                     using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
                     explorer.StartExploration(
                         new [] { exploredMethodInfo },
-                        global::System.Array.Empty<Tuple<MethodBase, string[]>>()
+                        global::System.Array.Empty<Tuple<MethodBase, EntryPointConfiguration>>()
                     );
 
                     if (siliEnabled && unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)

@@ -347,19 +347,19 @@ namespace IntegrationTests
         }
     }
 
-    [TestSvmFixture]
+    [Ignore("Handle exceptions while static initialization")]
     public static class ClassesSimpleException
     {
-        [Ignore("Exceptions handling")]
-        public static void Test1()
+        [TestSvm]
+        public static object Test1()
         {
-            ClassesSimpleException0 a = new ClassesSimpleException0();
+            return new ClassesSimpleException0();
         }
 
-        [Ignore("Exceptions handling")]
-        public static void Test2()
+        [TestSvm]
+        public static object Test2()
         {
-            ClassesSimpleException1 a = new ClassesSimpleException1();
+            return new ClassesSimpleException1();
         }
     }
 
@@ -501,20 +501,22 @@ namespace IntegrationTests
             return (new ClassesSimplePropertyAccessModify().ContainerProperty = new SimpleContainer()).X = anyVarName; // anyVarName
         }
 
-        [Ignore("Exceptions handling")]
-        public void FirstUseInGuard(SimpleContainer s)
+        [TestSvm(100)]
+        public SimpleContainer FirstUseInGuard(SimpleContainer s)
         {
             if (s.X > 5)
-                return;
+                return s;
             s.X = 42;
+            return s;
         }
 
-        [Ignore("Exceptions handling")]
-        public static void UnionInReference(SimpleContainer a)
+        [TestSvm]
+        public static SimpleContainer UnionInReference(SimpleContainer a)
         {
             var obj = (object) a;
             var b = (SimpleContainer) obj;
             b.Set(42);
+            return a;
         }
     }
 }

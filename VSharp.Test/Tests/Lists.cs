@@ -76,7 +76,7 @@ namespace IntegrationTests
             return arr[0];
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public int[] Mutate(int i)
         {
             var a = new int[] {1, 2, 3, 4, 5};
@@ -91,13 +91,13 @@ namespace IntegrationTests
             return c.GetLowerBound(1);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public int LowerBoundExceptionTest(int[,] array)
         {
             return array.GetLowerBound(2);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public int LowerBoundSymbolicTest(int[,] array, int dimension)
         {
             return array.GetLowerBound(dimension);
@@ -183,7 +183,7 @@ namespace IntegrationTests
             Array.Clear(a, 1, 2);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public void CopyToConcreteToConcreteArray()
         {
             var a = new int[4] { 5, 6, 7, 8 };
@@ -915,7 +915,7 @@ namespace IntegrationTests
         {
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static EmptyStruct LdElemMustThrowExceptionIfIndexIsNegative(int i)
         {
             var array = new EmptyStruct[3];
@@ -936,7 +936,7 @@ namespace IntegrationTests
             return i;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int ArrayExceptionsOrder(int f, object[] crr, object c, int i)
         {
             var arr = new A[10];
@@ -1014,6 +1014,23 @@ namespace IntegrationTests
             public object Value;
 
             public Bucket(object key, object value)
+            {
+                Key = key;
+                Value = value;
+            }
+
+            public object GetValue()
+            {
+                return Value;
+            }
+        }
+
+        public class BucketClass : IBucket
+        {
+            public object Key;
+            public object Value;
+
+            public BucketClass(object key, object value)
             {
                 Key = key;
                 Value = value;
@@ -1239,6 +1256,25 @@ namespace IntegrationTests
             l.Add(new Bucket(2, arr2));
             arr1[0] = i;
             arr2[0] = i;
+            if (ConcreteMemoryTestHelper2(l) != i * 2 + 2 + 3 + 5 + 6)
+                return -1;
+            return 1;
+        }
+
+        [TestSvm(93)]
+        public static int ConcreteMemoryTest4(int i)
+        {
+            var arr1 = new int[] { 1, 2, 3 };
+            var arr2 = new int[] { 4, 5, 6 };
+            var l = new List<IBucket>();
+            if (l.Count != 0)
+                return -1;
+            var b1 = new BucketClass(1, arr1);
+            var b2 = new BucketClass(2, arr2);
+            arr1[0] = i;
+            arr2[0] = i;
+            l.Add(b1);
+            l.Add(b2);
             if (ConcreteMemoryTestHelper2(l) != i * 2 + 2 + 3 + 5 + 6)
                 return -1;
             return 1;

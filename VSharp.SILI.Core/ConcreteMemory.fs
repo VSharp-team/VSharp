@@ -66,6 +66,22 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
 
 // ----------------------------- Primitives -----------------------------
 
+    member private x.HasFullyConcreteParent (phys : physicalAddress) =
+        let tested = HashSet<physicalAddress>()
+        let queue = Queue<physicalAddress>()
+        queue.Enqueue phys
+        let child = ref physicalAddress.Empty
+        let mutable contains = false
+        while not contains && queue.TryDequeue child do
+            let child = child.Value
+            if tested.Add child then
+                contains <- fullyConcretes.Contains child
+                let exists, parentDict = parents.TryGetValue child
+                if exists then
+                    for KeyValue(parent, _) in parentDict do
+                        queue.Enqueue parent
+        contains
+
     member private x.AddToParents(parents : parentsType, parent : physicalAddress, child : physicalAddress, childLoc : ChildLocation) =
         assert(parent.object <> null)
         assert(child.object <> null && not childLoc.Type.IsValueType)
@@ -97,6 +113,8 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
             let childDict = childDictType()
             childDict.Add(childLoc, Concrete child)
             children.Add(parent, childDict)
+        if update && x.HasFullyConcreteParent parent && not (x.CheckConcreteness child) then
+            x.RemoveFromFullyConcretesRec parent
         x.AddToParents(parent, child, childLoc)
 
     member private x.AddChild(parent : physicalAddress, child : physicalAddress, childLoc : ChildLocation, update : bool) =
@@ -210,7 +228,11 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
     member public x.Contains address =
         virtToPhys.ContainsKey address
 
-    member private x.CheckConcreteness (tracked : HashSet<physicalAddress>) (phys : physicalAddress) =
+    member private x.CheckConcreteness (phys : physicalAddress) =
+        let tracked = HashSet<physicalAddress>()
+        x.CheckConcretenessRec tracked phys
+
+    member private x.CheckConcretenessRec (tracked : HashSet<physicalAddress>) (phys : physicalAddress) =
         // TODO: cache all symbolic objects
         if fullyConcretes.Contains phys || not (tracked.Add phys) then true
         else
@@ -221,15 +243,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
                     if allConcrete then
                         match child with
                         | Symbolic -> allConcrete <- false
-                        | Concrete child -> allConcrete <- x.CheckConcreteness tracked child
+                        | Concrete child -> allConcrete <- x.CheckConcretenessRec tracked child
             if allConcrete then fullyConcretes.Add phys |> ignore
             allConcrete
 
     member public x.TryFullyConcrete (address : concreteHeapAddress) =
         let exists, phys = virtToPhys.TryGetValue address
         if exists then
-            let tracked = HashSet<physicalAddress>()
-            if x.CheckConcreteness tracked phys then
+            if x.CheckConcreteness phys then
                 Some phys.object
             else None
         else None
@@ -509,6 +530,9 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
         let phys = virtToPhys[address]
         let removed = virtToPhys.Remove address
         assert removed
+        x.RemoveFromFullyConcretesRec phys
+
+    member private x.RemoveFromFullyConcretesRec phys =
         let removed = HashSet<physicalAddress>()
         let queue = Queue<physicalAddress>()
         queue.Enqueue phys

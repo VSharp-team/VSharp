@@ -11,7 +11,7 @@ module internal Pointers =
     let private sizeOfUnderlyingPointerType = term >> function // for `T* ptr` returns `sizeof(T)`
         | Ptr(_, Void, _) -> makeNumber 1
         | Ptr(_, typ, _) -> makeNumber (internalSizeOf typ)
-        | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
+        | t -> internalfailf $"Taking sizeof underlying type of not pointer type: {t}"
 
     // NOTE: returns 'ptr', shifted by 'shift' bytes
     let private shift ptr shift =
@@ -224,6 +224,7 @@ module internal Pointers =
 
     let private simplifyPointerSubtraction x y k =
         if Terms.isNumeric y then simplifyPointerAddition x (neg y) k
+        elif Terms.isNumeric x then simplifyPointerAddition (neg x) y k
         else commonPointerSubtraction x y k
 
     let private pointerIdOfBaseAndOffset pointerBase offset =
@@ -279,11 +280,11 @@ module internal Pointers =
         | OperationType.GreaterOrEqual
         | OperationType.GreaterOrEqual_Un ->
             simplifyPointerComparison op x y k
-        | _ -> internalfailf "%O is not a binary arithmetical operator" op
+        | _ -> internalfailf $"{op} is not a binary arithmetical operator"
 
     let isPointerOperation op left right =
         match op with
-        | OperationType.Subtract -> isRefOrPtr left && (isRefOrPtr right || Terms.isNumeric right)
+        | OperationType.Subtract
         | OperationType.Equal
         | OperationType.NotEqual
         | OperationType.Add

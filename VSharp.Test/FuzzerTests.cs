@@ -84,7 +84,10 @@ public static class FuzzerTests
         var methodsToTest = LoadTestMethods();
         Logger.printLogString(Logger.Error, "Methods loaded");
 
-        explorer.StartExploration(methodsToTest, global::System.Array.Empty<Tuple<MethodBase,string[]>>());
+        explorer.StartExploration(
+            methodsToTest,
+            global::System.Array.Empty<Tuple<MethodBase, EntryPointConfiguration>>()
+        );
     }
 
     private static void ReproduceGeneratedTests()

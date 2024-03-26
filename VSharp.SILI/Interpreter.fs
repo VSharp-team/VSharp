@@ -108,18 +108,12 @@ module internal InstructionsSet =
 
     let ldarg numberCreator (m : Method) shiftedOffset (cilState : cilState) =
         let argumentIndex = numberCreator m.ILBytes shiftedOffset
+        let hasThis = m.HasThis
+        let state = cilState.state
         let arg =
-            let state = cilState.state
-            let this = if m.HasThis then Some <| Memory.ReadThis state m else None
-            match this, m.HasThis with
-            | None, _
-            | Some _, false ->
-                let term = getArgTerm argumentIndex m
-                Memory.Read state term
-            | Some this, _ when argumentIndex = 0 -> this
-            | Some _, true ->
-                let term = getArgTerm (argumentIndex - 1) m
-                Memory.Read state term
+            if hasThis && argumentIndex = 0 then Memory.ReadThis state m
+            elif hasThis then getArgTerm (argumentIndex - 1) m |> Memory.Read state
+            else getArgTerm argumentIndex m |> Memory.Read state
         cilState.Push arg
 
     let ldarga numberCreator (m : Method) shiftedOffset (cilState : cilState) =
@@ -799,6 +793,7 @@ type ILInterpreter() as this =
             | _ ->
                 try
                     try
+                        Logger.info $"Invoking method {method.FullName}"
                         let result = method.Invoke thisObj (List.toArray objArgs)
                         let resultType = TypeUtils.getTypeOfConcrete result
                         let returnType = method.ReturnType
@@ -827,6 +822,75 @@ type ILInterpreter() as this =
                 true
         else false
 
+    member private x.StartAspNet (cilState : cilState) args =
+        Logger.trace "Starting exploration of ASP.NET application"
+        cilState.ClearStack()
+        let state = cilState.state
+        state.complete <- false
+        assert(List.length args = 6)
+        let requestDelegate = args[0]
+        let iHttpContextFactory = args[5]
+        let requestDelegateType = MostConcreteTypeOfRef state requestDelegate
+        let iHttpContextFactoryType = MostConcreteTypeOfRef state iHttpContextFactory
+        let method =
+            Reflection.createAspNetStartMethod requestDelegateType iHttpContextFactoryType
+            |> Application.getMethod
+        let pathArg = Memory.AllocateString "/api/get" state
+        let methodArg = Memory.AllocateString "GET" state
+        let parameters = Some [Some requestDelegate; Some iHttpContextFactory; Some pathArg; Some methodArg; None]
+        Memory.InitFunctionFrame state method None parameters
+        state.model <- Memory.EmptyModel method
+        let bodyArgRef = getArgTerm 4 method
+        let bodyArgTerm = cilState.Read bodyArgRef
+        // Adding non-null constraint for 'body' argument
+        !!(IsNullReference bodyArgTerm) |> AddConstraint state
+        // Filling model with non-null 'body' to match PC
+        let modelState =
+            match state.model with
+            | StateModel modelState -> modelState
+            | _ -> __unreachable__()
+        let bodyForModel = Memory.AllocateString " " modelState
+        let modelStates = Memory.Write modelState bodyArgRef bodyForModel
+        assert(List.length modelStates = 1 && modelStates[0] = modelState)
+        Instruction(0<offsets>, method) |> cilState.PushToIp
+        List.singleton cilState
+
+    member private x.ConfigureAspNet (cilState : cilState) thisOption =
+        let webAppOptions = Option.get thisOption
+        let webAppOptionsType = MostConcreteTypeOfRef cilState.state webAppOptions
+        let method =
+            Reflection.createAspNetConfigureMethod webAppOptionsType
+            |> Application.getMethod
+        let webConfig = Option.get cilState.webConfiguration
+        let environmentName = Memory.AllocateString webConfig.environmentName cilState.state
+        let applicationName = Memory.AllocateString webConfig.applicationName cilState.state
+        let contentRootPath = Memory.AllocateString webConfig.contentRootPath.FullName cilState.state
+        let parameters = Some [Some webAppOptions; Some environmentName; Some applicationName; Some contentRootPath]
+        Memory.InitFunctionFrame cilState.state method None parameters
+        Instruction(0<offsets>, method) |> cilState.PushToIp
+        List.singleton cilState
+
+    member private x.ExecutorExecute (cilState : cilState) thisOption args =
+        assert(cilState.state.memory.MemoryMode = ConcreteMode)
+        assert(List.length args = 2)
+        match thisOption with
+        | Some({term = HeapRef({term = ConcreteHeapAddress address}, _)}) ->
+            let cm = cilState.state.memory.ConcreteMemory
+            let executor = cm.VirtToPhys address
+            assert(executor <> null)
+            let executorType = executor.GetType()
+            let methodInfoProperty = executorType.GetProperty("MethodInfo", Reflection.instancePublicBindingFlags)
+            let methodInfo = methodInfoProperty.GetMethod.Invoke(executor, Array.empty) :?> MethodInfo
+            assert(methodInfo <> null)
+            let invokeMethod =
+                Reflection.createInvokeMethod methodInfo
+                |> Application.getMethod
+            let args = Some (List.map Some args)
+            Memory.InitFunctionFrame cilState.state invokeMethod None args
+            Instruction(0<offsets>, invokeMethod) |> cilState.PushToIp
+            List.singleton cilState
+        | _ -> internalfail $"ExecutorExecute: unexpected 'this' {thisOption}"
+
     member private x.InlineOrCall (method : Method) (args : term list) thisOption (cilState : cilState) k =
         x.InstantiateThisIfNeed cilState.state thisOption method
 
@@ -842,7 +906,13 @@ type ILInterpreter() as this =
                 ILInterpreter.FallThroughCall cilState
             cilState
 
-        if x.TryConcreteInvoke method args thisOption cilState then
+        if cilState.WebExploration && method.IsAspNetStart then
+            x.StartAspNet cilState args |> k
+        elif cilState.WebExploration && method.IsAspNetConfiguration then
+            x.ConfigureAspNet cilState thisOption |> k
+        elif cilState.WebExploration && method.IsExecutorExecute then
+            x.ExecutorExecute cilState thisOption args |> k
+        elif x.TryConcreteInvoke method args thisOption cilState then
             fallThroughCall cilState |> List.singleton |> k
         elif method.IsFSharpInternalCall then
             let typeAndMethodArgs = typeAndMethodArgs()
@@ -1049,11 +1119,13 @@ type ILInterpreter() as this =
             | Some (ConcreteDelegate info) ->
                 let mi = Application.getMethod info.methodInfo
                 // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
-                let this =
-                    match info.target with
-                    | NullRef _ -> this
-                    | target -> target
-                x.CommonCallVirt mi this args cilState
+                match info.target with
+                | NullRef _ ->
+                    assert(not mi.HasThis)
+                    x.CommonCall mi args None cilState id
+                | target ->
+                    assert mi.HasThis
+                    x.CommonCall mi args (Some target) cilState id
             | Some (CombinedDelegate delegates) ->
                 assert(List.length delegates > 1)
                 let argTypes = List.map TypeOf args
@@ -1473,10 +1545,11 @@ type ILInterpreter() as this =
 
     member private x.CommonThrow cilState error isRuntime =
         let codeLocations = cilState.CodeLocations
-        let stackTrace = List.map toString codeLocations |> join ","
+        let stackTrace = List.map toString codeLocations
+        Logger.trace $"Exception thrown {error}, StackTrace:\n{String.Join('\n', stackTrace)}"
         let ip = SearchingForHandler(None, List.empty, codeLocations, List.empty)
         cilState.SetCurrentIpSafe ip
-        cilState.SetException (Unhandled(error, isRuntime, stackTrace))
+        cilState.SetException (Unhandled(error, isRuntime, join "," stackTrace))
 
     member private x.Throw (cilState : cilState) =
         let error = cilState.Peek()

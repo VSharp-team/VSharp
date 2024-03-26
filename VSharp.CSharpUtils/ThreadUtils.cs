@@ -14,5 +14,12 @@ namespace VSharp.CSharpUtils
             task.RunSynchronously();
             return task;
         }
+
+        [Implements("System.Void System.Threading.Tasks.Task.Wait(this)")]
+        public static void TaskWait(Task task)
+        {
+            if (!task.IsCompleted)
+                throw new System.InvalidProgramException();
+        }
     }
 }
