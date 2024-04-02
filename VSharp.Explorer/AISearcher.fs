@@ -132,7 +132,11 @@ type internal AISearcher(oracle: Oracle, aiAgentTrainingOptions: Option<AIAgentT
             if aiAgentTrainingOptions.IsSome && stepsToPlay = stepsPlayed
             then None
             else
-                let stateId = oracle.Predict gameState.Value
+                let toPredict = 
+                    if stepsPlayed < stepsToSwitchToAI
+                    then gameState.Value
+                    else gameStateDelta
+                let stateId = oracle.Predict toPredict
                 afterFirstAIPeek <- true
                 let state = availableStates |> Seq.tryFind (fun s -> s.internalId = stateId)                
                 lastCollectedStatistics <- statistics
