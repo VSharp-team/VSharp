@@ -133,7 +133,7 @@ type internal AISearcher(oracle: Oracle, aiAgentTrainingOptions: Option<AIAgentT
             then None
             else
                 let toPredict = 
-                    if stepsPlayed < stepsToSwitchToAI
+                    if stepsPlayed = 0u<step>
                     then gameState.Value
                     else gameStateDelta
                 let stateId = oracle.Predict toPredict
