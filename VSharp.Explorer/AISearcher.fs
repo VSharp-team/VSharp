@@ -102,7 +102,9 @@ type internal AISearcher(oracle: Oracle, aiAgentTrainingOptions: Option<AIAgentT
         let removed = availableStates.Remove state
         assert removed       
         for bb in state._history do bb.Key.AssociatedStates.Remove state |> ignore
-        
+      
+    let inTrainMode = aiAgentTrainingOptions.IsSome
+    
     let pick selector =
         if useDefaultSearcher
         then
@@ -129,13 +131,13 @@ type internal AISearcher(oracle: Oracle, aiAgentTrainingOptions: Option<AIAgentT
                 let reward = computeReward lastCollectedStatistics statistics
                 oracle.Feedback (Feedback.MoveReward reward)
             Application.applicationGraphDelta.Clear()
-            if aiAgentTrainingOptions.IsSome && stepsToPlay = stepsPlayed
+            if inTrainMode && stepsToPlay = stepsPlayed
             then None
             else
                 let toPredict = 
-                    if stepsPlayed = 0u<step>
-                    then gameState.Value
-                    else gameStateDelta
+                    if inTrainMode && stepsPlayed > 0u<step>
+                    then gameStateDelta
+                    else gameState.Value
                 let stateId = oracle.Predict toPredict
                 afterFirstAIPeek <- true
                 let state = availableStates |> Seq.tryFind (fun s -> s.internalId = stateId)                
