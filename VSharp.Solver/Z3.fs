@@ -774,12 +774,12 @@ module internal Z3 =
             | Slice(term, cuts) ->
                 let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
                 x.EncodeTerm term, slices
-            | Ite {ite = ite; elseValue = e} ->
+            | Ite {branches = ite; elseValue = e} ->
                 let extractTerm slice =
                     match slice.term with
                     | Slice(t, _) -> t
                     | _ -> slice
-                let encodedTerm = {ite = List.map (fun (g, s) -> (g, extractTerm s)) ite; elseValue = extractTerm e} |> x.EncodeIte
+                let encodedTerm = {branches = List.map (fun (g, s) -> (g, extractTerm s)) ite; elseValue = extractTerm e} |> x.EncodeIte
 
                 let extractCuts slice =
                     match slice.term with
@@ -793,9 +793,9 @@ module internal Z3 =
                     |> List.transpose // get ordered parts
                     |> List.map (List.map2 (fun (g, _) p -> (g, p)) ite) // guard slice parts + add else value
                 let encodeCutChar proj itePart elsePart =
-                    let ite = itePart |> List.map (fun (g, p) -> (g, proj p))
+                    let branches = itePart |> List.map (fun (g, p) -> (g, proj p))
                     let elseChar = proj elsePart
-                    {ite = ite; elseValue = elseChar} |> x.EncodeIte
+                    {branches = branches; elseValue = elseChar} |> x.EncodeIte
                 let encodeSlicePart itePart elsePart =
                     let encodedStarts = encodeCutChar fst3 itePart elsePart
                     let encodedEnds = encodeCutChar snd3 itePart elsePart
@@ -867,7 +867,7 @@ module internal Z3 =
                 let {expr = value; assumptions = valueAssumptions} = x.EncodeTerm v
                 let assumptions = assumptions @ guardAssumptions @ valueAssumptions
                 (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
-            Cps.List.foldrk constructUnion (elseValue, []) iteType.ite (fun (ite, assumptions) ->
+            Cps.List.foldrk constructUnion (elseValue, []) iteType.branches (fun (ite, assumptions) ->
             {expr = ite; assumptions = assumptions})
             
         member private x.EncodeExpression term op args typ =
@@ -1353,19 +1353,19 @@ module internal Z3 =
 
         member private x.FillRegion state (regionSort : regionSort) constantValue =
             match regionSort with
-            | HeapFieldSort field -> Memory.FillClassFieldsRegion state field constantValue
-            | StaticFieldSort typ -> Memory.FillStaticsRegion state typ constantValue
-            | ArrayIndexSort arrayType -> Memory.FillArrayRegion state arrayType constantValue
-            | ArrayLengthSort arrayType -> Memory.FillLengthRegion state arrayType constantValue
-            | ArrayLowerBoundSort arrayType -> Memory.FillLowerBoundRegion state arrayType constantValue
-            | StackBufferSort key -> Memory.FillStackBufferRegion state key constantValue
-            | BoxedSort typ -> Memory.FillBoxedRegion state typ constantValue
+            | HeapFieldSort field -> FillClassFieldsRegion state field constantValue
+            | StaticFieldSort typ -> FillStaticsRegion state typ constantValue
+            | ArrayIndexSort arrayType -> FillArrayRegion state arrayType constantValue
+            | ArrayLengthSort arrayType -> FillLengthRegion state arrayType constantValue
+            | ArrayLowerBoundSort arrayType -> FillLowerBoundRegion state arrayType constantValue
+            | StackBufferSort key -> FillStackBufferRegion state key constantValue
+            | BoxedSort typ -> FillBoxedRegion state typ constantValue
 
         member x.MkModel (m : Model) =
             try
                 let stackEntries = Dictionary<stackKey, term ref>()
                 // TODO: compose memory region with concrete memory
-                let state = Memory.EmptyCompleteState()
+                let state = EmptyCompleteState()
                 state.memory.MemoryMode <- SymbolicMode
                 let primitiveModel = Dictionary<ISymbolicConstantSource, term ref>()
 
@@ -1399,7 +1399,7 @@ module internal Z3 =
                     let term = kvp.Value.Value
                     let typ = TypeOf term
                     (key, Some term, typ))
-                Memory.NewStackFrame state None (List.ofSeq frame)
+                NewStackFrame state None (List.ofSeq frame)
 
                 let stores = Dictionary<address * path, term * regionSort>()
                 let defaultValues = Dictionary<regionSort, term ref>()
@@ -1407,7 +1407,7 @@ module internal Z3 =
                 let store region (path : path) key value =
                     let address = x.DecodeMemoryKey region key
                     if path.IsEmpty then
-                        let states = Memory.Write state (Ref address) value
+                        let states = Write state (Ref address) value
                         assert(states.Length = 1 && states[0] = state)
                     else stores[(address, path)] <- value, region
 
@@ -1452,7 +1452,7 @@ module internal Z3 =
                                 let address, ptrPart = path.ToAddress address
                                 assert(Option.isNone ptrPart)
                                 // Secondly, setting 'true' value for concrete address from predicate
-                                let states = Memory.Write state (Ref address) (MakeBool true)
+                                let states = Write state (Ref address) (MakeBool true)
                                 assert(states.Length = 1 && states[0] = state)
                             else internalfail $"Unexpected quantifier expression in model: {arr}"
                         else internalfail $"Unexpected array expression in model: {arr}"
@@ -1469,7 +1469,7 @@ module internal Z3 =
                             let term =
                                 let exists, term = defaultValues.TryGetValue regionSort
                                 if exists then term.Value |> ref
-                                else Memory.DefaultOf regionSort.TypeOfLocation |> ref
+                                else DefaultOf regionSort.TypeOfLocation |> ref
                             complexStores.Add(address, term)
                             term
                     term.Value <- x.WriteByPath term.Value value path.parts

@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open Propositional
 open TypeUtils
 
 module internal Merging =
@@ -10,48 +11,49 @@ module internal Merging =
         | GuardedValues(gs, _) -> disjunction gs
         | _ -> True()
 
-    let private boolMerge iteType =
-        let disjointIte, elseGuard = List.mapFold (fun disjG (g, v) -> (g &&& disjG , v) , !!g &&& disjG) (True()) iteType.ite
-        List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (elseGuard &&& iteType.elseValue) disjointIte
+    let private boolMerge (iteType : iteType) =
+        let gvs = iteType.ToDisjunctiveGvs()
+        List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (False()) gvs
 
     let rec private structMerge typ iteType =
-        let iteFs = iteType.ite |> List.map (fun (g, v) -> (g, fieldsOf v))
+        let branchesFs = iteType.branches |> List.map (fun (g, v) -> (g, fieldsOf v))
         let e = iteType.elseValue |> fieldsOf
-        let union ite e = {ite = ite; elseValue = e}
-        let mergedFields = PersistentDict.merge iteFs e union merge
+        let union branches e = {branches = branches; elseValue = e}
+        let mergedFields = PersistentDict.merge branchesFs e union merge
         Struct mergedFields typ
 
     and private simplify iteType =
-        let folder gv (accIte, accElse) =
+        let folder gv (accBranches, accElse) =
             match gv with
-            | True, IteT ite -> let simplified = simplify ite in simplified.ite, simplified.elseValue
+            | True, IteT ite -> let simplified = simplify ite in simplified.branches, simplified.elseValue
             | True, t -> [], t
-            | False, _ -> accIte, accElse
+            | False, _ -> accBranches, accElse
             | g, IteT ite ->
-                let guarded = List.map (fun (g', v) -> (g &&& g', v)) ite.ite
-                let simplified = simplify {ite with ite = guarded}
-                simplified.ite @ (g, simplified.elseValue)::accIte, accElse
-            | gv -> gv::accIte, accElse
-        let accIte, accElse =
+                let guarded = List.map (fun (g', v) -> (g &&& g', v)) ite.branches
+                let simplified = simplify {ite with branches = guarded}
+                simplified.branches @ (g, simplified.elseValue)::accBranches, accElse
+            | gv -> gv::accBranches, accElse
+        let accBranches, accElse =
             match iteType.elseValue with
             | IteT t ->
                 let simplified = simplify t
-                simplified.ite, simplified.elseValue
+                simplified.branches, simplified.elseValue
             | _ -> [], iteType.elseValue
-        let ite, e = List.foldBack folder iteType.ite (accIte, accElse)
-        {ite = ite; elseValue = e}
+        let ite, e = List.foldBack folder iteType.branches (accBranches, accElse)
+        {branches = ite; elseValue = e}
 
     and private compress = function
         // | [(_, v1); (_, v2)] as gvs when typeOf v1 = typeOf v2 -> typedMerge (typeOf v1) gvs
         // | [_; _] as gvs -> gvs
-        | {ite = []; elseValue = e} -> e
-        | {ite = _; elseValue =  {term = Struct(_, t)}} as iteType -> structMerge t iteType
-        | {ite = _; elseValue = v} as iteType when isBool v -> boolMerge iteType
+        | {branches = []; elseValue = e} -> e
+        | {branches = _; elseValue =  {term = Struct(_, t)}} as iteType -> structMerge t iteType
+        | {branches = _; elseValue = v} as iteType when isBool v -> boolMerge iteType
         | iteType -> Ite iteType
 
     and merge ite : term =
         match compress (simplify ite) with
-        | IteT {ite = []; elseValue = e} -> e
+        | IteT {branches = []; elseValue = e} -> e
+        | IteT {branches = branches; elseValue = e} when List.forall (fun (g, v) -> v = e) branches -> e
         | IteT iteType -> Ite iteType
         | t -> t
 
@@ -64,14 +66,14 @@ module internal Merging =
         | _, False -> u
         | False, _
         | _, True -> v
-        | _ -> merge {ite = [(g, u)]; elseValue = v}
+        | _ -> merge {branches = [(g, u)]; elseValue = v}
 
 // ------------------------------------ Mapping non-term sequences ------------------------------------
 
     let commonGuardedMapk mapper iteType merge k =
-        Cps.List.mapk (fun (g, v) k -> mapper v (fun t -> k (g, t))) iteType.ite (fun ite' ->
+        Cps.List.mapk (fun (g, v) k -> mapper v (fun t -> k (g, t))) iteType.branches (fun branches' ->
         mapper iteType.elseValue (fun e' ->
-        {ite = ite'; elseValue = e';} |> merge |> k))
+        {branches = branches'; elseValue = e';} |> merge |> k))
 
     let guardedMap mapper iteType = commonGuardedMapk (Cps.ret mapper) iteType merge id
     let guardedMapWithoutMerge mapper iteType = commonGuardedMapk (Cps.ret mapper) iteType id id
@@ -88,13 +90,13 @@ module internal Merging =
     let guardedApply f term = guardedApplyk (Cps.ret f) term id
 
     let commonGuardedMapkWithPC pc mapper iteType merge k =
-        let foldFunc (g, v) ite k =
+        let chooser (g, v) k =
             let pc' = PC.add pc g
-            if PC.isFalse pc' then k ite
-            else mapper v (fun t -> k ((g, t) :: ite))
-        Cps.List.foldrk foldFunc [] iteType.ite (fun ite' ->
+            if PC.isFalse pc' then k None
+            else mapper v (fun t -> k (Some (g, t)))
+        Cps.List.choosek chooser iteType.branches (fun branches' ->
         mapper iteType.elseValue (fun e' ->
-        {ite = ite'; elseValue = e'} |> merge |> k))
+        {branches = branches'; elseValue = e'} |> merge |> k))
 
     let commonGuardedApplykWithPC pc f term merge k =
         match term.term with
@@ -105,7 +107,7 @@ module internal Merging =
 
     let unguard = function
         | IteT iteType -> iteType
-        | t -> {ite = []; elseValue = t}
+        | t -> {branches = []; elseValue = t}
     let unguardGvs = function
         | GvsT gvs -> gvs
         | t -> [(True(), t)]
@@ -139,9 +141,9 @@ module internal Merging =
                 let g' = gacc &&& g
                 guardedCartesianProductRecK mapper ctor g' (xsacc @ [v]) xs k
             mapper x (fun iteType ->
-            Cps.List.mapk cartesian iteType.ite (fun iteCartesian ->
+            Cps.List.mapk cartesian iteType.branches (fun branchesCartesian ->
             cartesian (True(), iteType.elseValue) (fun e' ->
-            (List.concat iteCartesian) @ e' |> k)))
+            (List.concat branchesCartesian) @ e' |> k)))
         | [] -> List.singleton (gacc, ctor xsacc) |> k
 
     let guardedCartesianProductK mapper terms ctor k =

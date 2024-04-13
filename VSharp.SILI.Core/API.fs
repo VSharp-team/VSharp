@@ -40,7 +40,7 @@ module API =
     let GuardedApplyExpression term f = Merging.guardedApply f term
     let GuardedStatedApplyStatementK state term f k = Branching.guardedStatedApplyk f state term k
     let GuardedStatedApplyk f state term mergeStates k =
-        Branching.commonGuardedStatedApplyk f state term mergeStates k
+        Branching.commonGuardedStatedApplyk f state term false mergeStates k
 
     let ReleaseBranches() = Branching.branchesReleased <- true
     let AcquireBranches() = Branching.branchesReleased <- false
@@ -81,6 +81,10 @@ module API =
         let Ptr baseAddress typ offset = Ptr baseAddress typ offset
         let HeapRef address baseType = HeapRef address baseType
         let Ite iteType = Ite iteType
+        let ConditionFilter term condition =
+            match term.term with
+            | Ite iteType -> iteType.ConditionFilter condition |> Merging.merge
+            | _ -> term
 
         let True() = True()
         let False() = False()
@@ -490,10 +494,10 @@ module API =
             | HeapRef _
             | Ptr _
             | Ref _ -> ReferenceField state term field |> state.memory.Read reporter
-                | Struct _ -> state.memory.ReadStruct reporter term field
-                | Combined _ -> state.memory.ReadFieldUnsafe reporter term field
+            | Struct _ -> state.memory.ReadStruct reporter term field
+            | Combined _ -> state.memory.ReadFieldUnsafe reporter term field
             | Ite iteType ->
-                GenericIteType.filter (fun v -> True() <> IsBadRef v) iteType
+                iteType.filter (fun v -> True() <> IsBadRef v)
                 |> Merging.guardedMap (fun t -> CommonReadField reporter state t field)
             | _ -> internalfail $"Reading field of {term}"
 
@@ -545,10 +549,14 @@ module API =
             Branching.guardedStatedMap write state reference
 
         let WriteUnsafe (reporter : IErrorReporter) state reference value =
+            let filteredRef =
+                match reference.term with
+                | Ite iteType -> iteType.filter (fun v -> True() <> IsBadRef v) |> Merging.merge
+                | _ -> reference
             let write state reference =
                 reporter.ConfigureState state
                 state.memory.Write reporter reference value
-            Branching.guardedStatedMap write state reference
+            Branching.disjunctiveGuardedStatedMap write state filteredRef
 
         let WriteStructField structure field value = writeStruct structure field value
 

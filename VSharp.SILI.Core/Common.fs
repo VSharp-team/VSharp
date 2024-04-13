@@ -29,7 +29,7 @@ module internal Common =
         | Concrete(xval, typeofX) -> concrete x xval typeofX |> matched
         | GuardedValues(guards, values) ->
             Cps.List.mapk (fun term matched -> simplifyGenericUnary name term matched concrete unmatched) values (fun values' ->
-            (List.zip guards values') |> GenericIteType.IteFromGvs |> Merging.merge |> matched)
+            (List.zip guards values') |> iteType.FromGvs |> Merging.merge |> matched)
         | _ -> unmatched x matched
 
     let rec simplifyGenericBinary _ x y matched concrete unmatched repeat =
@@ -38,15 +38,15 @@ module internal Common =
         | Gvs gvsx, Gvs gvsy ->
             let compose (gx, vx) (gy, vy) matched = repeat vx vy (fun xy -> (gx &&& gy, xy) |> matched)
             let join (gx, vx) k = Cps.List.mapk (compose (gx, vx)) gvsy k
-            Cps.List.mapk join gvsx (List.concat >> GenericIteType.IteFromGvs >> Merging.merge >> matched)
-        | Ite {ite = ite; elseValue = e}, _ ->
-            Cps.List.mapk (fun (g, x) matched -> repeat x y (fun x' -> matched (g, x'))) ite (fun ite' ->
+            Cps.List.mapk join gvsx (List.concat >> iteType.FromGvs >> Merging.merge >> matched)
+        | Ite {branches = branches; elseValue = e}, _ ->
+            Cps.List.mapk (fun (g, x) matched -> repeat x y (fun x' -> matched (g, x'))) branches (fun branches' ->
             repeat e y (fun ey ->
-            {ite = ite'; elseValue = ey} |> Merging.merge |> matched))
-        | _, Ite {ite = ite; elseValue = e} ->
-            Cps.List.mapk (fun (g, y) matched -> repeat x y (fun x' -> matched (g, x'))) ite (fun ite' ->
+            {branches = branches'; elseValue = ey} |> Merging.merge |> matched))
+        | _, Ite {branches = branches; elseValue = e} ->
+            Cps.List.mapk (fun (g, y) matched -> repeat x y (fun x' -> matched (g, x'))) branches (fun branches' ->
             repeat x e (fun xe ->
-            {ite = ite'; elseValue = xe} |> Merging.merge |> matched))
+            {branches = branches'; elseValue = xe} |> Merging.merge |> matched))
         | _ -> unmatched x y matched
 
 // ---------------------------------------- Branching ---------------------------------------

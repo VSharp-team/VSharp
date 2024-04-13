@@ -422,18 +422,18 @@ module internal InstructionsSet =
         | Ref _ when isValueType && implements.Value ->
             cilState.Push this
             cilState.PushMany args
-            [cilState]
+            List.singleton cilState
         | Ref _ when isValueType ->
             let thisStruct = cilState.Read this
             let heapRef = Memory.BoxValueType state thisStruct
             cilState.Push heapRef
             cilState.PushMany args
-            [cilState]
+            List.singleton cilState
         | Ref _ ->
             let this = cilState.Read this
             cilState.Push this
             cilState.PushMany args
-            [cilState]
+            List.singleton  cilState
         | Ptr(pointerBase, sightType, offset) ->
             match TryPtrToRef state pointerBase sightType offset with
             | Some(PrimitiveStackLocation _ as address) ->
@@ -443,10 +443,10 @@ module internal InstructionsSet =
                 // Inconsistent pointer, call will fork and filter this state
                 cilState.Push this
                 cilState.PushMany args
-                [cilState]
-        | Ite {ite = ite; elseValue = e} ->
+                List.singleton cilState
+        | Ite {branches = branches; elseValue = e} ->
             // TODO fork on args if they are ITEs
-            match ite with
+            match branches with
             | [(g, v)] ->
                 cilState.StatedConditionalExecutionCIL
                     (fun state k -> k (g, state))
@@ -457,7 +457,7 @@ module internal InstructionsSet =
                 cilState.StatedConditionalExecutionCIL
                     (fun state k -> k (g, state))
                     (fun cilState k -> constrainedImpl v method args cilState |> k)
-                    (fun cilState k -> constrainedImpl (Ite {ite = xs; elseValue = e}) method args cilState |> k)
+                    (fun cilState k -> constrainedImpl (Ite {branches = xs; elseValue = e}) method args cilState |> k)
                     id
             | _ -> __unreachable__()
         | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {this}"

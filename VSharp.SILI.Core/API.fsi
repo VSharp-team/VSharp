@@ -51,8 +51,8 @@ module API =
         val Ref : address -> term
         val Ptr : pointerBase -> Type -> term -> term
         val HeapRef : heapAddress -> Type -> term
-        val  Ite : iteType -> term
-
+        val Ite : iteType -> term
+        val ConditionFilter : term -> term -> term
         val True : unit -> term
         val False : unit -> term
         val NullRef : Type -> term

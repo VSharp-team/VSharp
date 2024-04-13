@@ -421,7 +421,7 @@ module internal Memory =
             ensureConcreteType arrayType.elemType
             let mr = accessRegion lowerBounds arrayType lengthType
             let key = {address = address; index = dimension}
-            let mr' = MemoryRegion.write mr key value 
+            let mr' = MemoryRegion.write mr key value
             lowerBounds <- PersistentDict.add arrayType mr' lowerBounds
 
         let writeLengthSymbolic address dimension arrayType value =
@@ -506,21 +506,16 @@ module internal Memory =
             let substTerm = state.FillHoles
             let substType = state.SubstituteTypeVariables
             let substTime = state.ComposeTime
-            let composeOneRegion dicts k (mr' : memoryRegion<_, _>) =
-                list {
-                    let! g, dict = dicts
-                    let! g', mr =
-                        let mr =
-                            match PersistentDict.tryFind dict k with
-                            | Some mr -> mr
-                            | None -> MemoryRegion.empty mr'.typ
-                        MemoryRegion.compose mr mr' |> GenericIteType.mapValues (fun mr -> PersistentDict.add k mr dict) |> IteAsGvs
-                    return (g &&& g', mr)
-                }
+            let composeOneRegion dict k (mr' : memoryRegion<_, _>) =
+                let mr =
+                    match PersistentDict.tryFind dict k with
+                    | Some mr -> mr
+                    | None -> MemoryRegion.empty mr'.typ
+                let composed = MemoryRegion.compose mr mr'
+                PersistentDict.add k composed dict
             dict'
                 |> PersistentDict.map id (MemoryRegion.map substTerm substType substTime)
-                |> PersistentDict.fold composeOneRegion [(True(), dict)]
-                |> GenericIteType.IteFromGvs
+                |> PersistentDict.fold composeOneRegion dict
 
         let composeEvaluationStacksOf evaluationStack =
             EvaluationStack.map state.FillHoles evaluationStack
@@ -1006,9 +1001,9 @@ module internal Memory =
                 self.SliceTerm term startByte endByte pos stablePos |> List.singleton
             | Ite iteType, _ ->
                 let mapper term = self.CommonReadTermUnsafe reporter term startByte endByte pos stablePos sightType
-                let mappedIte = GenericIteType.mapValues mapper iteType
-                assert(List.forall (fun (_, list) -> List.length list = 1) mappedIte.ite && List.length mappedIte.elseValue = 1)
-                GenericIteType.mapValues List.head mappedIte |> Ite |> List.singleton
+                let mappedIte = iteType.mapValues mapper
+                assert(List.forall (fun (_, list) -> List.length list = 1) mappedIte.branches && List.length mappedIte.elseValue = 1)
+                mappedIte.mapValues List.head |> Merging.merge |> List.singleton
             | _ -> internalfailf $"readTermUnsafe: unexpected term {term}"
 
         member private self.ReadTermUnsafe reporter term startByte endByte sightType =
@@ -1261,9 +1256,10 @@ module internal Memory =
             | Ptr(baseAddress, _, offset) ->
                 let fieldOffset = Reflection.getFieldIdOffset fieldId |> makeNumber
                 Ptr baseAddress fieldId.typ (add offset fieldOffset)
-            | Ite gvs ->
+            | Ite iteType ->
+                let filtered = iteType.filter (fun t -> True() <> Pointers.isBadRef t)
                 let referenceField term = self.ReferenceField term fieldId
-                Merging.guardedMap referenceField gvs
+                Merging.guardedMap referenceField filtered
             | _ -> internalfailf $"Referencing field: expected reference, but got {reference}"
 
     // --------------------------- General reading ---------------------------
@@ -1278,8 +1274,8 @@ module internal Memory =
             | Ptr(baseAddress, sightType, offset) ->
                 self.ReadUnsafe reporter baseAddress offset sightType
             | Ite iteType ->
-                GenericIteType.filter (fun v -> True() <> Pointers.isBadRef v) iteType
-                |> Merging.guardedMap (self.Read reporter) 
+                iteType.filter (fun v -> True() <> Pointers.isBadRef v)
+                |> Merging.guardedMap (self.Read reporter)
             | _ when typeOf reference |> isNative ->
                 reporter.ReportFatalError "reading by detached pointer" (True()) |> ignore
                 Nop()
@@ -1886,8 +1882,8 @@ module internal Memory =
             | HeapRef({term = ConcreteHeapAddress address}, _) -> delegates[address] |> Some
             | HeapRef _ -> None
             | Ite iteType ->
-                let delegates = GenericIteType.choose self.ReadDelegate iteType
-                if delegates.ite.Length = iteType.ite.Length then delegates |> Merging.merge |> Some else None
+                let delegates = iteType.choose self.ReadDelegate
+                if delegates.branches.Length = iteType.branches.Length then Merging.merge delegates |> Some else None
             | _ -> internalfailf $"Reading delegate: expected heap reference, but got {reference}"
 
         member private self.AllocateDelegate (methodInfo : MethodInfo) target delegateType =
@@ -2083,13 +2079,13 @@ module internal Memory =
                 let key = x.key.Map substTerm substType substTime x.key.Region |> snd
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
-                let afters = MemoryRegion.compose before effect
+                let after = MemoryRegion.compose before effect
                 let read region =
                     assert(state.memory :? Memory)
                     let memory = state.memory :?> Memory
                     let inst typ region = memory.MakeSymbolicHeapRead x.picker key state.startingTime typ region
                     MemoryRegion.read region key (x.picker.isDefaultKey state) inst (fun _ _ -> __unreachable__())
-                afters |> GenericIteType.mapValues read |> Merging.merge
+                read after
 
     type arrayReading with
         interface IMemoryAccessConstantSource with
@@ -2100,18 +2096,18 @@ module internal Memory =
                 let substTime = state.ComposeTime
                 let key = x.key :> IHeapArrayKey
                 let key = key.Map substTerm substType substTime key.Region |> snd
-                let afters =
+                let after =
                     if not x.picker.isDefaultRegion then
                         let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                         let before = x.picker.extract state
                         MemoryRegion.compose before effect
-                    else { ite = []; elseValue = x.memoryObject}
+                    else x.memoryObject
                 let read region =
                     assert(state.memory :? Memory)
                     let memory = state.memory :?> Memory
                     let inst = memory.MakeArraySymbolicHeapRead x.picker key state.startingTime
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst state.memory.SpecializedReading
-                afters |> GenericIteType.mapValues read |> Merging.merge
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst memory.SpecializedReading
+                read after
 
     type state with
         static member MakeEmpty complete =

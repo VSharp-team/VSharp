@@ -104,16 +104,17 @@ module internal Propositional =
                                 simplifyConnective operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
                             gvs2 k)
                     gvs1
-                    (List.concat >> GenericIteType.IteFromGvs >> Ite >> k)
-            | Ite {ite = ite; elseValue = e}, _ ->
+                    (List.concat >> iteType.FromGvs >> Ite >> k)
+            | Ite {branches = branches; elseValue = e}, _ ->
                 Cps.List.mapk (fun (g, x) k ->
-                    simplifyConnective operation opposite stopValue ignoreValue x y (fun xy -> (g, xy) |> k)) ite (fun xys ->
-                    simplifyConnective operation opposite stopValue ignoreValue e y (fun ey ->
-                    {ite = xys; elseValue = ey } |> Ite |> k))
-            | _, Ite {ite = ite; elseValue = e} ->
-                Cps.List.mapk (fun (g, y) k -> simplifyConnective operation opposite stopValue ignoreValue x y (fun xy -> (g, xy) |> k)) ite (fun xys ->
-                    simplifyConnective operation opposite stopValue ignoreValue x e (fun xe ->
-                    {ite = xys; elseValue = xe} |> Ite |> k))
+                simplifyConnective operation opposite stopValue ignoreValue x y (fun xy -> (g, xy) |> k)) branches (fun xys ->
+                simplifyConnective operation opposite stopValue ignoreValue e y (fun ey ->
+                {branches = xys; elseValue = ey } |> Ite |> k))
+            | _, Ite {branches = branches; elseValue = e} ->
+                Cps.List.mapk (fun (g, y) k ->
+                simplifyConnective operation opposite stopValue ignoreValue x y (fun xy -> (g, xy) |> k)) branches (fun xys ->
+                simplifyConnective operation opposite stopValue ignoreValue x e (fun xe ->
+                {branches = xys; elseValue = xe} |> Ite |> k))
             | _ -> simplifyExt operation opposite stopValue ignoreValue x y k defaultCase
 
     and private simplifyExt op co stopValue ignoreValue x y matched unmatched =
@@ -207,10 +208,10 @@ module internal Propositional =
             | Negation x -> k x
             | Conjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalOr l bool |> k)
             | Disjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalAnd l bool |> k)
-            | Ite{ite = ite; elseValue = e} ->
-                Cps.List.mapk (fun (g, v) k -> simplifyNegation v (fun v' -> (g, v') |> k)) ite (fun ite' ->
-                    simplifyNegation e (fun e' ->
-                    {ite = ite'; elseValue = e'} |> Ite |> k))
+            | Ite {branches = branches; elseValue = e} ->
+                Cps.List.mapk (fun (g, v) k -> simplifyNegation v (fun v' -> (g, v') |> k)) branches (fun branches' ->
+                simplifyNegation e (fun e' ->
+                {branches = branches'; elseValue = e'} |> Ite |> k))
             | _ -> makeUnary OperationType.LogicalNot x bool |> k
 
     and private simplifyExtWithType op co stopValue ignoreValue _ x y matched unmatched =
@@ -313,3 +314,18 @@ module internal Propositional =
         | OperationType.Equal
         | OperationType.NotEqual -> true
         | _ -> false
+
+    type genericIteType<'a> with
+        member x.ToDisjunctiveIte() =
+            let disjointBranches, elseGuard = List.mapFold (fun disjG (g, v) -> (g &&& disjG , v) , (!!g) &&& disjG) (True()) x.branches
+            {x with branches = disjointBranches}, elseGuard
+        member x.ToDisjunctiveGvs() =
+            let disjointX, elseGuard = x.ToDisjunctiveIte()
+            disjointX.branches @ [(elseGuard, x.elseValue)]
+        member x.ConditionFilter condition =
+            let chooser (g, v) =
+                match g &&& condition with
+                | False -> None
+                | _ -> Some(g, v)
+            {x with branches = List.choose chooser x.branches}
+

@@ -189,7 +189,7 @@ type termNode =
                     toStringWithParentIndent indent guard (fun guardString ->
                     toStringWithParentIndent indent term (fun termString ->
                     $"| %s{guardString} ~> %s{termString}" |> k))
-                Cps.Seq.mapk guardedToString iteType.ite (fun guards ->
+                Cps.Seq.mapk guardedToString iteType.branches (fun guards ->
                 let elseValue = toStringWithParentIndent indent iteType.elseValue id
                 let elseString = $"| else: %s{elseValue}"
                 let printed = (guards @ [elseString]) |> join ("\n" + indent)
@@ -217,7 +217,24 @@ type termNode =
 
         toStr -1 "\t" x id
 and iteType = genericIteType<term>
-and genericIteType<'a> = {ite: (term * 'a) list; elseValue : 'a}
+and genericIteType<'a> = {branches: (term * 'a) list; elseValue : 'a}
+    with
+    static member FromGvs gvs =
+        if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
+        let branches, e = List.splitAt (List.length gvs - 1) gvs
+        {branches = branches; elseValue =  e |> List.head |> snd}
+    member x.mapValues mapper =
+        {branches = List.map (fun (g, v) -> (g, mapper v)) x.branches; elseValue = mapper x.elseValue}
+    member x.filter predicate =
+        if predicate x.elseValue then
+            {branches = List.filter (snd >> predicate) x.branches; elseValue = x.elseValue}
+        else
+            List.filter (snd >> predicate) x.branches |> genericIteType<'a>.FromGvs
+    member x.choose mapper =
+        let chooser (g, v) = Option.bind (fun w -> Some(g, w)) (mapper v)
+        match mapper x.elseValue with
+        | None -> List.choose chooser x.branches |> genericIteType<'a>.FromGvs
+        | Some e -> {branches = List.choose chooser x.branches; elseValue = e}
 and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type AddressType!
 
 and pointerBase =
@@ -315,24 +332,6 @@ module HashMap =
                 hashMap.Add(node, term)
                 term
     let clear() = hashMap.Clear()
-    
-module internal GenericIteType =
-    let IteFromGvs gvs =
-        if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
-        let ite, e = List.splitAt (List.length gvs - 1) gvs
-        {ite = ite; elseValue =  e |> List.head |> snd}
-    let mapValues mapper iteType =
-        {ite = List.map (fun (g, v) -> (g, mapper v)) iteType.ite; elseValue = mapper iteType.elseValue}
-    let filter predicate {ite = ite; elseValue = e} =
-        if predicate e then
-            {ite = List.filter (snd >> predicate) ite; elseValue = e}
-        else
-            List.filter (snd >> predicate) ite |> IteFromGvs
-    let rec choose mapper {ite = ite; elseValue = e} =
-        let chooser (g, v) = Option.bind (fun w -> Some(g, w)) (mapper v)
-        match mapper e with
-        | None -> List.choose chooser ite |> IteFromGvs
-        | Some e -> {ite = List.choose chooser ite; elseValue = e}
 
 [<AutoOpen>]
 module internal Terms =
@@ -362,7 +361,7 @@ module internal Terms =
     let Slice term slices = HashMap.addTerm (Slice(term, slices))
     let ConcreteHeapAddress (addr : concreteHeapAddress) = Concrete addr addressType
     let Ite iteType =
-        if List.isEmpty iteType.ite then internalfail "Empty and one-element unions are forbidden!"
+        if List.isEmpty iteType.branches then internalfail "Empty and one-element unions are forbidden!"
         HashMap.addTerm (Ite iteType)
     let zeroAddress() =
         Concrete VectorTime.zero addressType
@@ -375,7 +374,7 @@ module internal Terms =
         
     let True() =
         Concrete (box true) typeof<bool>
-    let IteAsGvs iteType = iteType.ite @ [(True(), iteType.elseValue)]
+    let IteAsGvs iteType = iteType.branches @ [(True(), iteType.elseValue)]
 
     let False() =
         Concrete (box false) typeof<bool>
@@ -435,16 +434,16 @@ module internal Terms =
         | Struct(fields, _) -> fields
         | term -> internalfail $"struct or class expected, {term} received"
 
-    let private typeOfIte (getType : 'a -> Type) iteType =
-        let types = GenericIteType.mapValues getType iteType
+    let private typeOfIte (getType : 'a -> Type) (iteType : iteType) =
+        let types = iteType.mapValues getType 
         match types with
-        | {ite = []; elseValue = _} -> __unreachable__()
-        | {ite = ite; elseValue = elset} ->
+        | {branches = []; elseValue = _} -> __unreachable__()
+        | {branches = branches; elseValue = elset} ->
             let allSame =
-                List.forall (snd >> (=) elset) ite
+                List.forall (snd >> (=) elset) branches
             if allSame then elset
             else
-                ite |> List.fold (fun acc (g, t) -> if t.IsAssignableTo acc then acc else t) elset
+                branches |> List.fold (fun acc (g, t) -> if t.IsAssignableTo acc then acc else t) elset
 
     let commonTypeOf getType term =
         match term.term with
@@ -504,20 +503,20 @@ module internal Terms =
     let rec isStruct term =
         match term.term with
         | Struct _ -> true
-        | Ite {ite = ite; elseValue = e} -> isStruct e && List.forall (snd >> isStruct) ite
+        | Ite {branches = branches; elseValue = e} -> isStruct e && List.forall (snd >> isStruct) branches
         | _ -> false
 
     let rec isReference term =
         match term.term with
         | HeapRef _
         | Ref _ -> true
-        | Ite {ite = ite; elseValue = e} -> isReference e && List.forall (snd >> isReference) ite
+        | Ite {branches = branches; elseValue = e} -> isReference e && List.forall (snd >> isReference) branches
         | _ -> false
 
     let rec isPtr term =
         match term.term with
         | Ptr _ -> true
-        | Ite {ite = ite; elseValue = e} -> isPtr e && List.forall (snd >> isPtr) ite
+        | Ite {branches = branches; elseValue = e} -> isPtr e && List.forall (snd >> isPtr) branches
         | _ -> false
 
     let rec isRefOrPtr term =
@@ -525,7 +524,7 @@ module internal Terms =
         | HeapRef _
         | Ref _
         | Ptr _ -> true
-        | Ite {ite = ite; elseValue = e} -> isRefOrPtr e && List.forall (snd >> isRefOrPtr) ite
+        | Ite {branches = branches; elseValue = e} -> isRefOrPtr e && List.forall (snd >> isRefOrPtr) branches
         | _ -> false
 
 
@@ -599,7 +598,7 @@ module internal Terms =
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t), _
         | Expression(_, _, t), _ -> makeCast term t targetType
-        | Ite {ite = ite; elseValue = e}, _ -> {ite = List.map (fun (g, v) -> (g, primitiveCast v targetType)) ite; elseValue =  primitiveCast e targetType} |> Ite
+        | Ite {branches = branches; elseValue = e}, _ -> {branches = List.map (fun (g, v) -> (g, primitiveCast v targetType)) branches; elseValue =  primitiveCast e targetType} |> Ite
         | _ -> __unreachable__()
 
     // Detached pointer is pointer, which is not fixed to any object
@@ -638,7 +637,7 @@ module internal Terms =
         | Constant _
         | Expression _ ->
             makeDetachedPtr ptr typeof<Void>
-        | Ite iteType -> GenericIteType.mapValues nativeToPointer iteType |> Ite
+        | Ite iteType -> iteType.mapValues nativeToPointer |> Ite
         | _ -> internalfail $"nativeToPointer: unexpected pointer {ptr}"
 
     and negate term =
@@ -671,7 +670,7 @@ module internal Terms =
         | _ -> None
 
     and (|GuardedValues|_|) = function // TODO: this could be ineffective (because of unzip)
-        | Ite {ite = ite; elseValue = e} -> Some(List.foldBack (fun (g, v) (gs, vs) -> (g::gs, v::vs)) ite ([True()], [e]))
+        | Ite {branches = branches; elseValue = e} -> Some(List.foldBack (fun (g, v) (gs, vs) -> (g::gs, v::vs)) branches ([True()], [e]))
         | _ -> None
 
     and (|UnaryMinus|_|) = function
@@ -1012,7 +1011,6 @@ module internal Terms =
             Expression Combine terms t
         let isSolid term typeOfTerm =
             typeOfTerm = t || isRefOrPtr term && (not t.IsValueType || t.IsByRef || isNative t || t.IsPrimitive)
-        // TODO: simplify in single union case
         let simplify p s e pos =
             let typ = typeOf p
             let termSize = lazy (internalSizeOf typ)
@@ -1023,7 +1021,6 @@ module internal Terms =
                     primitiveCast p t
                 else defaultCase()
             else defaultCase()
-        // TODO: in case of single union propagate guards and make union combine
         match terms with
         // 'ReportError' case
         | _ when List.isEmpty terms ->
@@ -1040,7 +1037,7 @@ module internal Terms =
                 simplify p s e pos
             | _ -> defaultCase()
         | [{term = Ite iteType}] ->
-            GenericIteType.mapValues (fun v -> combine [v] t) iteType |> Ite
+            iteType.mapValues (fun v -> combine [v] t) |> Ite
         | [nonSliceTerm] ->
             simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()
@@ -1050,7 +1047,7 @@ module internal Terms =
         | ConcreteHeapAddress addr -> addr
         | Constant(_, source, _) -> source.Time
         | HeapRef(address, _) -> timeOf address
-        | Ite {ite = ite; elseValue = e} -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) (timeOf e) ite
+        | Ite {branches = branches; elseValue = e} -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) (timeOf e) branches
         | _ -> internalfail $"timeOf : expected heap address, but got {address}"
 
     and compareTerms t1 t2 =

@@ -1377,23 +1377,23 @@ module internal Arithmetics =
                         | _ when b = zero ->
                             let pIsLessZero = p << zeroTerm
                             let pIsZero = p === zeroTerm
-                            Ite {ite = [(pIsZero, oneTerm); (pIsLessZero, infTerm)]; elseValue = zeroTerm}
+                            Ite {branches = [(pIsZero, oneTerm); (pIsLessZero, infTerm)]; elseValue = zeroTerm}
                         | _ when b = one -> oneTerm
                         | _ when isNaN b ->
                             // NOTE hack for .NET 5, msdn says: if any operand is NaN, result is NaN
                             let pIsZero = p === zeroTerm
-                            Ite {ite = [(pIsZero, oneTerm)]; elseValue = bConc}
+                            Ite {branches = [(pIsZero, oneTerm)]; elseValue = bConc}
                         | _ when isPosInf b ->
                             let pIsZero = p === zeroTerm
                             let pIsLessZero = p << zeroTerm
-                            Ite {ite = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm)]; elseValue = infTerm}
+                            Ite {branches = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm)]; elseValue = infTerm}
                         | _ when isNegInf b ->
                             let pIsZero = p === zeroTerm
                             let pIsLessZero = p << zeroTerm
                             if isIntegral t then
                                 let pIsGreaterZeroAndEven = (p %%% (Concrete 2 t)) === makeNumber 0
-                                Ite {ite = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm); (pIsGreaterZeroAndEven, infTerm)]; elseValue = makeNumber minusInf}
-                            else Ite {ite = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm)]; elseValue = infTerm}
+                                Ite {branches = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm); (pIsGreaterZeroAndEven, infTerm)]; elseValue = makeNumber minusInf}
+                            else Ite {branches = [(pIsZero, oneTerm); (pIsLessZero, zeroTerm)]; elseValue = infTerm}
                         | _ -> mkPowExpr [bConc; p] t
                     | term -> internalfailf $"expected number for power, but {term} got!")
             | Constant(_, _, t) | Expression(_, _, t) ->
@@ -1411,13 +1411,13 @@ module internal Arithmetics =
                             let bIsOne = b === oneTerm
                             let bIsMinusOne = b === minusOneTerm
                             let bIsBetweenMinOneOne = (minusOneTerm << b) &&& (b << oneTerm)
-                            Ite {ite = [(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan); (bIsBetweenMinOneOne, zeroTerm)]
+                            Ite {branches = [(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan); (bIsBetweenMinOneOne, zeroTerm)]
                                  elseValue = infTerm}
                         | p when isNegInf p ->
                             let bIsOne = b === oneTerm
                             let bIsMinusOne = b === minusOneTerm
                             let bIsBetweenMinOneOne = (minusOneTerm << b) &&& (b << oneTerm)
-                            Ite {ite = [(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan); (bIsBetweenMinOneOne, infTerm)]
+                            Ite {branches = [(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan); (bIsBetweenMinOneOne, infTerm)]
                                  elseValue =  zeroTerm}
                         | _ -> mkPowExpr [b; pConc] t
                     | Constant(_, _, t) | Expression(_, _, t) ->
@@ -1446,7 +1446,7 @@ module internal Arithmetics =
                         | y when isNan y -> yConc
                         | y when isInf y ->
                               let xIsInf = x === makeNumber inf
-                              Ite {ite = [(xIsInf, makeNumber Nan)]; elseValue =  exp}
+                              Ite {branches = [(xIsInf, makeNumber Nan)]; elseValue =  exp}
                         | _ -> exp
                     | term -> internalfailf $"expected number for x, but {term} got!")
             | Constant(_, _, t)
@@ -1462,7 +1462,7 @@ module internal Arithmetics =
                         | x when isNan x -> xConc
                         | x when isInf x ->
                             let yIsInf = y === makeNumber inf
-                            Ite {ite = [(yIsInf, makeNumber Nan)]; elseValue = exp}
+                            Ite {branches = [(yIsInf, makeNumber Nan)]; elseValue = exp}
                         | _ -> exp
                     | Constant(_, _, t)
                     | Expression(_, _, t) ->
