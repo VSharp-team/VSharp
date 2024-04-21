@@ -258,9 +258,10 @@ and IMemory =
     abstract WriteStackLocation : stackKey -> term -> unit
 
     abstract WriteClassField : term -> fieldId -> term -> unit
+    abstract GuardedWriteClassField : term option -> term -> fieldId -> term -> unit
 
-    abstract Write : IErrorReporter -> term -> term -> state
-
+    abstract Write : IErrorReporter -> term -> term -> unit
+    abstract WriteUnsafe : IErrorReporter -> term -> term -> unit
     abstract AllocateOnStack : stackKey -> term -> unit
 
     abstract AllocateClass : Type -> term

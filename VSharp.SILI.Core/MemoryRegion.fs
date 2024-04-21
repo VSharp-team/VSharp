@@ -734,9 +734,9 @@ module MemoryRegion =
         {typ = mr.typ; updates = UpdateTree.memset keysAndValues mr.updates; defaultValue = mr.defaultValue
          nextUpdateTime = [1 + Seq.length keysAndValues]; explicitAddresses =  mr.explicitAddresses}
 
-    let write mr key value =
+    let write mr guard key value =
         assert(validateWrite value mr.typ)
-        let utKey = {key = key; value = value; guard = None; time = mr.nextUpdateTime}
+        let utKey = {key = key; value = value; guard = guard; time = mr.nextUpdateTime}
         let updates = UpdateTree.write (key :> IMemoryKey<_,_>).Region utKey mr.updates valueIsConcreteHeapAddress
         {mr with updates = updates; nextUpdateTime = VectorTime.next mr.nextUpdateTime }
 

@@ -7,29 +7,23 @@ module internal Branching =
 
     let checkSat state = SolverInteraction.checkSatWithSubtyping state
 
-    let commonGuardedStatedApplyk f state term isDisjunctive mergeResults k =
+    let commonGuardedStatedApplyk f state term mergeResults k =
         match term.term with
         | Ite iteType ->
-            let refinedIteType, elseGuard = if isDisjunctive then iteType.ToDisjunctiveIte() else iteType, True()
             let filterUnsat (g, v) k =
                 let pc' = PC.add state.pc g
                 if PC.isFalse pc' then k None
-                else Some (state.pc, v) |> k
-            Cps.List.choosek filterUnsat refinedIteType.branches (fun pcs ->
-            let copyState (pc, v) k = f (state.Copy pc) v k
-            Cps.List.mapk copyState pcs (fun results ->
-                let pc' = PC.add state.pc elseGuard
-                state.pc <- pc'
-                f state refinedIteType.elseValue (fun r ->
-                r::results  |> mergeResults |> k)))
+                else Some (pc', v) |> k
+            Cps.List.choosek filterUnsat iteType.branches (fun filteredBranches ->
+            let statedApply (pc, v) k = f (state.Copy pc) v k
+            Cps.List.mapk statedApply filteredBranches (fun appliedBranches ->
+            f state iteType.elseValue (fun appliedElse ->
+            appliedBranches @ [appliedElse] |> mergeResults |> k
+            )))
         | _ -> f state term (List.singleton >> k)
-    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term false State.mergeResults k
+    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term State.mergeResults k
     let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
-
-    let guardedStatedMap mapper state term =
-        commonGuardedStatedApplyk (Cps.ret2 mapper) state term false id id
-    let disjunctiveGuardedStatedMap mapper state term =
-        commonGuardedStatedApplyk (Cps.ret2 mapper) state term true id id
+    let guardedStatedMap mapper state term = commonGuardedStatedApplyk (Cps.ret2 mapper) state term id id
 
     let mutable branchesReleased = false
 
@@ -41,10 +35,6 @@ module internal Branching =
             merge2Results thenResult elseResult |> k))
         conditionInvocation state (fun (condition, conditionState) ->
         let pc = state.pc
-        if PC.toSeq pc |> conjunction |> state.model.Eval |> isFalse then do
-            let wrong = PC.toSeq pc |> List.ofSeq |> List.filter (fun x -> x |> state.model.Eval |> isTrue |> not)
-            let p = PC.toSeq pc |> conjunction
-            internalfail "21"
         assert(PC.toSeq pc |> conjunction |> state.model.Eval |> isTrue)
         let typeStorage = conditionState.typeStorage
         let evaled = state.model.Eval condition

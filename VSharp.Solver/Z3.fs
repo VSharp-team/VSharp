@@ -1406,9 +1406,8 @@ module internal Z3 =
 
                 let store region (path : path) key value =
                     let address = x.DecodeMemoryKey region key
-                    if path.IsEmpty then
-                        let states = Write state (Ref address) value
-                        assert(states.Length = 1 && states[0] = state)
+                    if path.IsEmpty then do
+                        Write state (Ref address) value
                     else stores[(address, path)] <- value, region
 
                 for KeyValue(region, path as typ, constant) in encodingCache.regionConstants do
@@ -1452,8 +1451,7 @@ module internal Z3 =
                                 let address, ptrPart = path.ToAddress address
                                 assert(Option.isNone ptrPart)
                                 // Secondly, setting 'true' value for concrete address from predicate
-                                let states = Write state (Ref address) (MakeBool true)
-                                assert(states.Length = 1 && states[0] = state)
+                                Write state (Ref address) (MakeBool true)
                             else internalfail $"Unexpected quantifier expression in model: {arr}"
                         else internalfail $"Unexpected array expression in model: {arr}"
                     parseArray arr
@@ -1475,8 +1473,7 @@ module internal Z3 =
                     term.Value <- x.WriteByPath term.Value value path.parts
 
                 for KeyValue(address, value) in complexStores do
-                    let states = Memory.Write state (Ref address) value.Value
-                    assert(states.Length = 1 && states[0] = state)
+                    Write state (Ref address) value.Value
 
                 for KeyValue(regionSort, value) in defaultValues do
                     let constantValue = value.Value

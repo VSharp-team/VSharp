@@ -40,7 +40,7 @@ module API =
     let GuardedApplyExpression term f = Merging.guardedApply f term
     let GuardedStatedApplyStatementK state term f k = Branching.guardedStatedApplyk f state term k
     let GuardedStatedApplyk f state term mergeStates k =
-        Branching.commonGuardedStatedApplyk f state term false mergeStates k
+        Branching.commonGuardedStatedApplyk f state term mergeStates k
 
     let ReleaseBranches() = Branching.branchesReleased <- true
     let AcquireBranches() = Branching.branchesReleased <- false
@@ -81,10 +81,6 @@ module API =
         let Ptr baseAddress typ offset = Ptr baseAddress typ offset
         let HeapRef address baseType = HeapRef address baseType
         let Ite iteType = Ite iteType
-        let ConditionFilter term condition =
-            match term.term with
-            | Ite iteType -> iteType.ConditionFilter condition |> Merging.merge
-            | _ -> term
 
         let True() = True()
         let False() = False()
@@ -543,20 +539,12 @@ module API =
 
         let WriteStackLocation state location value = state.memory.WriteStackLocation location value
 
-        let Write state reference value =
-            let write state reference =
-                state.memory.Write emptyReporter (transformBoxedRef reference) value
-            Branching.guardedStatedMap write state reference
+        let Write state reference value = state.memory.Write emptyReporter reference value
+     
 
         let WriteUnsafe (reporter : IErrorReporter) state reference value =
-            let filteredRef =
-                match reference.term with
-                | Ite iteType -> iteType.filter (fun v -> True() <> IsBadRef v) |> Merging.merge
-                | _ -> reference
-            let write state reference =
-                reporter.ConfigureState state
-                state.memory.Write reporter reference value
-            Branching.disjunctiveGuardedStatedMap write state filteredRef
+            reporter.ConfigureState state
+            state.memory.WriteUnsafe reporter reference value
 
         let WriteStructField structure field value = writeStruct structure field value
 
@@ -565,13 +553,17 @@ module API =
             writeStruct structure field value
 
         let WriteClassFieldUnsafe (reporter : IErrorReporter) state reference field value =
-            let write state reference =
-                reporter.ConfigureState state
-                match reference.term with
-                | HeapRef(addr, _) -> state.memory.WriteClassField addr field value
+            let extractAddress ref =
+                match ref.term with
+                | HeapRef(addr, _) -> addr
                 | _ -> internalfail $"Writing field of class: expected reference, but got {reference}"
-                state
-            Branching.guardedStatedMap write state reference
+            reporter.ConfigureState state
+            match reference.term with
+            | Ite iteType ->
+                let filtered = iteType.filter (fun r -> Pointers.isBadRef r |> isTrue |> not)
+                filtered.ToDisjunctiveGvs()
+                |> List.iter (fun (g, r) -> state.memory.GuardedWriteClassField (Some g) (extractAddress r) field value)
+            | _ -> state.memory.WriteClassField (extractAddress reference) field value
 
         let WriteClassField state reference field value =
             WriteClassFieldUnsafe emptyReporter state reference field value

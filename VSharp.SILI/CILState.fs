@@ -443,19 +443,19 @@ module CilState =
             Memory.ReadArrayIndexUnsafe x.ErrorReporter.Value x.state term index valueType
 
         member x.Write ref value =
-            let states = Memory.WriteUnsafe x.ErrorReporter.Value x.state ref value
-            List.map x.ChangeState states
+            let state = Memory.WriteUnsafe x.ErrorReporter.Value x.state ref value
+            List.singleton x
 
         member x.WriteClassField ref field value =
-            let states = Memory.WriteClassFieldUnsafe x.ErrorReporter.Value x.state ref field value
-            List.map x.ChangeState states
+            let state = Memory.WriteClassFieldUnsafe x.ErrorReporter.Value x.state ref field value
+            List.singleton x
 
         member x.WriteStructField term field value =
             Memory.WriteStructFieldUnsafe x.ErrorReporter.Value x.state term field value
 
         member x.WriteIndex term index value valueType =
-            let states = Memory.WriteArrayIndexUnsafe x.ErrorReporter.Value x.state term index value valueType
-            List.map x.ChangeState states
+            let state = Memory.WriteArrayIndexUnsafe x.ErrorReporter.Value x.state term index value valueType
+            List.singleton x
 
         // -------------------------- Branching --------------------------
 

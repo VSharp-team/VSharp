@@ -210,8 +210,8 @@ module internal InstructionsSet =
            | Some this when argumentIndex = 0 -> this
            | Some _ -> getArgTerm (argumentIndex - 1) m
         let value = cilState.Pop()
-        let states = Memory.Write cilState.state argTerm value
-        states |> List.map cilState.ChangeState
+        let state = Memory.Write cilState.state argTerm value
+        List.singleton cilState
 
     let brcommon condTransform (m : Method) (offset : offset) (cilState : cilState) =
         let cond = cilState.Pop()
@@ -358,8 +358,8 @@ module internal InstructionsSet =
     let initobj (m : Method) offset (cilState : cilState) =
         let targetAddress = cilState.Pop()
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Initobj.Size)
-        let states = Memory.Write cilState.state targetAddress (Memory.DefaultOf typ)
-        List.map cilState.ChangeState states
+        let state = Memory.Write cilState.state targetAddress (Memory.DefaultOf typ)
+        List.singleton cilState
 
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
 
@@ -653,8 +653,7 @@ type ILInterpreter() as this =
             let thisType = TypeOfLocation this
             if Types.IsValueType thisType && (method :> IMethod).IsConstructor then
                 let newThis = Memory.DefaultOf thisType
-                let states = Memory.Write state this newThis
-                assert(List.length states = 1 && LanguagePrimitives.PhysicalEquality state (List.head states))
+                Memory.Write state this newThis |> ignore
         | None -> ()
 
     member private x.IsArrayGetOrSet (method : Method) =
@@ -828,8 +827,7 @@ type ILInterpreter() as this =
                             match thisOption, thisObj with
                             | Some thisRef, Some thisObj ->
                                 let structTerm = Memory.ObjectToTerm state thisObj declaringType
-                                let states = Memory.Write state thisRef structTerm
-                                assert(List.length states = 1 && List.head states = state)
+                                Memory.Write state thisRef structTerm |> ignore
                             | _ -> __unreachable__()
                     with :? TargetInvocationException as e ->
                         let isRuntime = method.IsRuntimeException
@@ -872,7 +870,6 @@ type ILInterpreter() as this =
             | _ -> __unreachable__()
         let bodyForModel = Memory.AllocateString " " modelState
         let modelStates = Memory.Write modelState bodyArgRef bodyForModel
-        assert(List.length modelStates = 1 && modelStates[0] = modelState)
         Instruction(0<offsets>, method) |> cilState.PushToIp
         List.singleton cilState
 
@@ -1192,6 +1189,7 @@ type ILInterpreter() as this =
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         let call (cilState : cilState) k =
             if ancestorMethod.IsVirtual && not ancestorMethod.IsFinal then
+                // TODO if this is ITE, it's guard will be propogated in pc. this is error prone, need new model
                 cilState.GuardedApplyCIL this callVirtual k
             else
                 let actualThis = Types.Cast this ancestorMethod.ReflectedType

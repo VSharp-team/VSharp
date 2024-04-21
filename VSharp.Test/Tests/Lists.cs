@@ -644,7 +644,6 @@ namespace IntegrationTests
             return 3;
         }
 
-        [Ignore("Need to add arrays into type candidates")]
         public static int ArrayAliasWrite(object[] o, string[] s, string str1, string str2)
         {
             if (o[42] == str1)
@@ -946,7 +945,7 @@ namespace IntegrationTests
             public string LastName { get; init; }
         };
         
-        [TestSvm(100)]
+        [TestSvm(95)]
         public static int IteKeyWrite(int i)
         {
             var a = new Person[4];

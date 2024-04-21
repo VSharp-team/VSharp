@@ -35,9 +35,7 @@ module internal Merging =
             | gv -> gv::accBranches, accElse
         let accBranches, accElse =
             match iteType.elseValue with
-            | IteT t ->
-                let simplified = simplify t
-                simplified.branches, simplified.elseValue
+            | IteT t -> let simplified = simplify t in simplified.branches, simplified.elseValue
             | _ -> [], iteType.elseValue
         let ite, e = List.foldBack folder iteType.branches (accBranches, accElse)
         {branches = ite; elseValue = e}

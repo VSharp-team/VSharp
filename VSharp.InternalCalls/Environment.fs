@@ -36,8 +36,7 @@ module internal Environment =
         let dir = Memory.AllocateDefaultClass state t
         let fields = Reflection.fieldsOf false t
         let nameField = fields |> Array.find (fun (f, _) -> f.name = "_name") |> fst
-        let states = Memory.WriteClassField state dir nameField name
-        assert(List.length states = 1)
+        Memory.WriteClassField state dir nameField name
         dir
 
     let FileExists (_ : state) (args : term list) =
