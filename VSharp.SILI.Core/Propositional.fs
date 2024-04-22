@@ -276,8 +276,7 @@ module internal Propositional =
                 | _ -> __unreachable__()
             let simplifiedDisjunctions = List.map filterDisjunction disjunctions
             conjunction (List.append literals simplifiedDisjunctions)
-        | _ -> res
-        )
+        | _ -> res)
 
     let lazyConjunction xs =
         Cps.Seq.foldlk lazyAnd (True()) xs id
@@ -317,7 +316,7 @@ module internal Propositional =
 
     type genericIteType<'a> with
         member x.ToDisjunctiveIte() =
-            let disjointBranches, elseGuard = List.mapFold (fun disjG (g, v) -> (g &&& disjG , v) , (!!g) &&& disjG) (True()) x.branches
+            let disjointBranches, elseGuard = List.mapFold (fun disjG (g, v) -> (g &&& disjG, v) , (!!g) &&& disjG) (True()) x.branches
             {x with branches = disjointBranches}, elseGuard
         member x.ToDisjunctiveGvs() =
             let disjointX, elseGuard = x.ToDisjunctiveIte()
@@ -328,4 +327,3 @@ module internal Propositional =
                 | False -> None
                 | _ -> Some(g, v)
             {x with branches = List.choose chooser x.branches}
-

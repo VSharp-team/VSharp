@@ -35,7 +35,6 @@
 
     <ItemGroup>
       <Folder Include="GeneratedTests" Condition="Exists('GeneratedTests')" />
-      <Folder Include="GeneratedTests\" />
     </ItemGroup>
 
 </Project>

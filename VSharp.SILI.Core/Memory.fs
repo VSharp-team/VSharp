@@ -308,7 +308,7 @@ module internal Memory =
             Ref (BoxedLocation(address, typ))
         | Ite iteType -> Merging.guardedMap heapReferenceToBoxReference iteType
         | _ -> internalfailf $"Unboxing: expected heap reference, but got {reference}"
-    let private transformBoxedRef ref =
+    let transformBoxedRef ref =
         match ref.term with
         | HeapRef _ -> heapReferenceToBoxReference ref
         | _ -> ref
@@ -1503,7 +1503,7 @@ module internal Memory =
             | StructField(address, field) ->
                 let oldStruct = self.ReadSafe reporter address
                 let updatedStruct = guardedWriteStruct guard oldStruct field value
-                self.WriteSafe reporter None address updatedStruct // is guard needed?
+                self.WriteSafe reporter None address updatedStruct
             // TODO: need concrete memory for BoxedLocation?
             | BoxedLocation(address, _) -> self.WriteBoxedLocation guard address value
             | StackBufferIndex(key, index) -> writeStackBuffer key guard index value
@@ -1760,8 +1760,9 @@ module internal Memory =
             if not currentMethod.IsStaticConstructor then
                 concreteMemory.StaticFieldChanged field
 
-        member private self.CommonWrite (reporter : IErrorReporter) isSafe guard reference value =
-            let transformed = if isSafe then transformBoxedRef reference else reference
+        member private self.CommonWrite (reporter : IErrorReporter) guard reference value =
+            assert(if Option.isSome guard then isTrue guard.Value |> not else true)
+            let transformed = transformBoxedRef reference
             match transformed.term with
             | Ref address -> self.WriteSafe reporter guard address value
             | DetachedPtr _ -> reporter.ReportFatalError "writing by detached pointer" (True()) |> ignore
@@ -1771,7 +1772,7 @@ module internal Memory =
             | Ite iteType ->
                 let filtered = iteType.filter(fun r ->  Pointers.isBadRef r |> isTrue |> not)
                 filtered.ToDisjunctiveGvs()
-                |> List.iter (fun (g, r) -> self.CommonWrite reporter isSafe (Some g) r value)
+                |> List.iter (fun (g, r) -> self.CommonWrite reporter (Some g) r value)
             | _ -> internalfail $"Writing: expected reference, but got {reference}"
 
         // ------------------------------- Allocation -------------------------------
@@ -2088,8 +2089,7 @@ module internal Memory =
             member self.RemoveDelegate sourceRef toRemoveRef typ = self.RemoveDelegate sourceRef toRemoveRef typ
             member self.StringArrayInfo stringAddress length = self.StringArrayInfo stringAddress length
             member self.TypeOfHeapLocation address = self.TypeOfHeapLocation address
-            member self.Write reporter reference value = self.CommonWrite reporter true None reference value
-            member self.WriteUnsafe reporter reference value = self.CommonWrite reporter false None reference value
+            member self.Write reporter reference value = self.CommonWrite reporter None reference value
             member self.WriteStaticField typ field value = self.CommonWriteStaticField None typ field value
 
     type heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> with
@@ -2103,12 +2103,10 @@ module internal Memory =
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
                 let after = MemoryRegion.compose before effect
-                let read region =
-                    assert(state.memory :? Memory)
-                    let memory = state.memory :?> Memory
-                    let inst typ region = memory.MakeSymbolicHeapRead x.picker key state.startingTime typ region
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst (fun _ _ -> __unreachable__())
-                read after
+                assert(state.memory :? Memory)
+                let memory = state.memory :?> Memory
+                let inst typ region = memory.MakeSymbolicHeapRead x.picker key state.startingTime typ region
+                MemoryRegion.read after key (x.picker.isDefaultKey state) inst memory.RangeReadingUnreachable
 
     type arrayReading with
         interface IMemoryAccessConstantSource with
@@ -2125,12 +2123,10 @@ module internal Memory =
                         let before = x.picker.extract state
                         MemoryRegion.compose before effect
                     else x.memoryObject
-                let read region =
-                    assert(state.memory :? Memory)
-                    let memory = state.memory :?> Memory
-                    let inst = memory.MakeArraySymbolicHeapRead x.picker key state.startingTime
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst memory.SpecializedReading
-                read after
+                assert(state.memory :? Memory)
+                let memory = state.memory :?> Memory
+                let inst = memory.MakeArraySymbolicHeapRead x.picker key state.startingTime
+                MemoryRegion.read after key (x.picker.isDefaultKey state) inst memory.SpecializedReading
 
     type state with
         static member MakeEmpty complete =

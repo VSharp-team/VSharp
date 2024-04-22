@@ -468,11 +468,6 @@ module API =
         let TryAddressFromRefFork state ref =
             CommonTryAddressFromRef state ref true
 
-        let private transformBoxedRef ref =
-            match ref.term with
-            | HeapRef _ -> HeapReferenceToBoxReference ref
-            | _ -> ref
-
         let ExtractAddress ref = extractAddress ref
         let ExtractPointerOffset ptr = extractPointerOffset ptr
 
@@ -540,11 +535,10 @@ module API =
         let WriteStackLocation state location value = state.memory.WriteStackLocation location value
 
         let Write state reference value = state.memory.Write emptyReporter reference value
-     
 
         let WriteUnsafe (reporter : IErrorReporter) state reference value =
             reporter.ConfigureState state
-            state.memory.WriteUnsafe reporter reference value
+            state.memory.Write reporter reference value
 
         let WriteStructField structure field value = writeStruct structure field value
 

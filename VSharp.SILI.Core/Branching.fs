@@ -18,8 +18,7 @@ module internal Branching =
             let statedApply (pc, v) k = f (state.Copy pc) v k
             Cps.List.mapk statedApply filteredBranches (fun appliedBranches ->
             f state iteType.elseValue (fun appliedElse ->
-            appliedBranches @ [appliedElse] |> mergeResults |> k
-            )))
+            appliedBranches @ [appliedElse] |> mergeResults |> k)))
         | _ -> f state term (List.singleton >> k)
     let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term State.mergeResults k
     let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id

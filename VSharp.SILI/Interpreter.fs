@@ -210,7 +210,7 @@ module internal InstructionsSet =
            | Some this when argumentIndex = 0 -> this
            | Some _ -> getArgTerm (argumentIndex - 1) m
         let value = cilState.Pop()
-        let state = Memory.Write cilState.state argTerm value
+        Memory.Write cilState.state argTerm value
         List.singleton cilState
 
     let brcommon condTransform (m : Method) (offset : offset) (cilState : cilState) =
@@ -433,7 +433,7 @@ module internal InstructionsSet =
             let this = cilState.Read this
             cilState.Push this
             cilState.PushMany args
-            List.singleton  cilState
+            List.singleton cilState
         | Ptr(pointerBase, sightType, offset) ->
             match TryPtrToRef state pointerBase sightType offset with
             | Some(PrimitiveStackLocation _ as address) ->
@@ -445,7 +445,6 @@ module internal InstructionsSet =
                 cilState.PushMany args
                 List.singleton cilState
         | Ite {branches = branches; elseValue = e} ->
-            // TODO fork on args if they are ITEs
             match branches with
             | [(g, v)] ->
                 cilState.StatedConditionalExecutionCIL
@@ -479,7 +478,7 @@ module internal InstructionsSet =
             // In this case, next called static method will be called via type 'typ'
             assert(List.isEmpty cilState.prefixContext)
             cilState.PushPrefixContext (Constrained typ)
-            [cilState]
+            List.singleton cilState
         else
             let args = method.GetParameters().Length |> cilState.PopMany
             let thisForCallVirt = cilState.Pop()
@@ -653,7 +652,7 @@ type ILInterpreter() as this =
             let thisType = TypeOfLocation this
             if Types.IsValueType thisType && (method :> IMethod).IsConstructor then
                 let newThis = Memory.DefaultOf thisType
-                Memory.Write state this newThis |> ignore
+                Memory.Write state this newThis
         | None -> ()
 
     member private x.IsArrayGetOrSet (method : Method) =
@@ -827,7 +826,7 @@ type ILInterpreter() as this =
                             match thisOption, thisObj with
                             | Some thisRef, Some thisObj ->
                                 let structTerm = Memory.ObjectToTerm state thisObj declaringType
-                                Memory.Write state thisRef structTerm |> ignore
+                                Memory.Write state thisRef structTerm
                             | _ -> __unreachable__()
                     with :? TargetInvocationException as e ->
                         let isRuntime = method.IsRuntimeException

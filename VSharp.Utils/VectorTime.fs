@@ -19,10 +19,11 @@ module VectorTime =
         List.head t
 
     let singleton t : vectorTime =
-        [t]
+        List.singleton t
 
     let next t : vectorTime =
-       t |> extractFromSingleton |> (fun x -> x + 1) |> singleton
+        let x = extractFromSingleton t
+        x + 1 |> singleton
 
     let singletonsSum t1 t2 =
         extractFromSingleton t1 + extractFromSingleton t2 |> singleton

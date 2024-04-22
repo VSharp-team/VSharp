@@ -61,7 +61,7 @@ module RegionTree =
                 Seq.fold splitChild (included, disjoint) intersected
 
     let localize reg tree = splitNode (always false) reg tree |> fst
-    let localizeFilter reg key tree = splitNode (key :> IRegionTreeKey<_>).Hides reg tree
+    let localizeFilterHidden reg key tree = splitNode (key :> IRegionTreeKey<_>).Hides reg tree
 
     // NOTE: [ATTENTION] must be used only if 'reg' were not added earlier and keys are disjoint
     // NOTE: used for fast initialization of new array
@@ -73,8 +73,6 @@ module RegionTree =
         Node(PersistentDict.add reg (key, Node included) disjoint)
     let write reg key tree =
         commonWrite reg key tree (key :> IRegionTreeKey<_>).Hides
-    let guardedWrite reg key tree =
-        commonWrite reg key tree (always false)
 
     let rec foldl folder acc (Node d) =
         PersistentDict.fold (fun acc reg (k, t) -> let acc = folder acc reg k in foldl folder acc t) acc d

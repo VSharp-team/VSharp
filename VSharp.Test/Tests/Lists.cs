@@ -569,7 +569,7 @@ namespace IntegrationTests
             return 3;
         }
 
-        [Ignore("No match condition for range keys")]
+        [TestSvm(94)]
         public static int TestSolvingCopy8(object[] a, object[] b, int i)
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)
@@ -644,6 +644,7 @@ namespace IntegrationTests
             return 3;
         }
 
+        [TestSvm(90)]
         public static int ArrayAliasWrite(object[] o, string[] s, string str1, string str2)
         {
             if (o[42] == str1)
@@ -961,7 +962,7 @@ namespace IntegrationTests
             return 1;
         }
 
-    [TestSvm(100)]
+        [TestSvm(100)]
         public static int ListContains(int a, int b)
         {
             var l = new List<int> {2, 3, b, 5};

@@ -319,7 +319,10 @@ type heapArrayKey =
                 match a.term with
                 | ConcreteHeapAddress addr -> PersistentSet.contains addr explicitAddresses
                 | _ -> false
-        override x.IsRange = match x with | OneArrayIndexKey _ -> false | RangeArrayIndexKey _ -> true
+        override x.IsRange =
+            match x with
+            | OneArrayIndexKey _ -> false
+            | RangeArrayIndexKey _ -> true
 
     interface IComparable with
         override x.CompareTo y =
@@ -504,7 +507,7 @@ and ISymbolicTypeKey = IMemoryKey<symbolicTypeKey, freeRegion<typeWrapper>>
 type updateTreeKey<'key, 'value when 'key : equality> =
     {key : 'key; value : 'value; guard : term option; time : vectorTime}
     interface IRegionTreeKey<updateTreeKey<'key, 'value>> with
-        override x.Hides y = x.key = y.key
+        override x.Hides y = x.key = y.key && x.hasTrueGuard
     member x.termGuard = Option.defaultValue (True()) x.guard
     member x.hasTrueGuard =
         match x.guard with
@@ -514,7 +517,7 @@ type updateTreeKey<'key, 'value when 'key : equality> =
         match x.guard with
         | Some g when isFalse g -> true
         | _ -> false
-    override x.ToString() = (x.key, x.value, x.guard).ToString()
+    override x.ToString() = (x.key, x.value, x.guard, x.time).ToString()
 
 type updateTree<'key, 'value, 'reg when 'key :> IMemoryKey<'key, 'reg> and 'reg :> IRegion<'reg> and 'key : equality and 'value : equality and 'reg : equality> =
     regionTree<updateTreeKey<'key, 'value>, 'reg>
@@ -563,13 +566,7 @@ module private UpdateTree =
     let rec private collectBranchLatestRecords (Node d) predicate latestRecords =
         let collectSubtreeNodes acc r (k, st) =
             if predicate k then
-                let recLatestRecords = collectBranchLatestRecords st predicate acc
-                let recLatestTime = (recLatestRecords |> List.head |> snd).time
-                let currLatestTime = (acc |> List.head |> snd).time
-                if (VectorTime.greater recLatestTime currLatestTime) then
-                    recLatestRecords
-                else
-                    (r,k)::recLatestRecords
+                collectBranchLatestRecords st predicate acc
             else
                 let currLatestTime = (latestRecords |> List.head |> snd).time
                 if VectorTime.greater k.time currLatestTime then // found strictly later record, reset acc
@@ -593,7 +590,6 @@ module private UpdateTree =
             let keyRegion = List.fold (fun acc (r, _) -> (acc :> IRegion<_>).Subtract r) reg otherKeys
             if reg = keyRegion && (List.head sameKey |> snd).hasTrueGuard then
                 let key = List.head sameKey |> snd
-                assert(sameKey |> List.forall (fun (_, k) -> k.value = key.value))
                 key.value
             else if key.IsRange then makeSymbolic (Node d)
             else splitRead d key explicitAddresses specializedReading predicate isDefault makeSymbolic makeDefault
@@ -624,7 +620,7 @@ module private UpdateTree =
             let unguardedKey = (utKey.key :> IMemoryKey<_,_>).Unguard
             let disjointUnguardedKey = List.mapFold (fun disjGuard (g, k) -> (disjGuard &&& g, k), !!g &&& disjGuard) (True()) unguardedKey |> fst
             let writeOneKey (g, k) accTree =
-                let included, disjoint = RegionTree.localizeFilter region utKey accTree
+                let included, disjoint = RegionTree.localizeFilterHidden region utKey accTree
                 let refinedKey =
                     let guard = utKey.termGuard &&& g |> Some
                     {utKey with guard = guard; key = k}
@@ -650,7 +646,7 @@ module private UpdateTree =
         let writeOneKey reg utKey (accTree, time) =
             assert(not (utKey.key :> IMemoryKey<_,_>).IsUnion)
             write reg {utKey with time = time} accTree predicate, VectorTime.next time
-        later |> RegionTree.foldr writeOneKey (earlier, nextUpdateTime)
+        RegionTree.foldr writeOneKey (earlier, nextUpdateTime) later
 
     let deterministicCompose earlier later = RegionTree.append earlier later
 
