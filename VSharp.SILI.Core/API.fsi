@@ -51,8 +51,7 @@ module API =
         val Ref : address -> term
         val Ptr : pointerBase -> Type -> term -> term
         val HeapRef : heapAddress -> Type -> term
-        val Union : (term * term) list -> term
-
+        val Ite : iteType -> term
         val True : unit -> term
         val False : unit -> term
         val NullRef : Type -> term
@@ -295,14 +294,14 @@ module API =
 
         val InitializeArray : state -> term -> term -> unit
 
-        val Write : state -> term -> term -> state list
-        val WriteUnsafe : IErrorReporter -> state -> term -> term -> state list
+        val Write : state -> term -> term -> unit
+        val WriteUnsafe : IErrorReporter -> state -> term -> term -> unit
         val WriteStackLocation : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteStructFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> term
-        val WriteClassFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> state list
-        val WriteClassField : state -> term -> fieldId -> term -> state list
-        val WriteArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> term -> Type option -> state list
+        val WriteClassFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> unit
+        val WriteClassField : state -> term -> fieldId -> term -> unit
+        val WriteArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> term -> Type option -> unit
         val WriteStaticField : state -> Type -> fieldId -> term -> unit
 
         val DefaultOf : Type -> term

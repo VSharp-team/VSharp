@@ -18,11 +18,12 @@ module ByReference =
         assert(isValueField field)
         Memory.ReferenceField state this field
 
-    let internal ctor (state : state) (args : term list) : (term * state) list =
+    let internal ctor (state : state) (args : term list) : term =
         assert(List.length args = 3)
         let this, ref = List.item 0 args, List.item 2 args
         let fieldRef = referenceValueField state this
-        Memory.Write state fieldRef ref |> List.map (withFst (Nop()))
+        Memory.Write state fieldRef ref
+        Nop()
 
     let internal getValue (state : state) (args : term list) : term =
         assert(List.length args = 2)

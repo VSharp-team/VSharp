@@ -162,8 +162,7 @@ module internal String =
             let char = Memory.ReadStringChar cilState.state this index
             cilState.Push char
             List.singleton cilState |> k
-        let arrayLength = Add length (MakeNumber 1)
-        interpreter.AccessArray getChar cilState arrayLength index id
+        interpreter.AccessArray getChar cilState length index id
 
     let AllCharsInUInt32AreAscii (_ : state) (_ : term list) =
         // TODO: try to not internal call it

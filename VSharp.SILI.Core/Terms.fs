@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open Microsoft.FSharp.Core
 open System.Reflection
 open VSharp
 open VSharp.CSharpUtils
@@ -125,7 +126,7 @@ type termNode =
     // NOTE: use ptr only in case of reinterpretation: changed sight type or address arithmetic, otherwise use ref instead
     | Ptr of pointerBase * Type * term // base address * sight type * offset (in bytes)
     | Slice of term * list<term * term * term> // what term to slice * list of slices (start byte * end byte * position inside combine)
-    | Union of (term * term) list
+    | Ite of iteType
 
     override x.ToString() =
         let getTerm (term : term) = term.term
@@ -183,14 +184,16 @@ type termNode =
                     results |> join ", " |> sprintf "Combine(%s)" |> k)
             | Struct(fields, t) ->
                 fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t |> k
-            | Union(guardedTerms) ->
+            | Ite iteType ->
                 let guardedToString (guard, term) k =
                     toStringWithParentIndent indent guard (fun guardString ->
                     toStringWithParentIndent indent term (fun termString ->
                     $"| %s{guardString} ~> %s{termString}" |> k))
-                Cps.Seq.mapk guardedToString guardedTerms (fun guards ->
-                let printed = guards |> Seq.sort |> join ("\n" + indent)
-                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]" |> k)
+                Cps.Seq.mapk guardedToString iteType.branches (fun guards ->
+                let elseValue = toStringWithParentIndent indent iteType.elseValue id
+                let elseString = $"| else: %s{elseValue}"
+                let printed = (guards @ [elseString]) |> join ("\n" + indent)
+                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "ITE[%s]" |> k)
             | HeapRef({term = Concrete(obj, AddressType)}, _) when (obj :?> int32 list) = [0] -> k "NullRef"
             | HeapRef(address, baseType) -> $"(HeapRef {address} to {baseType})" |> k
             | Ref address -> $"({address.Zone()}Ref {address})" |> k
@@ -213,7 +216,25 @@ type termNode =
         and toStringWithParentIndent parentIndent term k = toStringWithIndent (extendIndent parentIndent) term k
 
         toStr -1 "\t" x id
-
+and iteType = genericIteType<term>
+and genericIteType<'a> = {branches: (term * 'a) list; elseValue : 'a}
+    with
+    static member FromGvs gvs =
+        if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
+        let branches, e = List.splitAt (List.length gvs - 1) gvs
+        {branches = branches; elseValue =  e |> List.head |> snd}
+    member x.mapValues mapper =
+        {branches = List.map (fun (g, v) -> (g, mapper v)) x.branches; elseValue = mapper x.elseValue}
+    member x.filter predicate =
+        if predicate x.elseValue then
+            {branches = List.filter (snd >> predicate) x.branches; elseValue = x.elseValue}
+        else
+            List.filter (snd >> predicate) x.branches |> genericIteType<'a>.FromGvs
+    member x.choose mapper =
+        let chooser (g, v) = Option.bind (fun w -> Some(g, w)) (mapper v)
+        match mapper x.elseValue with
+        | None -> List.choose chooser x.branches |> genericIteType<'a>.FromGvs
+        | Some e -> {branches = List.choose chooser x.branches; elseValue = e}
 and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type AddressType!
 
 and pointerBase =
@@ -283,7 +304,7 @@ and
 
 and
     ISymbolicConstantSource =
-        abstract SubTerms : term seq
+        abstract SubTerms : term list
         abstract Time : vectorTime
         abstract TypeOfLocation : Type
 
@@ -339,9 +360,47 @@ module internal Terms =
     let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
     let Slice term slices = HashMap.addTerm (Slice(term, slices))
     let ConcreteHeapAddress (addr : concreteHeapAddress) = Concrete addr addressType
-    let Union gvs =
-        if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
-        HashMap.addTerm (Union gvs)
+    let Ite iteType =
+        if List.isEmpty iteType.branches then internalfail "Empty and one-element unions are forbidden!"
+        HashMap.addTerm (Ite iteType)
+    let zeroAddress() =
+        Concrete VectorTime.zero addressType
+
+    let makeNumber n =
+        Concrete n (n.GetType())
+
+    let makeNullPtr typ =
+        Ptr (HeapLocation(zeroAddress(), typ)) typ (makeNumber 0)
+        
+    let True() =
+        Concrete (box true) typeof<bool>
+    let IteAsGvs iteType = iteType.branches @ [(True(), iteType.elseValue)]
+
+    let False() =
+        Concrete (box false) typeof<bool>
+
+    let makeBool predicate =
+        if predicate then True() else False()
+
+    let makeIndex (i : int) =
+        Concrete i indexType
+
+    let nullRef t =
+        HeapRef (zeroAddress()) t
+
+    let makeBinary operation x y t =
+        assert(Operations.isBinary operation)
+        Expression (Operator operation) [x; y] t
+
+    let makeNAry operation x t =
+        match x with
+        | [] -> raise(ArgumentException("List of args should be not empty"))
+        | [x] -> x
+        | _ -> Expression (Operator operation) x t
+
+    let makeUnary operation x t =
+        assert(Operations.isUnary operation)
+        Expression (Operator operation) [x] t
 
     let isVoid = term >> function
         | Nop -> true
@@ -352,7 +411,7 @@ module internal Terms =
         | _ -> false
 
     let isUnion = term >> function
-        | Union _ -> true
+        | Ite _ -> true
         | _ -> false
 
     let isTrue = term >> function
@@ -375,20 +434,21 @@ module internal Terms =
         | Struct(fields, _) -> fields
         | term -> internalfail $"struct or class expected, {term} received"
 
-    let private typeOfUnion getType gvs =
-        let types = List.map (snd >> getType) gvs
+    let private typeOfIte (getType : 'a -> Type) (iteType : iteType) =
+        let types = iteType.mapValues getType 
         match types with
-        | [] -> __unreachable__()
-        | t::ts ->
+        | {branches = []; elseValue = _} -> __unreachable__()
+        | {branches = branches; elseValue = elset} ->
             let allSame =
-                List.forall ((=) t) ts
-            if allSame then t
-            else internalfail $"evaluating type of unexpected union {gvs}!"
+                List.forall (snd >> (=) elset) branches
+            if allSame then elset
+            else
+                branches |> List.fold (fun acc (g, t) -> if t.IsAssignableTo acc then acc else t) elset
 
     let commonTypeOf getType term =
         match term.term with
         | Nop -> typeof<System.Void>
-        | Union gvs -> typeOfUnion getType gvs
+        | Ite iteType -> typeOfIte getType iteType
         | _ -> getType term
 
     let sightTypeOfPtr =
@@ -408,7 +468,7 @@ module internal Terms =
         commonTypeOf getTypeOfRef term
 
     and typeOf term =
-        let getType term =
+        let rec getType term =
             match term.term with
             | Concrete(_, t)
             | Constant(_, _, t)
@@ -417,6 +477,7 @@ module internal Terms =
             | Struct(_, t) -> t
             | Ref _ -> (typeOfRef term).MakeByRefType()
             | Ptr _ -> (sightTypeOfPtr term).MakePointerType()
+            | Ite iteType -> typeOfIte getType iteType
             | _ -> internalfail $"getting type of unexpected term {term}"
         commonTypeOf getType term
 
@@ -442,20 +503,20 @@ module internal Terms =
     let rec isStruct term =
         match term.term with
         | Struct _ -> true
-        | Union gvs -> List.forall (snd >> isStruct) gvs
+        | Ite {branches = branches; elseValue = e} -> isStruct e && List.forall (snd >> isStruct) branches
         | _ -> false
 
     let rec isReference term =
         match term.term with
         | HeapRef _
         | Ref _ -> true
-        | Union gvs -> List.forall (snd >> isReference) gvs
+        | Ite {branches = branches; elseValue = e} -> isReference e && List.forall (snd >> isReference) branches
         | _ -> false
 
     let rec isPtr term =
         match term.term with
         | Ptr _ -> true
-        | Union gvs -> List.forall (snd >> isPtr) gvs
+        | Ite {branches = branches; elseValue = e} -> isPtr e && List.forall (snd >> isPtr) branches
         | _ -> false
 
     let rec isRefOrPtr term =
@@ -463,17 +524,9 @@ module internal Terms =
         | HeapRef _
         | Ref _
         | Ptr _ -> true
-        | Union gvs -> List.forall (snd >> isRefOrPtr) gvs
+        | Ite {branches = branches; elseValue = e} -> isRefOrPtr e && List.forall (snd >> isRefOrPtr) branches
         | _ -> false
 
-    let zeroAddress() =
-        Concrete VectorTime.zero addressType
-
-    let makeNumber n =
-        Concrete n (n.GetType())
-
-    let makeNullPtr typ =
-        Ptr (HeapLocation(zeroAddress(), typ)) typ (makeNumber 0)
 
     // Only for concretes: there will never be null type
     let canCastConcrete (concrete : obj) targetType =
@@ -511,35 +564,6 @@ module internal Terms =
             let actualTypeName = Reflection.getFullTypeName actualType
             raise (InvalidCastException $"Cannot cast {actualTypeName} to {tName}!")
 
-    let True() =
-        Concrete (box true) typeof<bool>
-
-    let False() =
-        Concrete (box false) typeof<bool>
-
-    let makeBool predicate =
-        if predicate then True() else False()
-
-    let makeIndex (i : int) =
-        Concrete i indexType
-
-    let nullRef t =
-        HeapRef (zeroAddress()) t
-
-    let makeBinary operation x y t =
-        assert(Operations.isBinary operation)
-        Expression (Operator operation) [x; y] t
-
-    let makeNAry operation x t =
-        match x with
-        | [] -> raise(ArgumentException("List of args should be not empty"))
-        | [x] -> x
-        | _ -> Expression (Operator operation) x t
-
-    let makeUnary operation x t =
-        assert(Operations.isUnary operation)
-        Expression (Operator operation) [x] t
-
     let (|CastExpr|_|) = term >> function
         | Expression(Cast(srcType, dstType), [x], t) ->
             assert(dstType = t)
@@ -574,7 +598,7 @@ module internal Terms =
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t), _
         | Expression(_, _, t), _ -> makeCast term t targetType
-        | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
+        | Ite {branches = branches; elseValue = e}, _ -> {branches = List.map (fun (g, v) -> (g, primitiveCast v targetType)) branches; elseValue =  primitiveCast e targetType} |> Ite
         | _ -> __unreachable__()
 
     // Detached pointer is pointer, which is not fixed to any object
@@ -613,7 +637,7 @@ module internal Terms =
         | Constant _
         | Expression _ ->
             makeDetachedPtr ptr typeof<Void>
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, nativeToPointer v)) |> Union
+        | Ite iteType -> iteType.mapValues nativeToPointer |> Ite
         | _ -> internalfail $"nativeToPointer: unexpected pointer {ptr}"
 
     and negate term =
@@ -635,12 +659,18 @@ module internal Terms =
         | Concrete(name, typ) -> Some(ConcreteT(name, typ))
         | _ -> None
 
-    and (|UnionT|_|) = term >> function
-        | Union gvs -> Some(UnionT gvs)
+    and (|IteT|_|) = term >> function
+        | Ite iteType -> Some(IteT iteType)
+        | _ -> None
+    and (|Gvs|_|) = function
+        | Ite iteType -> Some(IteAsGvs iteType)
+        | _ -> None
+    and (|GvsT|_|) = term >> function
+        | Ite iteType -> Some(IteAsGvs iteType)
         | _ -> None
 
     and (|GuardedValues|_|) = function // TODO: this could be ineffective (because of unzip)
-        | Union gvs -> Some(GuardedValues(List.unzip gvs))
+        | Ite {branches = branches; elseValue = e} -> Some(List.foldBack (fun (g, v) (gs, vs) -> (g::gs, v::vs)) branches ([True()], [e]))
         | _ -> None
 
     and (|UnaryMinus|_|) = function
@@ -1006,6 +1036,8 @@ module internal Terms =
                 let pos = convert pos typeof<int> :?> int
                 simplify p s e pos
             | _ -> defaultCase()
+        | [{term = Ite iteType}] ->
+            iteType.mapValues (fun v -> combine [v] t) |> Ite
         | [nonSliceTerm] ->
             simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()
@@ -1015,7 +1047,7 @@ module internal Terms =
         | ConcreteHeapAddress addr -> addr
         | Constant(_, source, _) -> source.Time
         | HeapRef(address, _) -> timeOf address
-        | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
+        | Ite {branches = branches; elseValue = e} -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) (timeOf e) branches
         | _ -> internalfail $"timeOf : expected heap address, but got {address}"
 
     and compareTerms t1 t2 =
@@ -1028,19 +1060,20 @@ module internal Terms =
     and private foldChildren folder state term k =
         match term.term with
         | Constant(_, source, _) ->
-            foldSeq folder source.SubTerms state k
+            foldList folder source.SubTerms state k
         | Expression(_, args, _) ->
-            foldSeq folder args state k
+            foldList folder args state k
         | Struct(fields, _) ->
-            foldSeq folder (PersistentDict.values fields) state k
+            let values = PersistentDict.values fields |> List.ofSeq
+            foldList folder values state k
         | Ref address ->
             foldAddress folder state address k
         | Ptr(address, _, indent) ->
             foldPointerBase folder state address (fun state ->
             doFold folder state indent k)
         | GuardedValues(gs, vs) ->
-            foldSeq folder gs state (fun state ->
-            foldSeq folder vs state k)
+            foldList folder gs state (fun state ->
+            foldList folder vs state k)
         | Slice(t, slices) ->
             let foldSlice state (s, e, pos) k =
                 doFold folder state s (fun state ->
@@ -1062,7 +1095,7 @@ module internal Terms =
         | ClassField(addr, _) -> doFold folder state addr k
         | ArrayIndex(addr, indices, _) ->
             doFold folder state addr (fun state ->
-            foldSeq folder indices state k)
+            foldList folder indices state k)
         | StructField(addr, _) -> foldAddress folder state addr k
         | ArrayLength(addr, idx, _)
         | ArrayLowerBound(addr, idx, _) ->
@@ -1076,17 +1109,17 @@ module internal Terms =
         | StackLocation _
         | StaticLocation _ -> k state
 
-    and private foldSeq folder terms state k =
-        Cps.Seq.foldlk (doFold folder) state terms k
+    and private foldList folder (terms : term list) state k =
+        Cps.List.foldlk (doFold folder) state terms k
 
     and fold folder state terms =
-        foldSeq folder terms state id
+        foldList folder terms state id
 
     and iter action term =
         doFold action () term id
 
-    and iterSeq action terms =
-        Cps.Seq.foldlk (doFold action) () terms id
+    and iterList action terms =
+        Cps.List.foldlk (doFold action) () terms id
 
     and discoverConstants terms =
         let result = HashSet<term>()

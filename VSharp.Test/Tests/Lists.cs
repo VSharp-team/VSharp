@@ -63,23 +63,23 @@ namespace IntegrationTests
         [TestSvm]
         public bool Construct()
         {
-            var a = new List<int>(4) {1, 2, 3, 4};
+            var a = new List<int>(4) { 1, 2, 3, 4 };
             var b = new int[4, 1];
-            var c = new int[4] {5, 6, 7, 8};
+            var c = new int[4] { 5, 6, 7, 8 };
             return a.Count == b.Length && b.Length == c.Length && c.Length == c[3] - 4;
         }
 
         [TestSvm]
         public int SymbolicInitialize(int a)
         {
-            var arr = new int[4] {a, 6, 7, 8};
+            var arr = new int[4] { a, 6, 7, 8 };
             return arr[0];
         }
 
         [TestSvm]
         public int[] Mutate(int i)
         {
-            var a = new int[] {1, 2, 3, 4, 5};
+            var a = new int[] { 1, 2, 3, 4, 5 };
             a[i] = 10;
             return a;
         }
@@ -87,7 +87,7 @@ namespace IntegrationTests
         [TestSvm]
         public int LowerBoundTest()
         {
-            var c = new int[4, 2] {{1, 1}, {2, 2}, {3, 3}, {4, 4}};
+            var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
             return c.GetLowerBound(1);
         }
 
@@ -106,7 +106,7 @@ namespace IntegrationTests
         [TestSvm]
         public int UpperBoundTest()
         {
-            var c = new int[4, 2] {{1, 1}, {2, 2}, {3, 3}, {4, 4}};
+            var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
             return c.GetUpperBound(0);
         }
 
@@ -117,10 +117,10 @@ namespace IntegrationTests
             switch (f)
             {
                 case 0:
-                    tmp = new[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+                    tmp = new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
                     break;
                 case 1:
-                    tmp = new[] {1, 2, 3};
+                    tmp = new[] { 1, 2, 3 };
                     break;
                 default:
                     tmp = new int [f + 1];
@@ -133,7 +133,7 @@ namespace IntegrationTests
         [TestSvm]
         public int RankTest()
         {
-            var c = new int[4, 2] {{1, 1}, {2, 2}, {3, 3}, {4, 4}};
+            var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
             return c.Rank;
         }
 
@@ -194,8 +194,8 @@ namespace IntegrationTests
         [TestSvm]
         public static int CopyConcreteToConcreteArray()
         {
-            int[] arr = new int[5] {10, 2, 3, 4, 5};
-            int[] a = new int[5] {1, 1, 1, 1, 1};
+            int[] arr = new int[5] { 10, 2, 3, 4, 5 };
+            int[] a = new int[5] { 1, 1, 1, 1, 1 };
             Array.Copy(arr, 1, a, 1, 3);
             return a[2];
         }
@@ -203,7 +203,7 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int[] CopyConcreteToSymbolicArray(int[] a)
         {
-            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            int[] arr = new int[5] { 1, 2, 3, 4, 5 };
             Array.Copy(arr, 2, a, 2, 2);
             return a;
         }
@@ -211,7 +211,7 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int[] CopyAndThenWrite(int[] a)
         {
-            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            int[] arr = new int[5] { 1, 2, 3, 4, 5 };
             Array.Copy(arr, 2, a, 2, 2);
             a[2] = 42;
             return a;
@@ -220,7 +220,7 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int CopyAndBranch(int[] a, int i)
         {
-            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            int[] arr = new int[5] { 1, 2, 3, 4, 5 };
             Array.Copy(arr, 2, a, 2, 2);
             a[2] = 42;
             if (a[i] == 2)
@@ -231,21 +231,21 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int[] WriteAndThenCopy(int[] a)
         {
-            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            int[] arr = new int[5] { 1, 2, 3, 4, 5 };
             a[2] = 42;
             Array.Copy(arr, 2, a, 2, 2);
             return a;
         }
 
         [TestSvm(95)]
-        public static int DoubleWriteAfterCopy(int[] a, int i, int[] b)
+        public static int DoubleWriteAfterCopy(string[] a, int i, string[] b)
         {
             if (a.Length == b.Length)
             {
-                a[i] = 1;
+                a[i] = "1";
                 Array.Copy(b, a, a.Length - 1);
-                a[i] = 3;
-                a[i] = 3;
+                a[i] = "3";
+                a[i] = "3";
                 if (a[0] != b[0] && i > 0)
                     return -1;
                 return 1;
@@ -255,14 +255,14 @@ namespace IntegrationTests
         }
 
         [TestSvm(95)]
-        public static int DoubleWriteAfterCopy1(int[] a, int k, int i, int j, int[] b)
+        public static int DoubleWriteAfterCopy1(string[] a, int k, int i, int j, string[] b)
         {
             if (a.Length == b.Length)
             {
-                a[k] = 1;
+                a[k] = "1";
                 Array.Copy(b, a, a.Length - 1);
-                a[i] = 3;
-                a[j] = 3;
+                a[i] = "3";
+                a[j] = "3";
                 if (a[0] != b[0] && i > 0 && j > 0)
                     return -1;
                 return 1;
@@ -274,8 +274,8 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int[] CopySymbolicIndicesToConcreteArray(int srcI, int dstI, int len)
         {
-            int[] arr = new int[5] {10, 2, 3, 4, 5};
-            int[] a = new int[5] {1, 1, 1, 1, 1};
+            int[] arr = new int[5] { 10, 2, 3, 4, 5 };
+            int[] a = new int[5] { 1, 1, 1, 1, 1 };
             Array.Copy(arr, srcI, a, dstI, len);
             if (a[2] == 3)
                 return Array.Empty<int>();
@@ -283,14 +283,15 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        public static int[] CopySymbolicIndicesToConcreteArray1(int srcI1, int dstI1, int len1, int srcI2, int dstI2, int len2)
+        public static int[] CopySymbolicIndicesToConcreteArray1(int srcI1, int dstI1, int len1, int srcI2, int dstI2,
+            int len2)
         {
-            int[] arr = new int[5] {10, 2, 3, 4, 5};
-            int[] a = new int[5] {1, 1, 1, 1, 1};
+            int[] arr = new int[5] { 10, 2, 3, 4, 5 };
+            int[] a = new int[5] { 1, 1, 1, 1, 1 };
             Array.Copy(arr, srcI1, a, dstI1, len1);
             if (a[2] == 3)
                 return a;
-            int[] b = new int[5] {1, 1, 1, 1, 1};
+            int[] b = new int[5] { 1, 1, 1, 1, 1 };
             Array.Copy(a, srcI2, b, dstI2, len2);
             if (b[2] == 3)
                 return Array.Empty<int>();
@@ -300,11 +301,11 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int[] CopySymbolicIndicesToConcreteArray2(int srcI, int dstI, int len)
         {
-            int[] arr = new int[5] {10, 2, 3, 4, 5};
-            int[] a = new int[5] {1, 1, 1, 1, 1};
+            int[] arr = new int[5] { 10, 2, 3, 4, 5 };
+            int[] a = new int[5] { 1, 1, 1, 1, 1 };
             arr[dstI + len] = len;
             Array.Copy(arr, srcI, a, dstI, len);
-            int[] b = new int[5] {3, 3, 3, 3, 3};
+            int[] b = new int[5] { 3, 3, 3, 3, 3 };
             Array.Copy(a, dstI, b, dstI, len + 1);
             if (b[dstI + len] == len)
                 // Should be unreachable
@@ -324,6 +325,7 @@ namespace IntegrationTests
                     return 42;
                 return 10;
             }
+
             return 3;
         }
 
@@ -354,6 +356,7 @@ namespace IntegrationTests
 
                 return 10;
             }
+
             return 3;
         }
 
@@ -383,6 +386,7 @@ namespace IntegrationTests
 
                 return 10;
             }
+
             return 3;
         }
 
@@ -402,6 +406,7 @@ namespace IntegrationTests
                 // Unreachable
                 return 10;
             }
+
             return 3;
         }
 
@@ -418,6 +423,7 @@ namespace IntegrationTests
 
                 return b[1];
             }
+
             return 3;
         }
 
@@ -426,13 +432,15 @@ namespace IntegrationTests
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)
             {
-                a[i] = 1; a[0] = 2;
+                a[i] = 1;
+                a[0] = 2;
                 Array.Copy(a, b, b.Length);
 
                 if (b[i] == b[i + 1])
                     return 42;
                 return 10;
             }
+
             return 3;
         }
 
@@ -441,7 +449,8 @@ namespace IntegrationTests
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)
             {
-                a[i] = 1; a[0] = 2;
+                a[i] = 1;
+                a[0] = 2;
                 Array.Copy(a, b, b.Length);
                 b[i] = 4;
                 b[0] = 3;
@@ -450,6 +459,7 @@ namespace IntegrationTests
                     return 42;
                 return 10;
             }
+
             return 3;
         }
 
@@ -475,6 +485,7 @@ namespace IntegrationTests
 
                 return 10;
             }
+
             return 3;
         }
 
@@ -494,6 +505,7 @@ namespace IntegrationTests
 
                 return 10;
             }
+
             return 3;
         }
 
@@ -516,21 +528,60 @@ namespace IntegrationTests
 
                 return 10;
             }
+
+            return 3;
+        }
+
+        [TestSvm(94)]
+        public static int TestSolvingCopyOverwrittenValueUnreachable1(string[] a, string[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                a[0] = "42";
+                b[0] = "4";
+                Array.Copy(a, 0, b, 0, b.Length);
+                if (b[0] != "42") // unreachable
+                {
+                    return -1;
+                }
+
+                return 0;
+            }
+
             return 3;
         }
 
         [TestSvm(95)]
+        public static int TestSolvingCopyOverwrittenValueUnreachable2(string[] a, int i, string[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                b[i] = "500";
+                Array.Copy(a, 0, b, 0, b.Length);
+                if (b.Length > 0 && a[i] != "500" && b[i] == "500") // unreachable
+                {
+                    return -1;
+                }
+
+                return 0;
+            }
+
+            return 3;
+        }
+
+        [TestSvm(94)]
         public static int TestSolvingCopy8(object[] a, object[] b, int i)
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)
             {
-                Array.Fill(a, 1);
+                Array.Fill(a, "abc");
                 Array.Copy(a, b, b.Length);
 
                 if (b[i] == b[i + 1])
                     return 42;
                 return 10;
             }
+
             return 3;
         }
 
@@ -555,6 +606,7 @@ namespace IntegrationTests
 
                 return 10;
             }
+
             return 3;
         }
 
@@ -569,6 +621,26 @@ namespace IntegrationTests
                     return 42;
                 return 10;
             }
+
+            return 3;
+        }
+
+        [TestSvm(66)]
+        public static int TestSolvingCopy11(string[] a, int i, string[] b)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                Array.Copy(a, b, b.Length);
+                if (b[i].Length == 0)
+                {
+                    // unreachable
+                    if (b[i][0] == b[i + 1][0])
+                        return 42;
+                }
+
+                return 10;
+            }
+
             return 3;
         }
 
@@ -624,11 +696,13 @@ namespace IntegrationTests
             {
                 a[10] = 42;
             }
+
             var res = 0;
             if (a[x] == 12)
             {
                 res = 1;
             }
+
             return res;
         }
 
@@ -636,7 +710,7 @@ namespace IntegrationTests
         public static int SolverTestConcreteArray(int x)
         {
             var res = 0;
-            var a = new int[3] {1, 2, 3};
+            var a = new int[3] { 1, 2, 3 };
             a[2] = x;
             var len = a.Length;
             var lb = a.GetLowerBound(0);
@@ -661,7 +735,7 @@ namespace IntegrationTests
         public static int SpecifyLowerBounds(int x, int y)
         {
             var a = Array.CreateInstance(typeof(int), new[] { 4 }, new[] { 2011 });
-            var res = (int) a.GetValue(new[] {1});
+            var res = (int)a.GetValue(new[] { 1 });
             return res;
         }
 
@@ -711,6 +785,20 @@ namespace IntegrationTests
             public int x;
         }
 
+        [TestSvm(88)]
+        public static int LastRecordReachability(string[] a, string[] b, int i, string s)
+        {
+            a[i] = "1";
+            b[1] = s;
+            if (b[1] != s)
+            {
+                // unreachable
+                return -1;
+            }
+
+            return 0;
+        }
+
         [TestSvm(90)]
         public static int ArrayElementsAreReferences(MyClass[] a, int i, int j)
         {
@@ -725,7 +813,7 @@ namespace IntegrationTests
         [TestSvm(90)]
         public static bool ArraySymbolicUpdate(int i)
         {
-            var array = new int[] {1, 2, 3, 4, 5};
+            var array = new int[] { 1, 2, 3, 4, 5 };
             array[i] = 10;
             if (i == 0 && array[0] != 10)
                 return false;
@@ -736,7 +824,7 @@ namespace IntegrationTests
         [TestSvm(92)]
         public static bool ArraySymbolicUpdate2(int i)
         {
-            var array = new int[] {1, 2, 3, 4, 5};
+            var array = new int[] { 1, 2, 3, 4, 5 };
             array[i] = 10;
             array[0] = 12;
             if (i == 0 && array[0] != 12)
@@ -748,11 +836,13 @@ namespace IntegrationTests
         [TestSvm(97)]
         public static bool ArraySymbolicUpdate3(int i, int j)
         {
-            var array = new int[] {1, 2, 3, 4, 5};
+            var array = new int[] { 1, 2, 3, 4, 5 };
             array[i] = 10;
             array[0] = 12;
             array[j] = 42;
-            if ((i == 0 && j == 0 && array[0] != 42) || (i == 0 && j == 2 && array[0] != 12) || (i == 2 && j == 2 && array[2] != 42) || (i == 2 && j == 1 && array[i] != 10) || (i == 2 && j == 1 && array[1] != 42))
+            if ((i == 0 && j == 0 && array[0] != 42) || (i == 0 && j == 2 && array[0] != 12) ||
+                (i == 2 && j == 2 && array[2] != 42) || (i == 2 && j == 1 && array[i] != 10) ||
+                (i == 2 && j == 1 && array[1] != 42))
                 return false;
             else
                 return true;
@@ -766,13 +856,14 @@ namespace IntegrationTests
             {
                 l.Add(i);
             }
+
             return l.Last();
         }
 
         [TestSvm]
         public static bool CheckArrayContains()
         {
-            char[] l = {'c', 'h', 'a', 'r', 's'};
+            char[] l = { 'c', 'h', 'a', 'r', 's' };
             return l.Contains('a');
         }
 
@@ -833,19 +924,42 @@ namespace IntegrationTests
             return 0;
         }
 
-        [Ignore("fix composition with concrete memory")]
-        public static int ConcreteDictionaryTest1(int a, int b)
+        [TestSvm(100)]
+        public static int ConcreteDictionaryTest1(int a, string b)
         {
-            var d = new Dictionary<int, List<int>>();
-            d.Add(1, new List<int> {2, 3});
-            d.Add(4, new List<int> {5, 6});
+            var d = new Dictionary<int, List<string>>();
+            d.Add(1, new List<string> { "2", "3" });
+            d.Add(4, new List<string> { "5", "6" });
             if (d.TryGetValue(a, out var res))
             {
                 if (res.Contains(b))
                     return 1;
                 return 0;
             }
+
             return 2;
+        }
+
+        public class Person
+        {
+            public string FirstName { get; set; }
+            public string LastName { get; init; }
+        };
+        
+        [TestSvm(95)]
+        public static int IteKeyWrite(int i)
+        {
+            var a = new Person[4];
+            a[0] = new Person() {FirstName = "asd", LastName = "qwe"};
+            a[3] = new Person() {FirstName = "zxc", LastName = "vbn"};
+            var p = a[i];
+            p.FirstName = "323";
+            if (i == 0 && a[3].FirstName == "323")
+            {
+                return -1;
+            }
+
+            return 1;
         }
 
         [TestSvm(100)]
@@ -1298,6 +1412,33 @@ namespace IntegrationTests
             if (d[a] != b)
                 return -1;
             return 0;
+        }
+        [TestSvm(95)]
+        public static int TestSplittingWithCopy(int srcI, int dstI, int len)
+        {
+            string[] arr = {"a", "b", "c", "d", "e"};
+            var a = new string[5];
+            Array.Copy(arr, srcI, a, dstI, len);
+            if (a[2].Length == 3)
+                return -1;
+            return 1;
+        }
+        [TestSvm(91)]
+        public static int TestSplittingWithCopyRegionsImportance(string[] a, int i)
+        {
+            a[i] = "a";
+            a[1] = "b";
+            var b = new string[a.Length];
+            Array.Copy(a, 0, b, 0, a.Length);
+            if (i == 1 && b[i] == "a") // unreachable
+                // record b[i], "a" exists only if i != 1
+                return -1;
+            if (i != 1 && b[i] != "a") // unreachable
+            {
+                return -2;
+            }
+
+            return 1;
         }
 
         [TestSvm(83)]

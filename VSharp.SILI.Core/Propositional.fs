@@ -95,7 +95,7 @@ module internal Propositional =
             match x.term, y.term with
             | Nop, _ -> internalfailf "Invalid left operand of %O!" operation
             | _, Nop -> internalfailf "Invalid right operand of %O!" operation
-            | Union gvs1, Union gvs2 ->
+            | Gvs gvs1, Gvs gvs2 ->
                 Cps.List.mapk
                     (fun (g1, v1) k ->
                         Cps.List.mapk
@@ -104,13 +104,17 @@ module internal Propositional =
                                 simplifyConnective operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
                             gvs2 k)
                     gvs1
-                    (List.concat >> Union >> k)
-            | GuardedValues(gs, vs), _ ->
-                Cps.List.mapk (simplifyConnective operation opposite stopValue ignoreValue y) vs (fun xys ->
-                List.zip gs xys |> Union |> k)
-            | _, GuardedValues(gs, vs) ->
-                Cps.List.mapk (simplifyConnective operation opposite stopValue ignoreValue x) vs (fun xys ->
-                List.zip gs xys |> Union |> k)
+                    (List.concat >> iteType.FromGvs >> Ite >> k)
+            | Ite {branches = branches; elseValue = e}, _ ->
+                Cps.List.mapk (fun (g, x) k ->
+                simplifyConnective operation opposite stopValue ignoreValue x y (fun xy -> (g, xy) |> k)) branches (fun xys ->
+                simplifyConnective operation opposite stopValue ignoreValue e y (fun ey ->
+                {branches = xys; elseValue = ey } |> Ite |> k))
+            | _, Ite {branches = branches; elseValue = e} ->
+                Cps.List.mapk (fun (g, y) k ->
+                simplifyConnective operation opposite stopValue ignoreValue x y (fun xy -> (g, xy) |> k)) branches (fun xys ->
+                simplifyConnective operation opposite stopValue ignoreValue x e (fun xe ->
+                {branches = xys; elseValue = xe} |> Ite |> k))
             | _ -> simplifyExt operation opposite stopValue ignoreValue x y k defaultCase
 
     and private simplifyExt op co stopValue ignoreValue x y matched unmatched =
@@ -204,8 +208,10 @@ module internal Propositional =
             | Negation x -> k x
             | Conjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalOr l bool |> k)
             | Disjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalAnd l bool |> k)
-            | GuardedValues(gs, vs) ->
-                Cps.List.mapk simplifyNegation vs (List.zip gs >> Union >> k)
+            | Ite {branches = branches; elseValue = e} ->
+                Cps.List.mapk (fun (g, v) k -> simplifyNegation v (fun v' -> (g, v') |> k)) branches (fun branches' ->
+                simplifyNegation e (fun e' ->
+                {branches = branches'; elseValue = e'} |> Ite |> k))
             | _ -> makeUnary OperationType.LogicalNot x bool |> k
 
     and private simplifyExtWithType op co stopValue ignoreValue _ x y matched unmatched =
@@ -253,6 +259,24 @@ module internal Propositional =
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
         | _ -> False()
+        
+    let simplifyAndWithDisjunctions x y =
+        simplifyAnd x y (fun res ->
+        let isDisjunction = term >> function
+            | Disjunction _ -> true 
+            | _ -> false
+        match res.term with
+        | Conjunction clauses ->
+            let disjunctions, literals = List.partition isDisjunction clauses
+            let filterDisjunction d =
+                match d.term with
+                | Disjunction xs ->
+                    let filtered = List.filter (fun x -> List.contains !!x literals |> not ) xs
+                    if List.length filtered = 0 then False() else makeNAry OperationType.LogicalOr filtered bool
+                | _ -> __unreachable__()
+            let simplifiedDisjunctions = List.map filterDisjunction disjunctions
+            conjunction (List.append literals simplifiedDisjunctions)
+        | _ -> res)
 
     let lazyConjunction xs =
         Cps.Seq.foldlk lazyAnd (True()) xs id
@@ -289,3 +313,17 @@ module internal Propositional =
         | OperationType.Equal
         | OperationType.NotEqual -> true
         | _ -> false
+
+    type genericIteType<'a> with
+        member x.ToDisjunctiveIte() =
+            let disjointBranches, elseGuard = List.mapFold (fun disjG (g, v) -> (g &&& disjG, v) , (!!g) &&& disjG) (True()) x.branches
+            {x with branches = disjointBranches}, elseGuard
+        member x.ToDisjunctiveGvs() =
+            let disjointX, elseGuard = x.ToDisjunctiveIte()
+            disjointX.branches @ [(elseGuard, x.elseValue)]
+        member x.ConditionFilter condition =
+            let chooser (g, v) =
+                match g &&& condition with
+                | False -> None
+                | _ -> Some(g, v)
+            {x with branches = List.choose chooser x.branches}

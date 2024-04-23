@@ -7,6 +7,7 @@ open System.Collections.Generic
 open VSharp
 open VSharp.TypeUtils
 open VSharp.Core
+open VSharp.Core.API.Memory
 open VSharp.Core.SolverInteraction
 
 module internal Z3 =
@@ -583,6 +584,7 @@ module internal Z3 =
                     | Constant(name, source, typ) -> x.EncodeConstant name.v source typ
                     | Expression(op, args, typ) -> x.EncodeExpression t op args typ
                     | HeapRef(address, _) -> x.EncodeTerm address
+                    | Ite iteType -> x.EncodeIte iteType
                     | _ -> internalfail $"EncodeTerm: unexpected term: {t}"
                 let typ = TypeOf t
                 let result = if typ.IsEnum then x.AddEnumAssumptions typ result else result
@@ -767,18 +769,49 @@ module internal Z3 =
                 ctx.MkFP(signExpr, expExpr, sigExpr) :> Expr
             else result :> Expr
 
+        member private x.EncodeSlice slice =
+            match slice.term with
+            | Slice(term, cuts) ->
+                let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
+                x.EncodeTerm term, slices
+            | Ite {branches = ite; elseValue = e} ->
+                let extractTerm slice =
+                    match slice.term with
+                    | Slice(t, _) -> t
+                    | _ -> slice
+                let encodedTerm = {branches = List.map (fun (g, s) -> (g, extractTerm s)) ite; elseValue = extractTerm e} |> x.EncodeIte
+
+                let extractCuts slice =
+                    match slice.term with
+                    | Slice(t, cuts) -> cuts
+                    | _ -> List.empty
+                let iteCuts = List.map (fun (_, s) -> extractCuts s) ite
+                let elseCuts = extractCuts e
+                assert(iteCuts |> List.forall (fun cuts -> (List.length cuts) = (iteCuts |> List.head |> List.length)))
+                let iteSliceParts =
+                    iteCuts
+                    |> List.transpose // get ordered parts
+                    |> List.map (List.map2 (fun (g, _) p -> (g, p)) ite) // guard slice parts + add else value
+                let encodeCutChar proj itePart elsePart =
+                    let branches = itePart |> List.map (fun (g, p) -> (g, proj p))
+                    let elseChar = proj elsePart
+                    {branches = branches; elseValue = elseChar} |> x.EncodeIte
+                let encodeSlicePart itePart elsePart =
+                    let encodedStarts = encodeCutChar fst3 itePart elsePart
+                    let encodedEnds = encodeCutChar snd3 itePart elsePart
+                    let encodedPoss = encodeCutChar thd3 itePart elsePart
+                    (encodedStarts, encodedEnds, encodedPoss)
+                let encodedSliceParts = List.map2 encodeSlicePart iteSliceParts elseCuts
+                encodedTerm, encodedSliceParts
+            | _ -> x.EncodeTerm slice, List.empty
+
         member private x.EncodeCombine slices typ =
             let size = x.SizeOfBV typ
             let res = ctx.MkBV(0, size)
             let window = res.SortSize
             let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
             let addOneSlice (res, assumptions) slice =
-                let term, cuts =
-                    match slice.term with
-                    | Slice(term, cuts) ->
-                        let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
-                        x.EncodeTerm term, slices
-                    | _ -> x.EncodeTerm slice, List.empty
+                let term, cuts = x.EncodeSlice slice
                 let t =
                     match term.expr with
                     | :? BitVecExpr as bv -> bv
@@ -826,6 +859,17 @@ module internal Z3 =
             let decl = getFuncDecl name argsSort resultSort
             ctx.MkApp(decl, args)
 
+        member private x.EncodeIte iteType =
+            // can be chosen arbitrary since unreachable
+            let {expr = elseValue} = x.EncodeTerm iteType.elseValue
+            let constructUnion (g, v) (prevIte, assumptions) k =
+                let {expr = guard; assumptions = guardAssumptions} = x.EncodeTerm g
+                let {expr = value; assumptions = valueAssumptions} = x.EncodeTerm v
+                let assumptions = assumptions @ guardAssumptions @ valueAssumptions
+                (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
+            Cps.List.foldrk constructUnion (elseValue, []) iteType.branches (fun (ite, assumptions) ->
+            {expr = ite; assumptions = assumptions})
+            
         member private x.EncodeExpression term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with
@@ -929,12 +973,16 @@ module internal Z3 =
             let assumptions = inRegionAssumptions @ assumptions
             let inst, instAssumptions = inst readExpr
             let assumptions = instAssumptions @ assumptions
-            let checkOneKey (updateKey, reg, value) (acc, assumptions) =
+            let checkOneKey (reg, record) (acc, assumptions) =
+                let recordGuard = Option.defaultValue (True()) record.guard
+                let {expr = recordGuardEncoded; assumptions = recordGuardAssumptions} = x.EncodeTerm recordGuard
+                let assumptions = assumptions @ recordGuardAssumptions
                 // NOTE: we need constraints on right key, because path condition may contain it
                 // EXAMPLE: a[k] = 1; if (k == 0 && a[i] == 1) {...}
-                let matchAssumptions, keysAreMatch = keysAreMatch readKey updateKey reg
+                let matchAssumptions, keysAreMatch = keysAreMatch readKey record.key reg
+                let recordReachability = x.MkAnd(recordGuardEncoded :?> BoolExpr, keysAreMatch)
                 // TODO: [style] auto append assumptions
-                let assumptions = List.append assumptions matchAssumptions
+                let assumptions =  assumptions @ matchAssumptions
                 let readFieldIfNeed term path =
                     match path with
                     | StructFieldPart field ->
@@ -946,10 +994,10 @@ module internal Z3 =
                     | PointerOffset ->
                         assert(IsPtr term)
                         Memory.ExtractPointerOffset term
-                let value = path.Fold readFieldIfNeed value
-                let valueExpr = specializeWithKey value readKey updateKey |> x.EncodeTerm
+                let value = path.Fold readFieldIfNeed record.value
+                let valueExpr = specializeWithKey value readKey record.key |> x.EncodeTerm
                 let assumptions = List.append assumptions valueExpr.assumptions
-                x.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
+                x.MkITE(recordReachability, valueExpr.expr, acc), assumptions
             let expr, assumptions = List.foldBack checkOneKey updates (inst, assumptions)
             encodingResult.Create(expr, assumptions)
 
@@ -1071,9 +1119,9 @@ module internal Z3 =
         member private x.StaticsReading (key : symbolicTypeKey) mo typ source path (name : string) =
             assert mo.defaultValue.IsNone
             let updates = MemoryRegion.flatten mo
-            let value = Seq.tryFind (fun (k, _, _) -> k = key) updates
+            let value = List.tryFind (fun (_, k : updateTreeKey<_, _>) -> k.key = key) updates
             match value with
-            | Some (_, _, v) -> x.EncodeTerm v
+            | Some (_, k) -> x.EncodeTerm k.value
             | None ->
                 let keyType = x.Type2Sort Types.IndexType
                 let sort = ctx.MkArraySort(keyType, x.Type2Sort typ)
@@ -1305,19 +1353,19 @@ module internal Z3 =
 
         member private x.FillRegion state (regionSort : regionSort) constantValue =
             match regionSort with
-            | HeapFieldSort field -> Memory.FillClassFieldsRegion state field constantValue
-            | StaticFieldSort typ -> Memory.FillStaticsRegion state typ constantValue
-            | ArrayIndexSort arrayType -> Memory.FillArrayRegion state arrayType constantValue
-            | ArrayLengthSort arrayType -> Memory.FillLengthRegion state arrayType constantValue
-            | ArrayLowerBoundSort arrayType -> Memory.FillLowerBoundRegion state arrayType constantValue
-            | StackBufferSort key -> Memory.FillStackBufferRegion state key constantValue
-            | BoxedSort typ -> Memory.FillBoxedRegion state typ constantValue
+            | HeapFieldSort field -> FillClassFieldsRegion state field constantValue
+            | StaticFieldSort typ -> FillStaticsRegion state typ constantValue
+            | ArrayIndexSort arrayType -> FillArrayRegion state arrayType constantValue
+            | ArrayLengthSort arrayType -> FillLengthRegion state arrayType constantValue
+            | ArrayLowerBoundSort arrayType -> FillLowerBoundRegion state arrayType constantValue
+            | StackBufferSort key -> FillStackBufferRegion state key constantValue
+            | BoxedSort typ -> FillBoxedRegion state typ constantValue
 
         member x.MkModel (m : Model) =
             try
                 let stackEntries = Dictionary<stackKey, term ref>()
                 // TODO: compose memory region with concrete memory
-                let state = Memory.EmptyCompleteState()
+                let state = EmptyCompleteState()
                 state.memory.MemoryMode <- SymbolicMode
                 let primitiveModel = Dictionary<ISymbolicConstantSource, term ref>()
 
@@ -1351,16 +1399,15 @@ module internal Z3 =
                     let term = kvp.Value.Value
                     let typ = TypeOf term
                     (key, Some term, typ))
-                Memory.NewStackFrame state None (List.ofSeq frame)
+                NewStackFrame state None (List.ofSeq frame)
 
                 let stores = Dictionary<address * path, term * regionSort>()
                 let defaultValues = Dictionary<regionSort, term ref>()
 
                 let store region (path : path) key value =
                     let address = x.DecodeMemoryKey region key
-                    if path.IsEmpty then
-                        let states = Memory.Write state (Ref address) value
-                        assert(states.Length = 1 && states[0] = state)
+                    if path.IsEmpty then do
+                        Write state (Ref address) value
                     else stores[(address, path)] <- value, region
 
                 for KeyValue(region, path as typ, constant) in encodingCache.regionConstants do
@@ -1404,8 +1451,7 @@ module internal Z3 =
                                 let address, ptrPart = path.ToAddress address
                                 assert(Option.isNone ptrPart)
                                 // Secondly, setting 'true' value for concrete address from predicate
-                                let states = Memory.Write state (Ref address) (MakeBool true)
-                                assert(states.Length = 1 && states[0] = state)
+                                Write state (Ref address) (MakeBool true)
                             else internalfail $"Unexpected quantifier expression in model: {arr}"
                         else internalfail $"Unexpected array expression in model: {arr}"
                     parseArray arr
@@ -1421,14 +1467,13 @@ module internal Z3 =
                             let term =
                                 let exists, term = defaultValues.TryGetValue regionSort
                                 if exists then term.Value |> ref
-                                else Memory.DefaultOf regionSort.TypeOfLocation |> ref
+                                else DefaultOf regionSort.TypeOfLocation |> ref
                             complexStores.Add(address, term)
                             term
                     term.Value <- x.WriteByPath term.Value value path.parts
 
                 for KeyValue(address, value) in complexStores do
-                    let states = Memory.Write state (Ref address) value.Value
-                    assert(states.Length = 1 && states[0] = state)
+                    Write state (Ref address) value.Value
 
                 for KeyValue(regionSort, value) in defaultValues do
                     let constantValue = value.Value

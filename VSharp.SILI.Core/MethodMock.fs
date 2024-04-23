@@ -18,7 +18,7 @@ type functionResultConstantSource =
 with
     interface INonComposableSymbolicConstantSource with
         override x.TypeOfLocation = x.t
-        override x.SubTerms = []
+        override x.SubTerms = List.empty
         override x.Time = VectorTime.zero
     override x.ToString() =
         let args = x.args |> List.map toString |> join ", "

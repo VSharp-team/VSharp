@@ -3,6 +3,7 @@
 module public Cps =
     let ret f = fun x k -> k (f x)
     let ret2 f = fun x y k -> k (f x y)
+    let ret3 f = fun g x y k -> k (f g x y)
 
     module public List =
         let rec map f xs k =

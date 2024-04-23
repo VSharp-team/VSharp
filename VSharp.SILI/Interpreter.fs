@@ -210,8 +210,8 @@ module internal InstructionsSet =
            | Some this when argumentIndex = 0 -> this
            | Some _ -> getArgTerm (argumentIndex - 1) m
         let value = cilState.Pop()
-        let states = Memory.Write cilState.state argTerm value
-        states |> List.map cilState.ChangeState
+        Memory.Write cilState.state argTerm value
+        List.singleton cilState
 
     let brcommon condTransform (m : Method) (offset : offset) (cilState : cilState) =
         let cond = cilState.Pop()
@@ -358,8 +358,8 @@ module internal InstructionsSet =
     let initobj (m : Method) offset (cilState : cilState) =
         let targetAddress = cilState.Pop()
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Initobj.Size)
-        let states = Memory.Write cilState.state targetAddress (Memory.DefaultOf typ)
-        List.map cilState.ChangeState states
+        let state = Memory.Write cilState.state targetAddress (Memory.DefaultOf typ)
+        List.singleton cilState
 
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
 
@@ -422,15 +422,18 @@ module internal InstructionsSet =
         | Ref _ when isValueType && implements.Value ->
             cilState.Push this
             cilState.PushMany args
+            List.singleton cilState
         | Ref _ when isValueType ->
             let thisStruct = cilState.Read this
             let heapRef = Memory.BoxValueType state thisStruct
             cilState.Push heapRef
             cilState.PushMany args
+            List.singleton cilState
         | Ref _ ->
             let this = cilState.Read this
             cilState.Push this
             cilState.PushMany args
+            List.singleton cilState
         | Ptr(pointerBase, sightType, offset) ->
             match TryPtrToRef state pointerBase sightType offset with
             | Some(PrimitiveStackLocation _ as address) ->
@@ -440,6 +443,22 @@ module internal InstructionsSet =
                 // Inconsistent pointer, call will fork and filter this state
                 cilState.Push this
                 cilState.PushMany args
+                List.singleton cilState
+        | Ite {branches = branches; elseValue = e} ->
+            match branches with
+            | [(g, v)] ->
+                cilState.StatedConditionalExecutionCIL
+                    (fun state k -> k (g, state))
+                    (fun cilState k -> constrainedImpl v method args cilState |> k)
+                    (fun cilState k -> constrainedImpl e method args cilState |> k)
+                    id
+            | (g, v)::xs ->
+                cilState.StatedConditionalExecutionCIL
+                    (fun state k -> k (g, state))
+                    (fun cilState k -> constrainedImpl v method args cilState |> k)
+                    (fun cilState k -> constrainedImpl (Ite {branches = xs; elseValue = e}) method args cilState |> k)
+                    id
+            | _ -> __unreachable__()
         | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {this}"
 
     // '.constrained' is prefix, which is used before 'callvirt' or 'call' instruction
@@ -459,6 +478,7 @@ module internal InstructionsSet =
             // In this case, next called static method will be called via type 'typ'
             assert(List.isEmpty cilState.prefixContext)
             cilState.PushPrefixContext (Constrained typ)
+            List.singleton cilState
         else
             let args = method.GetParameters().Length |> cilState.PopMany
             let thisForCallVirt = cilState.Pop()
@@ -632,8 +652,7 @@ type ILInterpreter() as this =
             let thisType = TypeOfLocation this
             if Types.IsValueType thisType && (method :> IMethod).IsConstructor then
                 let newThis = Memory.DefaultOf thisType
-                let states = Memory.Write state this newThis
-                assert(List.length states = 1 && LanguagePrimitives.PhysicalEquality state (List.head states))
+                Memory.Write state this newThis
         | None -> ()
 
     member private x.IsArrayGetOrSet (method : Method) =
@@ -807,8 +826,7 @@ type ILInterpreter() as this =
                             match thisOption, thisObj with
                             | Some thisRef, Some thisObj ->
                                 let structTerm = Memory.ObjectToTerm state thisObj declaringType
-                                let states = Memory.Write state thisRef structTerm
-                                assert(List.length states = 1 && List.head states = state)
+                                Memory.Write state thisRef structTerm
                             | _ -> __unreachable__()
                     with :? TargetInvocationException as e ->
                         let isRuntime = method.IsRuntimeException
@@ -851,7 +869,6 @@ type ILInterpreter() as this =
             | _ -> __unreachable__()
         let bodyForModel = Memory.AllocateString " " modelState
         let modelStates = Memory.Write modelState bodyArgRef bodyForModel
-        assert(List.length modelStates = 1 && modelStates[0] = modelState)
         Instruction(0<offsets>, method) |> cilState.PushToIp
         List.singleton cilState
 
@@ -1171,6 +1188,7 @@ type ILInterpreter() as this =
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         let call (cilState : cilState) k =
             if ancestorMethod.IsVirtual && not ancestorMethod.IsFinal then
+                // TODO if this is ITE, it's guard will be propogated in pc. this is error prone, need new model
                 cilState.GuardedApplyCIL this callVirtual k
             else
                 let actualThis = Types.Cast this ancestorMethod.ReflectedType
@@ -2274,7 +2292,7 @@ type ILInterpreter() as this =
             | OpCodeValues.Break -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
             | OpCodeValues.Calli -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
             | OpCodeValues.Ckfinite -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
-            | OpCodeValues.Constrained_ -> constrained |> fallThrough m offset cilState
+            | OpCodeValues.Constrained_ -> constrained |> forkThrough m offset cilState
             | OpCodeValues.Cpblk -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
             | OpCodeValues.Cpobj -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState
             | OpCodeValues.Mkrefany -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState

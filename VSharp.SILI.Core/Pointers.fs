@@ -124,7 +124,7 @@ module internal Pointers =
         | Ptr _ -> False()
         | _ when isReference ref -> isNull ref
         | _ when typeOf ref |> isNative -> True()
-        | Union gvs -> Merging.guardedMap isBadRef gvs
+        | Ite iteType -> Merging.guardedMap isBadRef iteType
         | _ -> False()
 
 // -------------------------- Address arithmetic --------------------------

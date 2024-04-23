@@ -68,12 +68,14 @@ module internal Enum =
                 valuesList.Add(TypeUtils.convert v typeof<UInt64> :?> UInt64)
             let values = Memory.ObjectToTerm state (valuesList.ToArray()) typeof<UInt64[]>
             let valuesCase state k =
-                Memory.Write state valuesPtr values |> k
+                 Memory.Write state valuesPtr values
+                 List.singleton state |> k
             let namesAndValuesCase state k =
                 let names = Memory.ObjectToTerm state names typeof<string[]>
                 let namesPtr = Memory.ReadField state namesRef refField
-                let states = Memory.Write state valuesPtr values
-                List.collect (fun state -> Memory.Write state namesPtr names) states |> k
+                Memory.Write state valuesPtr values
+                Memory.Write state namesPtr names
+                List.singleton state |> k
             let needNames = (Types.Cast getNamesFlag typeof<int>) === (MakeNumber 1)
             StatedConditionalExecutionAppend state
                 (fun state k -> k (needNames, state))

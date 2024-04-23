@@ -43,4 +43,4 @@ module internal Operators =
         | 2 ->
             assert(List.length args >= 2)
             Cps.List.reducek (fun x y k -> simplifyBinaryOperation op x y k) args k
-        | _ -> internalfailf "unknown operation %O" op
+        | _ -> internalfailf $"unknown operation {op}"

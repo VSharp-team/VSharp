@@ -3,7 +3,7 @@ namespace VSharp
 type IRegionTreeKey<'a> =
     abstract Hides : 'a -> bool
 
- /// Implementation of region tree. Region tree is a tree indexed by IRegion's and having the following invariants:
+/// Implementation of region tree. Region tree is a tree indexed by IRegion's and having the following invariants:
 /// - all regions of one node are disjoint;
 /// - the parent region includes all child regions.
 type regionTree<'key, 'reg when 'reg :> IRegion<'reg> and 'key : equality and 'reg : equality and 'key :> IRegionTreeKey<'key>> =
@@ -61,15 +61,18 @@ module RegionTree =
                 Seq.fold splitChild (included, disjoint) intersected
 
     let localize reg tree = splitNode (always false) reg tree |> fst
+    let localizeFilterHidden reg key tree = splitNode (key :> IRegionTreeKey<_>).Hides reg tree
 
     // NOTE: [ATTENTION] must be used only if 'reg' were not added earlier and keys are disjoint
     // NOTE: used for fast initialization of new array
     let memset regionsAndKeys (Node tree) =
         regionsAndKeys |> Seq.fold (fun acc (reg, k) -> PersistentDict.add reg (k, Node PersistentDict.empty) acc) tree |> Node
 
-    let write reg key tree =
-        let included, disjoint = splitNode (key :> IRegionTreeKey<_>).Hides reg tree
+    let private commonWrite reg key tree filter =
+        let included, disjoint = splitNode filter reg tree
         Node(PersistentDict.add reg (key, Node included) disjoint)
+    let write reg key tree =
+        commonWrite reg key tree (key :> IRegionTreeKey<_>).Hides
 
     let rec foldl folder acc (Node d) =
         PersistentDict.fold (fun acc reg (k, t) -> let acc = folder acc reg k in foldl folder acc t) acc d
@@ -95,13 +98,20 @@ module RegionTree =
     let filter reg predicate tree =
         filterRec reg predicate tree |> snd
 
-    let rec map (mapper : 'a -> 'key -> 'a * 'a * 'key when 'a :> IRegion<'a>) tree =
+    let map (mapper : 'a -> 'key -> 'a * 'a * 'key when 'a :> IRegion<'a>) tree =
         let folder reg k acc =
             let reg, reg', k' = mapper reg k
             if reg'.CompareTo reg = Disjoint then acc
             else write (reg.Intersect reg') k' acc
         foldr folder empty tree
 
+    let choose (mapper : 'a -> 'key -> option<'a * 'a * 'key> when 'a :> IRegion<'a>) tree write =
+        let folder reg k acc =
+            match mapper reg k with
+            | Some(reg, reg', k') when reg'.CompareTo reg = Disjoint -> acc
+            | Some(reg, reg', k') -> write (reg.Intersect reg') k' acc
+            | None -> acc
+        foldr folder empty tree
     let rec append baseTree appendix =
         foldr write baseTree appendix
 

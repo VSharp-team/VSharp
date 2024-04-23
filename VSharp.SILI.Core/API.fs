@@ -80,7 +80,7 @@ module API =
         let Ref address = Ref address
         let Ptr baseAddress typ offset = Ptr baseAddress typ offset
         let HeapRef address baseType = HeapRef address baseType
-        let Union gvs = Union gvs
+        let Ite iteType = Ite iteType
 
         let True() = True()
         let False() = False()
@@ -426,9 +426,9 @@ module API =
                         let index = indices[0]
                         t, mul index (TypeUtils.internalSizeOf t |> makeNumber)
                 Ptr baseAddress sightType (add offset indexOffset)
-            | Union gvs ->
+            | Ite iteType ->
                 let referenceArrayIndex term = ReferenceArrayIndex state term indices valueType
-                Merging.guardedMap referenceArrayIndex gvs
+                Merging.guardedMap referenceArrayIndex iteType
             | _ -> internalfail $"Referencing array index: expected reference, but got {arrayRef}"
 
         let ReferenceField state reference fieldId =
@@ -468,11 +468,6 @@ module API =
         let TryAddressFromRefFork state ref =
             CommonTryAddressFromRef state ref true
 
-        let private transformBoxedRef ref =
-            match ref.term with
-            | HeapRef _ -> HeapReferenceToBoxReference ref
-            | _ -> ref
-
         let ExtractAddress ref = extractAddress ref
         let ExtractPointerOffset ptr = extractPointerOffset ptr
 
@@ -485,16 +480,17 @@ module API =
         let ReadThis state method = state.memory.ReadStackLocation (ThisKey method)
         let ReadArgument state parameterInfo = state.memory.ReadStackLocation (ParameterKey parameterInfo)
 
-        let CommonReadField reporter state term field =
-            let doRead target =
-                match target.term with
-                | HeapRef _
-                | Ptr _
-                | Ref _ -> ReferenceField state target field |> state.memory.Read reporter
-                | Struct _ -> state.memory.ReadStruct reporter target field
-                | Combined _ -> state.memory.ReadFieldUnsafe reporter target field
-                | _ -> internalfail $"Reading field of {term}"
-            Merging.guardedApply doRead term
+        let rec CommonReadField reporter state term field =
+            match term.term with
+            | HeapRef _
+            | Ptr _
+            | Ref _ -> ReferenceField state term field |> state.memory.Read reporter
+            | Struct _ -> state.memory.ReadStruct reporter term field
+            | Combined _ -> state.memory.ReadFieldUnsafe reporter term field
+            | Ite iteType ->
+                iteType.filter (fun v -> True() <> IsBadRef v)
+                |> Merging.guardedMap (fun t -> CommonReadField reporter state t field)
+            | _ -> internalfail $"Reading field of {term}"
 
         let ReadField state term field =
             CommonReadField emptyReporter state term field
@@ -522,9 +518,9 @@ module API =
             | HeapRef(addr, typ) when state.memory.MostConcreteTypeOfHeapRef addr typ = typeof<string> ->
                 let addr, arrayType = state.memory.StringArrayInfo addr None
                 state.memory.ReadArrayIndex addr [index] arrayType
-            | Union gvs ->
+            | Ite iteType ->
                 let readStringChar term = ReadStringChar state term index
-                Merging.guardedMap readStringChar gvs
+                Merging.guardedMap readStringChar iteType
             | _ -> internalfail $"Reading string char: expected reference, but got {reference}"
         let ReadStaticField state typ field = state.memory.ReadStaticField typ field
         let ReadDelegate state reference = state.memory.ReadDelegate reference
@@ -538,16 +534,11 @@ module API =
 
         let WriteStackLocation state location value = state.memory.WriteStackLocation location value
 
-        let Write state reference value =
-            let write state reference =
-                state.memory.Write emptyReporter (transformBoxedRef reference) value
-            Branching.guardedStatedMap write state reference
+        let Write state reference value = state.memory.Write emptyReporter reference value
 
         let WriteUnsafe (reporter : IErrorReporter) state reference value =
-            let write state reference =
-                reporter.ConfigureState state
-                state.memory.Write reporter reference value
-            Branching.guardedStatedMap write state reference
+            reporter.ConfigureState state
+            state.memory.Write reporter reference value
 
         let WriteStructField structure field value = writeStruct structure field value
 
@@ -556,13 +547,17 @@ module API =
             writeStruct structure field value
 
         let WriteClassFieldUnsafe (reporter : IErrorReporter) state reference field value =
-            let write state reference =
-                reporter.ConfigureState state
-                match reference.term with
-                | HeapRef(addr, _) -> state.memory.WriteClassField addr field value
+            let extractAddress ref =
+                match ref.term with
+                | HeapRef(addr, _) -> addr
                 | _ -> internalfail $"Writing field of class: expected reference, but got {reference}"
-                state
-            Branching.guardedStatedMap write state reference
+            reporter.ConfigureState state
+            match reference.term with
+            | Ite iteType ->
+                let filtered = iteType.filter (fun r -> Pointers.isBadRef r |> isTrue |> not)
+                filtered.ToDisjunctiveGvs()
+                |> List.iter (fun (g, r) -> state.memory.GuardedWriteClassField (Some g) (extractAddress r) field value)
+            | _ -> state.memory.WriteClassField (extractAddress reference) field value
 
         let WriteClassField state reference field value =
             WriteClassFieldUnsafe emptyReporter state reference field value
@@ -766,7 +761,7 @@ module API =
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
             | HeapRef(addr, typ) -> state.memory.MostConcreteTypeOfHeapRef addr typ |> TypeUtils.rankOf |> makeNumber
-            | Union gvs -> Merging.guardedMap (ArrayRank state) gvs
+            | Ite iteType -> Merging.guardedMap (ArrayRank state) iteType
             | _ -> internalfail $"Getting rank of array: expected ref, but got {arrayRef}"
 
         let rec ArrayLengthByDimension state arrayRef index =
@@ -774,18 +769,18 @@ module API =
             | HeapRef(addr, typ) ->
                 let memory = state.memory
                 memory.MostConcreteTypeOfHeapRef addr typ |> symbolicTypeToArrayType |> memory.ReadLength addr index
-            | Union gvs ->
+            | Ite iteType ->
                 let arrayLengthByDimension term = ArrayLengthByDimension state term index
-                Merging.guardedMap arrayLengthByDimension gvs
+                Merging.guardedMap arrayLengthByDimension iteType
             | _ -> internalfail $"reading array length: expected heap reference, but got {arrayRef}"
         let rec ArrayLowerBoundByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) ->
                 let memory = state.memory
                 memory.MostConcreteTypeOfHeapRef addr typ |> symbolicTypeToArrayType |> memory.ReadLowerBound addr index
-            | Union gvs ->
+            | Ite iteType ->
                 let arrayLowerBoundByDimension term = ArrayLowerBoundByDimension state term index
-                Merging.guardedMap arrayLowerBoundByDimension gvs
+                Merging.guardedMap arrayLowerBoundByDimension iteType
             | _ -> internalfail $"reading array lower bound: expected heap reference, but got {arrayRef}"
 
         let rec CountOfArrayElements state arrayRef =
@@ -795,7 +790,7 @@ module API =
                 let arrayType = memory.MostConcreteTypeOfHeapRef address typ |> symbolicTypeToArrayType
                 let lens = List.init arrayType.dimension (fun dim -> memory.ReadLength address (makeNumber dim) arrayType)
                 List.fold mul (makeNumber 1) lens
-            | Union gvs -> Merging.guardedMap (CountOfArrayElements state) gvs
+            | Ite iteType -> Merging.guardedMap (CountOfArrayElements state) iteType
             | _ -> internalfail $"counting array elements: expected heap reference, but got {arrayRef}"
 
         let StringLength state strRef = state.memory.LengthOfString strRef

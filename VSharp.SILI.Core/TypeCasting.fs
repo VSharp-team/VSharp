@@ -24,7 +24,12 @@ module internal TypeCasting =
     type private symbolicSubtypeSource =
         {left : subtypeElement; right : subtypeElement}
         interface IStatedSymbolicConstantSource with
-            override x.SubTerms = optCons (optCons [] x.left.SubTerm) x.right.SubTerm :> term seq
+            override x.SubTerms =
+                match x.left.SubTerm, x.right.SubTerm with
+                | Some left, Some right -> [left; right]
+                | None, Some right -> List.singleton right
+                | Some left, None -> List.singleton left
+                | None, None -> List.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<bool>
 
@@ -137,7 +142,7 @@ module internal TypeCasting =
         | Ref address ->
             let rightType = address.TypeOfLocation
             typeIsType typ rightType
-        | Union gvs -> Merging.guardedMap (typeIsRef state typ) gvs
+        | Ite gvs -> Merging.guardedMap (typeIsRef state typ) gvs
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
     let rec refIsType state ref typ =
@@ -148,7 +153,7 @@ module internal TypeCasting =
         | Ref address ->
             let leftType = address.TypeOfLocation
             typeIsType leftType typ
-        | Union gvs ->
+        | Ite gvs ->
             let refIsType term = refIsType state term typ
             Merging.guardedMap refIsType gvs
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
@@ -161,7 +166,7 @@ module internal TypeCasting =
         | Ref address ->
             let leftType = address.TypeOfLocation
             makeBool (leftType = typ)
-        | Union gvs ->
+        | Ite gvs ->
             let refEqType term = refEqType state term typ
             Merging.guardedMap refEqType gvs
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
@@ -181,10 +186,10 @@ module internal TypeCasting =
             let leftType = memory.MostConcreteTypeOfHeapRef leftAddr leftSightType
             let rightType = rightAddress.TypeOfLocation
             addressIsType leftAddr leftType rightType
-        | Union gvs, _ ->
+        | Ite gvs, _ ->
             let refIsRef term = refIsRef state term rightRef
             Merging.guardedMap refIsRef gvs
-        | _, Union gvs -> Merging.guardedMap (refIsRef state leftRef) gvs
+        | _, Ite gvs -> Merging.guardedMap (refIsRef state leftRef) gvs
         | _ -> internalfailf $"Checking subtyping: expected heap reference, but got {ref}"
 
     type symbolicSubtypeSource with
