@@ -102,11 +102,11 @@ module Substitution =
             recur shift (fun shift' ->
             Ptr address' (typeSubst typ) shift' |> k))
         | Slice(part, slices) ->
-            let substSlices (s, e, pos) k =
+            let substSlices (s, e, pos, isWrite) k =
                 recur s (fun s' ->
                 recur e (fun e' ->
                 recur pos (fun pos' ->
-                k (s', e', pos'))))
+                k (s', e', pos', isWrite))))
             Cps.List.mapk substSlices slices (fun slices' ->
             recur part (fun part' ->
             createSlice part' slices' |> k))

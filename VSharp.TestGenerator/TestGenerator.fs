@@ -335,7 +335,7 @@ module TestGenerator =
                 for pi in parametersInfo do
                     let arg = Memory.ReadArgument state pi
                     let concreteArg = term2obj model state indices mockCache implementations test arg
-                    test.AddArg (Array.head parametersInfo) concreteArg
+                    test.AddArg pi concreteArg
             else
                 for pi in parametersInfo do
                     let value =

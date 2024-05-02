@@ -149,7 +149,7 @@ module internal Z3 =
 
     type private Z3Builder(ctx : Context) =
         let mutable encodingCache = freshCache()
-        let emptyState = Memory.EmptyIsolatedState()
+        let emptyState = EmptyIsolatedState()
         let mutable maxBufferSize = 128
 
         let typeOfLocation (regionSort : regionSort) (path : path) =
@@ -732,7 +732,7 @@ module internal Z3 =
             assert(termSortSize % 8u = 0u && termSortSize > 0u)
             let zero = ctx.MkBV(0, termSortSize)
             let sizeExpr = ctx.MkBV(termSortSize / 8u, termSortSize)
-            let addBounds (startByte, endByte, pos) (assumptions, startExpr, sizeExpr, position) =
+            let addBounds (startByte, endByte, pos, isWrite) (assumptions, startExpr, sizeExpr, position) =
                 let assumptions = assumptions @ startByte.assumptions @ endByte.assumptions @ pos.assumptions
                 let startByte = x.ExtractOrExtend (startByte.expr :?> BitVecExpr) termSortSize
                 let endByte = x.ExtractOrExtend (endByte.expr :?> BitVecExpr) termSortSize
@@ -744,7 +744,7 @@ module internal Z3 =
                 let sliceSize = x.MkBVSub(right, left)
                 let newLeft = x.MkBVAdd(startExpr, left)
                 let newRight = x.Min (x.MkBVAdd(newLeft, sliceSize)) sizeExpr
-                let newPos = x.Max pos zero
+                let newPos = if isWrite then x.Max pos position else x.Max (x.MkBVAdd(position, pos)) zero
                 assumptions, newLeft, newRight, newPos
             List.foldBack addBounds cuts (assumptions, zero, sizeExpr, zero)
 
@@ -772,18 +772,17 @@ module internal Z3 =
         member private x.EncodeSlice slice =
             match slice.term with
             | Slice(term, cuts) ->
-                let slices = List.map (fun (s, e, pos) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos) cuts
+                let slices = List.map (fun (s, e, pos, isWrite) -> x.EncodeTerm s, x.EncodeTerm e, x.EncodeTerm pos, isWrite) cuts
                 x.EncodeTerm term, slices
             | Ite {branches = ite; elseValue = e} ->
                 let extractTerm slice =
                     match slice.term with
                     | Slice(t, _) -> t
                     | _ -> slice
-                let encodedTerm = {branches = List.map (fun (g, s) -> (g, extractTerm s)) ite; elseValue = extractTerm e} |> x.EncodeIte
-
+                let encodedTerm = x.EncodeIte {branches = List.map (fun (g, s) -> (g, extractTerm s)) ite; elseValue = extractTerm e}
                 let extractCuts slice =
                     match slice.term with
-                    | Slice(t, cuts) -> cuts
+                    | Slice(_, cuts) -> cuts
                     | _ -> List.empty
                 let iteCuts = List.map (fun (_, s) -> extractCuts s) ite
                 let elseCuts = extractCuts e
@@ -796,11 +795,12 @@ module internal Z3 =
                     let branches = itePart |> List.map (fun (g, p) -> (g, proj p))
                     let elseChar = proj elsePart
                     {branches = branches; elseValue = elseChar} |> x.EncodeIte
-                let encodeSlicePart itePart elsePart =
-                    let encodedStarts = encodeCutChar fst3 itePart elsePart
-                    let encodedEnds = encodeCutChar snd3 itePart elsePart
-                    let encodedPoss = encodeCutChar thd3 itePart elsePart
-                    (encodedStarts, encodedEnds, encodedPoss)
+                let encodeSlicePart itePart (_, _, _, isWrite as elsePart) =
+                    let encodedStarts = encodeCutChar fst4 itePart elsePart
+                    let encodedEnds = encodeCutChar snd4 itePart elsePart
+                    let encodedPoss = encodeCutChar thd4 itePart elsePart
+                    assert(List.forall (fun (_, (_, _, _, isWrite')) -> isWrite = isWrite') itePart)
+                    (encodedStarts, encodedEnds, encodedPoss, isWrite)
                 let encodedSliceParts = List.map2 encodeSlicePart iteSliceParts elseCuts
                 encodedTerm, encodedSliceParts
             | _ -> x.EncodeTerm slice, List.empty
@@ -869,7 +869,7 @@ module internal Z3 =
                 (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
             Cps.List.foldrk constructUnion (elseValue, []) iteType.branches (fun (ite, assumptions) ->
             {expr = ite; assumptions = assumptions})
-            
+
         member private x.EncodeExpression term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with
@@ -987,13 +987,13 @@ module internal Z3 =
                     match path with
                     | StructFieldPart field ->
                         assert(IsStruct term)
-                        Memory.ReadField emptyState term field
+                        ReadField emptyState term field
                     | PointerAddress ->
                         assert(IsPtr term)
-                        Memory.ExtractAddress term
+                        ExtractAddress term
                     | PointerOffset ->
                         assert(IsPtr term)
-                        Memory.ExtractPointerOffset term
+                        ExtractPointerOffset term
                 let value = path.Fold readFieldIfNeed record.value
                 let valueExpr = specializeWithKey value readKey record.key |> x.EncodeTerm
                 let assumptions = List.append assumptions valueExpr.assumptions
@@ -1319,10 +1319,10 @@ module internal Z3 =
             | [PointerOffset], Ptr(HeapLocation(address, t), sightType, _) ->
                 Ptr (HeapLocation(address, t)) sightType value
             | [StructFieldPart field], Struct _ ->
-                Memory.WriteStructField term field value
+                WriteStructField term field value
             | StructFieldPart field :: parts, Struct(contents, _) ->
                 let recurred = x.WriteByPath contents[field] value parts
-                Memory.WriteStructField term field recurred
+                WriteStructField term field recurred
             | StructFieldPart _ :: _, _ -> internalfail $"WriteByPath: expected structure, but got {term}"
             | PointerOffset :: parts, _
             | PointerAddress :: parts, _ when List.isEmpty parts |> not ->
@@ -1338,7 +1338,7 @@ module internal Z3 =
                 let term =
                     if exists then res
                     else
-                        let res = Memory.DefaultOf t |> ref
+                        let res = DefaultOf t |> ref
                         dict.Add(key, res)
                         res
                 term.Value <- x.WriteByPath term.Value value path.parts

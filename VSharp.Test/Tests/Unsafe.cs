@@ -1008,5 +1008,58 @@ namespace IntegrationTests
 
             return true;
         }
+
+        [TestSvm(100)]
+        public static bool CheckSpecificUnsafeArrayCopy(int offset1, int offset2, int value)
+        {
+            if (value == -1)
+                return CheckUnsafeArrayCopy(offset1, offset2, value);
+            if (value == Int32.MinValue)
+                return CheckUnsafeArrayCopy(offset1, offset2, value);
+            if (value == Int32.MinValue + 1)
+                return CheckUnsafeArrayCopy(offset1, offset2, value);
+            if (value == Int32.MaxValue)
+                return CheckUnsafeArrayCopy(offset1, offset2, value);
+            if (value == Int32.MaxValue - 1)
+                return CheckUnsafeArrayCopy(offset1, offset2, value);
+
+            return false;
+        }
+
+        [TestSvm(94)]
+        public static bool CheckUnsafeIntCopy(int value)
+        {
+            var copied = 0;
+            var pV = (byte*) &value;
+            var pC = (byte*) &copied;
+            for (var i = 0; i < sizeof(int); i++)
+            {
+                *pC = *pV;
+                pC++;
+                pV++;
+            }
+
+            if (copied != value)
+                return false;
+
+            return true;
+        }
+
+        [TestSvm(100)]
+        public static bool CheckSpecificUnsafeIntCopy(int value)
+        {
+            if (value == -1)
+                return CheckUnsafeIntCopy(value);
+            if (value == Int32.MinValue)
+                return CheckUnsafeIntCopy(value);
+            if (value == Int32.MaxValue)
+                return CheckUnsafeIntCopy(value);
+            if (value == Int32.MinValue + 1)
+                return CheckUnsafeIntCopy(value);
+            if (value == Int32.MaxValue - 1)
+                return CheckUnsafeIntCopy(value);
+
+            return false;
+        }
     }
 }
