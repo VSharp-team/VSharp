@@ -89,7 +89,7 @@ public readonly record struct VSharpOptions
     private const string DefaultOutputDirectory = "";
     private const string DefaultRenderedTestsDirectory = "";
     private const bool DefaultRenderTests = false;
-    private const SearchStrategy DefaultSearchStrategy = SearchStrategy.BFS;
+    private const SearchStrategy DefaultSearchStrategy = SearchStrategy.ExecutionTreeContributedCoverage;
     private const Verbosity DefaultVerbosity = Verbosity.Quiet;
     private const uint DefaultRecursionThreshold = 0u;
     private const ExplorationMode DefaultExplorationMode = ExplorationMode.Sili;
