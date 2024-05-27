@@ -27,19 +27,22 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
     auto covProb = getProbes();
     mdSignature signatureToken;
     SIG_DEF(0x01, ELEMENT_TYPE_VOID, ELEMENT_TYPE_OFFSET)
-    covProb->Finalize_Call->setSig(signatureToken);
+    covProb->Finalize_Call                  ->setSig(signatureToken);
+
     SIG_DEF(0x02, ELEMENT_TYPE_VOID, ELEMENT_TYPE_OFFSET, ELEMENT_TYPE_I4)
-    covProb->Branch->setSig(signatureToken);
-    covProb->Call->setSig(signatureToken);
-    covProb->Leave->setSig(signatureToken);
-    covProb->Throw->setSig(signatureToken);
-    covProb->Stsfld->setSig(signatureToken);
-    covProb->Coverage->setSig(signatureToken);
-    covProb->Tailcall->setSig(signatureToken);
-    covProb->LeaveMain->setSig(signatureToken);
+    covProb->Branch                         ->setSig(signatureToken);
+    covProb->Call                           ->setSig(signatureToken);
+    covProb->Leave                          ->setSig(signatureToken);
+    covProb->Throw                          ->setSig(signatureToken);
+    covProb->Stsfld                         ->setSig(signatureToken);
+    covProb->Coverage                       ->setSig(signatureToken);
+    covProb->Tailcall                       ->setSig(signatureToken);
+    covProb->LeaveMain                      ->setSig(signatureToken);
+
     SIG_DEF(0x03, ELEMENT_TYPE_VOID, ELEMENT_TYPE_OFFSET, ELEMENT_TYPE_I4, ELEMENT_TYPE_I4)
-    covProb->EnterMain->setSig(signatureToken);
-    covProb->Enter->setSig(signatureToken);
+    covProb->EnterMain                      ->setSig(signatureToken);
+    covProb->Enter                          ->setSig(signatureToken);
+
     return S_OK;
 }
 
@@ -67,9 +70,14 @@ bool vsharp::IsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method)
     return true;
 }
 
-bool isApprovedAssembly(const WCHAR *assemblyName, int assemblyNameLength) {
-    for (auto approved : profilerState->approvedAssemblies) {
-        if (assemblyNameLength - 1 == approved.length() && std::string(assemblyName, assemblyName + assemblyNameLength - 1) == approved)
+bool doesContainAssembly(const WCHAR *assemblyName, int assemblyNameLength, std::vector<std::string> &assemblyList) {
+    auto asmName = std::string(assemblyName, assemblyName + assemblyNameLength - 1);
+
+    // safety failcheck as instrumenting System.Private results in an incorrect exit from the profiler
+    if (asmName.find("System.Private") == 0) return false;
+
+    for (auto approved : assemblyList) {
+        if (assemblyNameLength - 1 == approved.length() && asmName == approved)
             return true;
     }
     return false;
@@ -78,10 +86,10 @@ bool isApprovedAssembly(const WCHAR *assemblyName, int assemblyNameLength) {
 // TODO: simplify the condition by adding two main modes as coverage tool config
 bool vsharp::InstrumentationIsNeeded(const WCHAR* assemblyName, int assemblySize, const WCHAR *moduleName, int moduleSize, mdMethodDef method) {
     return IsMain(moduleName, moduleSize, method) || (!profilerState->isTestExpected && !profilerState->collectMainOnly)
-        || (profilerState->isTestExpected && isApprovedAssembly(moduleName, moduleSize));
+        || (profilerState->isTestExpected && doesContainAssembly(assemblyName, assemblySize, profilerState->approvedAssemblies));
 }
 
-HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength, bool isTestRun) {
+HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength) {
     HRESULT hr;
     CComPtr<IMetaDataImport> metadataImport;
     CComPtr<IMetaDataEmit> metadataEmit;
@@ -104,7 +112,7 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, c
             m_jittedToken,
             methodId,
             IsMain(moduleName, moduleNameLength, m_jittedToken),
-            isTestRun
+            profilerState->isTestExpected
     );
 
     return S_OK;
@@ -130,16 +138,11 @@ HRESULT Instrumenter::instrument(FunctionID functionId, std::string methodName) 
     WCHAR *assemblyName = new WCHAR[assemblyNameLength];
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
 
-    // checking if this method was rewritten before
-    if (instrumentedMethods.find({ m_jittedToken, newModuleId }) != instrumentedMethods.end()) {
-        // LOG(tout << "repeated JIT of " << m_jittedToken << "! skipped" << std::endl);
-        return S_OK;
-    }
-
-    LOG(tout << "JIT of " << std::string(assemblyName, assemblyName + assemblyNameLength - 1) << '.' << methodName << std::endl);
-
-    // skipping non-main methods
-    if (!InstrumentationIsNeeded(assemblyName, assemblyNameLength, moduleName, moduleNameLength, m_jittedToken)) {
+    // checking if this method was rewritten before and if it is in need of rewriting
+    if (instrumentedMethods.find({ m_jittedToken, newModuleId }) != instrumentedMethods.end()
+        || !InstrumentationIsNeeded(assemblyName, assemblyNameLength, moduleName, moduleNameLength, m_jittedToken)) {
+        delete[] moduleName;
+        delete[] assemblyName;
         return S_OK;
     }
 
@@ -158,9 +161,12 @@ HRESULT Instrumenter::instrument(FunctionID functionId, std::string methodName) 
         );
     instrumentedMethods.insert({m_jittedToken, newModuleId});
     mutex.unlock();
+
+    profilerState->funcIdToMethodId[functionId] = currentMethodId;
+
     ModuleID oldModuleId = m_moduleId;
     m_moduleId = newModuleId;
-    hr = doInstrumentation(oldModuleId, currentMethodId, moduleName, moduleNameLength, profilerState->isTestExpected);
+    hr = doInstrumentation(oldModuleId, currentMethodId, moduleName, moduleNameLength);
 
     return hr;
 }

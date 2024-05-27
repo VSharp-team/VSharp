@@ -19,7 +19,8 @@ enum CoverageEvent {
     Call,
     Tailcall,
     TrackCoverage,
-    StsfldHit
+    StsfldHit,
+    ThrowLeave,
 };
 
 struct MethodInfo {
@@ -31,6 +32,9 @@ struct MethodInfo {
     std::string methodName;
 
     void serialize(std::vector<char>& buffer) const;
+
+    // frees previously allocated resources for it; the object is not supposed to be used afterwards
+    void Dispose();
 };
 
 struct CoverageRecord {
@@ -38,6 +42,7 @@ struct CoverageRecord {
     CoverageEvent event;
     ThreadID thread;
     int methodId;
+    long long timestamp;
 
     void serialize(std::vector<char>& buffer) const;
 };
@@ -63,9 +68,9 @@ private:
     ThreadStorage<CoverageHistory*>* trackedCoverage;
     ThreadTracker* threadTracker;
     std::mutex serializedCoverageMutex;
-    std::vector<std::vector<char>> serializedCoverage;
     std::vector<int> serializedCoverageThreadIds;
 public:
+    std::vector<std::vector<char>> serializedCoverage;
     std::mutex collectedMethodsMutex;
     std::vector<MethodInfo> collectedMethods;
     explicit CoverageTracker(ThreadTracker* threadTracker, ThreadInfo* threadInfo, bool collectMainOnly);

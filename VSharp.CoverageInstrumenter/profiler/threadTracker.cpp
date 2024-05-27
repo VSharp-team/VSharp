@@ -69,11 +69,13 @@ void ThreadTracker::unwindFunctionEnter(FunctionID functionId) {
 
 void ThreadTracker::unwindFunctionLeave() {
     profiler_assert(isCurrentThreadTracked());
-    LOG(tout << "Unwind leave" << std::endl);
     auto functionId = unwindFunctionIds->load();
     unwindFunctionIds->remove();
-    if (profilerState->collectMainOnly && profilerState->mainFunctionId != functionId) return;
-    if ((!isInFilter() || stackBalance() > 1) && !stackBalanceDown()) {
+    LOG(tout << "Unwind leave" << std::endl);
+    if ((profilerState->collectMainOnly && profilerState->mainFunctionId != functionId)
+        || profilerState->funcIdToMethodId.find(functionId) == profilerState->funcIdToMethodId.end()) return;
+    profilerState->coverageTracker->addCoverage(0, ThrowLeave, profilerState->funcIdToMethodId[functionId]);
+    if ((!isInFilter() || stackBalance() > 0) && !stackBalanceDown()) {
         // stack is empty; function left
         loseCurrentThread();
     }
@@ -132,4 +134,12 @@ ThreadTracker::ThreadTracker(ThreadInfo *threadInfo) {
     stackBalances = new ThreadStorage<int>(threadInfo);
     unwindFunctionIds = new ThreadStorage<FunctionID>(threadInfo);
     inFilterMapping = new ThreadStorage<int>(threadInfo);
+}
+
+ThreadTracker::~ThreadTracker() {
+    clear();
+    delete threadIdMapping;
+    delete stackBalances;
+    delete unwindFunctionIds;
+    delete inFilterMapping;
 }

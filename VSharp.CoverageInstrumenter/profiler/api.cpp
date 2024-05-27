@@ -8,6 +8,7 @@
 #include <vector>
 
 using namespace vsharp;
+
 extern "C" void SetEntryMain(char* assemblyName, int assemblyNameLength, char* moduleName, int moduleNameLength, int methodToken) {
     profilerState->setEntryMain(assemblyName, assemblyNameLength, moduleName, moduleNameLength, methodToken);
     LOG(tout << "received entry main" << std::endl);
@@ -18,15 +19,20 @@ extern "C" void GetHistory(UINT_PTR size, UINT_PTR bytes) {
 
     std::atomic_fetch_add(&shutdownBlockingRequestsCount, 1);
     size_t tmpSize;
-    auto tmpBytes = profilerState->coverageTracker->serializeCoverageReport(&tmpSize);
+    historyBuffer = profilerState->coverageTracker->serializeCoverageReport(&tmpSize);
     *(ULONG*)size = tmpSize;
-    *(char**)bytes = tmpBytes;
+    *(char**)bytes = historyBuffer;
 
     profilerState->coverageTracker->clear();
     profilerState->threadTracker->clear();
 
     std::atomic_fetch_sub(&shutdownBlockingRequestsCount, 1);
     LOG(tout << "GetHistory request handled!");
+}
+
+extern "C" void ClearHistory() {
+    delete historyBuffer;
+    historyBuffer = nullptr;
 }
 
 extern "C" void SetCurrentThreadId(int mapId) {

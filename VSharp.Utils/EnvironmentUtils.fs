@@ -6,9 +6,11 @@ open System.Diagnostics
 open System.Reflection
 open VSharp
 
+let EnvVarUnspecified = "\0"
+
 let optionalFromEnv name =
     let value = Environment.GetEnvironmentVariable(name)
-    if value = null then None
+    if value = null || value = EnvVarUnspecified then None
     else Some value
 
 let fromEnv name =
@@ -23,6 +25,11 @@ type EnvironmentConfigurationAttribute() =
 type EnvironmentVariableAttribute(name : string) =
     inherit Attribute()
     member this.Name with get() = name
+
+type EnvironmentCollection = Dictionary<string, string>
+    
+let isEnvVarSpecified (envCollection: EnvironmentCollection) name =
+    envCollection.ContainsKey(name) && envCollection[name] <> EnvVarUnspecified
 
 let private getEnvironmentConfiguration<'a> () =
     let configurationType = typeof<'a>
@@ -39,10 +46,18 @@ let private getEnvironmentConfiguration<'a> () =
 
     result
 
-let withConfiguration (configuration: 'a) (procInfo : ProcessStartInfo) =
+let withConfiguration (configuration: 'a) (env: EnvironmentCollection) =
+
     for property, envVarName in getEnvironmentConfiguration<'a> () do
+        assert (isEnvVarSpecified env envVarName |> not)
+        env[envVarName] <- property.GetValue(configuration) |> string
+
+    env
+    
+let setProcInfoEnvironment (env: EnvironmentCollection) (procInfo: ProcessStartInfo) =
+    for KeyValue(envVarName, envValue) in env do
         assert (procInfo.Environment.ContainsKey(envVarName) |> not)
-        procInfo.Environment[envVarName] <- property.GetValue(configuration) |> string
+        procInfo.Environment[envVarName] <- envValue
 
 let isConfigured<'a> () =
     let mutable allConfigured = true

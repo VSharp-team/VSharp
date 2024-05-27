@@ -13,6 +13,11 @@ void MethodInfo::serialize(std::vector<char>& buffer) const {
     serializePrimitive(moduleNameLength, buffer);
     serializePrimitiveArray(moduleName, moduleNameLength, buffer);
 }
+
+void MethodInfo::Dispose() {
+    delete moduleName;
+    delete assemblyName;
+}
 //endregion
 
 //region CoverageRecord
@@ -21,27 +26,31 @@ void CoverageRecord::serialize(std::vector<char>& buffer) const {
     serializePrimitive(event, buffer);
     serializePrimitive(methodId, buffer);
     serializePrimitive(thread, buffer);
+    serializePrimitive(timestamp, buffer);
 }
 //endregion
+
+long long GetMicrosecondTime() {
+    using namespace std::chrono;
+    return duration_cast<microseconds>(system_clock::now().time_since_epoch()).count();
+}
 
 //region CoverageHistory
 CoverageHistory::CoverageHistory(OFFSET offset, int methodId) {
     auto insertResult = visitedMethods.insert(methodId);
-    LOG(if (insertResult.second) {
-        tout << "Visit method: " << methodId;
-    });
-    auto record = new CoverageRecord({offset, EnterMain, profilerState->threadInfo->getCurrentThread(), methodId});
+    if (insertResult.second) {
+        LOG(tout << "Visit method: " << methodId);
+    }
+    auto record = new CoverageRecord({offset, EnterMain, profilerState->threadInfo->getCurrentThread(), methodId, GetMicrosecondTime()});
     records.push_back(record);
 }
 
 void CoverageHistory::addCoverage(OFFSET offset, CoverageEvent event, int methodId) {
     auto insertResult = visitedMethods.insert(methodId);
-    LOG(
     if (insertResult.second) {
-        tout << "Visit method: " << methodId;
+        LOG(tout << "Visit method: " << methodId);
     }
-    );
-    auto record = new CoverageRecord({offset, event, profilerState->threadInfo->getCurrentThread(), methodId});
+    auto record = new CoverageRecord({offset, event, profilerState->threadInfo->getCurrentThread(), methodId, GetMicrosecondTime()});
     records.push_back(record);
 }
 
@@ -54,6 +63,8 @@ void CoverageHistory::serialize(std::vector<char>& buffer) const {
 }
 
 CoverageHistory::~CoverageHistory() {
+    for (auto r : records)
+        delete r;
     records.clear();
 }
 //endregion
@@ -99,6 +110,7 @@ void CoverageTracker::invocationFinished() {
         coverage->serialize(buffer);
     }
 
+    delete coverage;
     trackedCoverage->remove();
 
     serializedCoverageMutex.lock();
@@ -110,6 +122,7 @@ void CoverageTracker::invocationFinished() {
 char* CoverageTracker::serializeCoverageReport(size_t* size) {
     collectedMethodsMutex.lock();
     serializedCoverageMutex.lock();
+    printf("got locks, converting info\n");
 
     auto buffer = std::vector<char>();
     auto methodsToSerialize = std::vector<std::pair<int, MethodInfo>>();
@@ -126,6 +139,7 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
         serializePrimitive(el.first, buffer);
         el.second.serialize(buffer);
     }
+    printf("converted methods: %lld\n", buffer.size());
 
     auto threadMapping = profilerState->threadTracker->getMapping();
     for (auto mapping: threadMapping) {
@@ -148,6 +162,10 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
         serializePrimitiveArray(&serializedCoverage[i][0], serializedCoverage[i].size(), buffer);
     }
 
+    printf("converted reports: %lld\n", buffer.size());
+
+    for (auto cov : trackedCoverage->items())
+        delete cov.second;
     trackedCoverage->clear();
     serializedCoverage.clear();
     methodsToSerialize.clear();
@@ -155,9 +173,14 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
     serializedCoverageMutex.unlock();
     collectedMethodsMutex.unlock();
 
+    printf("cleared and unlocked data\n");
+
     *size = buffer.size();
     char* array = new char[*size];
+    printf("successfully allocated\n");
     std::memcpy(array, &buffer[0], *size);
+
+    printf("total bytes: %lld", *size);
     return array;
 }
 
@@ -179,9 +202,15 @@ void CoverageTracker::clear()  {
 
 CoverageTracker::~CoverageTracker(){
     clear();
+    for (int i = 0; i < collectedMethods.size(); i++)
+        collectedMethods[i].Dispose();
+    collectedMethods.clear();
+    delete trackedCoverage;
 }
 
 void CoverageTracker::invocationAborted() {
+    auto abortedCov = trackedCoverage->load();
+    delete abortedCov;
     trackedCoverage->update([](CoverageHistory *cov) {
         return (CoverageHistory*) nullptr;
     });

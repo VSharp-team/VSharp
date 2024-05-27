@@ -19,12 +19,13 @@ type CoverageReport = {
 
 #nowarn "9"
 [<Struct; CLIMutable; DataContract>]
-[<StructLayout(LayoutKind.Explicit, Size = 20)>]
+[<StructLayout(LayoutKind.Explicit, Size = 28)>]
 type RawCoverageLocation = {
     [<FieldOffset(00); DataMember(Order = 1)>] offset: uint32
     [<FieldOffset(04); DataMember(Order = 2)>] event: int32
     [<FieldOffset(08); DataMember(Order = 3)>] methodId: int32
     [<FieldOffset(12); DataMember(Order = 4)>] threadId: uint64
+    [<FieldOffset(20); DataMember(Order = 5)>] timeInMicroseconds: int64
 }
 
 type RawMethodInfo = {
@@ -57,6 +58,11 @@ module CoverageDeserializer =
         increaseOffset sizeof<int32>
         result
 
+    let inline private readInt64 () =
+        let result = BitConverter.ToInt64(data, dataOffset)
+        increaseOffset sizeof<int64>
+        result
+
     let inline private readUInt32 () =
         let result = BitConverter.ToUInt32(data, dataOffset)
         increaseOffset sizeof<uint32>
@@ -85,7 +91,8 @@ module CoverageDeserializer =
         let event = readInt32 ()
         let methodId = readInt32 ()
         let threadId = readUInt64 ()
-        { offset = offset; event = event; methodId = methodId; threadId = threadId }
+        let time = readInt64 ()
+        { offset = offset; event = event; methodId = methodId; threadId = threadId; timeInMicroseconds = time }
 
     let inline private deserializeArray elementDeserializer =
         let arraySize = readInt32 ()

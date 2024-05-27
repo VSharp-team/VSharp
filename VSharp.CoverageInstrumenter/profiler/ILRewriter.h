@@ -6,12 +6,13 @@
 #include "corprof.h"
 #include <stdexcept>
 #include "probes.h"
+#include "memory.h"
 
 #undef IfFailRet
-#define IfFailRet(EXPR) do { HRESULT hr = (EXPR); if(FAILED(hr)) { return (hr); } } while (0)
+#define IfFailRet(EXPR) do { if (std::atomic_load(&vsharp::shutdownInOrder)) { return S_OK; } HRESULT hr = (EXPR); if(FAILED(hr)) { return (hr); } } while (0)
 
 #undef IfNullRet
-#define IfNullRet(EXPR) do { if ((EXPR) == NULL) return E_OUTOFMEMORY; } while (0)
+#define IfNullRet(EXPR) do { if (std::atomic_load(&vsharp::shutdownInOrder)) { return S_OK; } if ((EXPR) == NULL) return E_OUTOFMEMORY; } while (0)
 
 struct ILInstr
 {

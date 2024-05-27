@@ -19,7 +19,7 @@ private:
     char *m_signatureTokens;
     unsigned m_signatureTokensLength;
     std::mutex mutex;
-    HRESULT doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength, bool isTestRun);
+    HRESULT doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength);
 
 public:
     explicit Instrumenter(ICorProfilerInfo8 &profilerInfo);
