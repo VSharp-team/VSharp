@@ -75,7 +75,7 @@ module internal Copying =
         let stringAddress = ConcreteHeapAddress stringConcreteAddress
         let stringAddress, arrayType = memory.StringArrayInfo stringAddress (Some arrayLength)
         copyArray state arrayAddress startIndex arrayType stringAddress (makeNumber 0) arrayType arrayLength
-        memory.WriteClassField stringAddress Reflection.stringLengthField arrayLength
+        memory.WriteClassField None stringAddress Reflection.stringLengthField arrayLength
 
     let copyCharArrayToString (state : state) arrayAddress stringConcreteAddress startIndex length =
         let memory = state.memory
