@@ -556,8 +556,8 @@ module API =
             | Ite iteType ->
                 let filtered = iteType.filter (fun r -> Pointers.isBadRef r |> isTrue |> not)
                 filtered.ToDisjunctiveGvs()
-                |> List.iter (fun (g, r) -> state.memory.GuardedWriteClassField (Some g) (extractAddress r) field value)
-            | _ -> state.memory.WriteClassField (extractAddress reference) field value
+                |> List.iter (fun (g, r) -> state.memory.WriteClassField (Some g) (extractAddress r) field value)
+            | _ -> state.memory.WriteClassField None (extractAddress reference) field value
 
         let WriteClassField state reference field value =
             WriteClassFieldUnsafe emptyReporter state reference field value
@@ -733,7 +733,7 @@ module API =
             let symbolicCase address =
                 let address, arrayType = memory.StringArrayInfo address (Some length)
                 Copying.fillArray state address arrayType (makeNumber 0) length char
-                memory.WriteClassField address Reflection.stringLengthField length
+                memory.WriteClassField None address Reflection.stringLengthField length
             match string.term, concreteChar, concreteLen with
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), Some (:? char as c), Some (:? int as len)
                 when cm.Contains a ->

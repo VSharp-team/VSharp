@@ -220,16 +220,22 @@ and iteType = genericIteType<term>
 and genericIteType<'a> = {branches: (term * 'a) list; elseValue : 'a}
     with
     static member FromGvs gvs =
-        if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
+        if List.length gvs < 2 then internalfail "Empty and one-element ite's are forbidden!"
         let branches, e = List.splitAt (List.length gvs - 1) gvs
         {branches = branches; elseValue =  e |> List.head |> snd}
+
     member x.mapValues mapper =
         {branches = List.map (fun (g, v) -> (g, mapper v)) x.branches; elseValue = mapper x.elseValue}
+
     member x.filter predicate =
         if predicate x.elseValue then
             {branches = List.filter (snd >> predicate) x.branches; elseValue = x.elseValue}
         else
             List.filter (snd >> predicate) x.branches |> genericIteType<'a>.FromGvs
+
+    member x.exists predicate =
+        predicate x.elseValue || List.exists (fun (g, v) -> predicate v) x.branches
+
     member x.choose mapper =
         let chooser (g, v) = Option.bind (fun w -> Some(g, w)) (mapper v)
         match mapper x.elseValue with

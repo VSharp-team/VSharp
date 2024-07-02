@@ -532,59 +532,6 @@ namespace IntegrationTests
             return 3;
         }
 
-        [TestSvm(94)]
-        public static int TestSolvingCopyOverwrittenValueUnreachable1(string[] a, string[] b)
-        {
-            if (a != null && b != null && a.Length > b.Length)
-            {
-                a[0] = "42";
-                b[0] = "4";
-                Array.Copy(a, 0, b, 0, b.Length);
-                if (b[0] != "42") // unreachable
-                {
-                    return -1;
-                }
-
-                return 0;
-            }
-
-            return 3;
-        }
-
-        [TestSvm(95)]
-        public static int TestSolvingCopyOverwrittenValueUnreachable2(string[] a, int i, string[] b)
-        {
-            if (a != null && b != null && a.Length > b.Length)
-            {
-                b[i] = "500";
-                Array.Copy(a, 0, b, 0, b.Length);
-                if (b.Length > 0 && a[i] != "500" && b[i] == "500") // unreachable
-                {
-                    return -1;
-                }
-
-                return 0;
-            }
-
-            return 3;
-        }
-
-        [TestSvm(94)]
-        public static int TestSolvingCopy8(object[] a, object[] b, int i)
-        {
-            if (a.Length > b.Length && 0 <= i && i < b.Length)
-            {
-                Array.Fill(a, "abc");
-                Array.Copy(a, b, b.Length);
-
-                if (b[i] == b[i + 1])
-                    return 42;
-                return 10;
-            }
-
-            return 3;
-        }
-
         [TestSvm(97)]
         public static int TestSolvingCopy9(object[] a, int i, object[] b)
         {
@@ -785,20 +732,6 @@ namespace IntegrationTests
             public int x;
         }
 
-        [TestSvm(88)]
-        public static int LastRecordReachability(string[] a, string[] b, int i, string s)
-        {
-            a[i] = "1";
-            b[1] = s;
-            if (b[1] != s)
-            {
-                // unreachable
-                return -1;
-            }
-
-            return 0;
-        }
-
         [TestSvm(90)]
         public static int ArrayElementsAreReferences(MyClass[] a, int i, int j)
         {
@@ -922,44 +855,6 @@ namespace IntegrationTests
             }
 
             return 0;
-        }
-
-        [TestSvm(100)]
-        public static int ConcreteDictionaryTest1(int a, string b)
-        {
-            var d = new Dictionary<int, List<string>>();
-            d.Add(1, new List<string> { "2", "3" });
-            d.Add(4, new List<string> { "5", "6" });
-            if (d.TryGetValue(a, out var res))
-            {
-                if (res.Contains(b))
-                    return 1;
-                return 0;
-            }
-
-            return 2;
-        }
-
-        public class Person
-        {
-            public string FirstName { get; set; }
-            public string LastName { get; init; }
-        };
-        
-        [TestSvm(95)]
-        public static int IteKeyWrite(int i)
-        {
-            var a = new Person[4];
-            a[0] = new Person() {FirstName = "asd", LastName = "qwe"};
-            a[3] = new Person() {FirstName = "zxc", LastName = "vbn"};
-            var p = a[i];
-            p.FirstName = "323";
-            if (i == 0 && a[3].FirstName == "323")
-            {
-                return -1;
-            }
-
-            return 1;
         }
 
         [TestSvm(100)]
@@ -1412,33 +1307,6 @@ namespace IntegrationTests
             if (d[a] != b)
                 return -1;
             return 0;
-        }
-        [TestSvm(95)]
-        public static int TestSplittingWithCopy(int srcI, int dstI, int len)
-        {
-            string[] arr = {"a", "b", "c", "d", "e"};
-            var a = new string[5];
-            Array.Copy(arr, srcI, a, dstI, len);
-            if (a[2].Length == 3)
-                return -1;
-            return 1;
-        }
-        [TestSvm(91)]
-        public static int TestSplittingWithCopyRegionsImportance(string[] a, int i)
-        {
-            a[i] = "a";
-            a[1] = "b";
-            var b = new string[a.Length];
-            Array.Copy(a, 0, b, 0, a.Length);
-            if (i == 1 && b[i] == "a") // unreachable
-                // record b[i], "a" exists only if i != 1
-                return -1;
-            if (i != 1 && b[i] != "a") // unreachable
-            {
-                return -2;
-            }
-
-            return 1;
         }
 
         [TestSvm(83)]

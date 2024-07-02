@@ -58,6 +58,7 @@ module public PersistentDict =
         | None -> add key (mapper defaultValue) d
 
     let public size (d : pdict<'a, 'b>) = d.impl.Length
+    let public last (d : pdict<'a, 'b>) = d.impl.Iterator() |> Seq.tryLast
 
     let public map (keyMapper : 'a -> 'a) (valueMapper : 'b -> 'c) (d : pdict<'a, 'b>) : pdict<'a, 'c> =
         d |> toSeq |> Seq.map (fun (k, v) -> (keyMapper k, valueMapper v)) |> ofSeq
@@ -79,7 +80,7 @@ module public PersistentDict =
     let public partition predicate (d : pdict<'a, 'b>) =
         let mutable sat = empty
         let mutable unsat = empty
-        for (k, v) in toSeq d do
+        for k, v in toSeq d do
             if predicate k v then sat <- add k v sat
             else unsat <- add k v unsat
         sat, unsat

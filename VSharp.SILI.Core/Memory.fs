@@ -2040,9 +2040,7 @@ module internal Memory =
                 self.CommonWriteArrayIndex None address indices arrayType value
             member self.WriteArrayRange address fromIndices toIndices arrayType value =
                 self.CommonWriteArrayRange None address fromIndices toIndices arrayType value
-            member self.WriteClassField address field value =
-                self.CommonWriteClassField None address field value
-            member self.GuardedWriteClassField guard address field value =
+            member self.WriteClassField guard address field value =
                 self.CommonWriteClassField guard address field value
 
             member self.WriteStackLocation key value = writeStackLocation key value
