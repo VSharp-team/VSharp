@@ -53,7 +53,7 @@ module internal Buffer =
             let checkDst (info, cilState : cilState) =
                 match info with
                 | Some (dstAddress : address) ->
-                    let checkSrc (info, cilState : cilState) =
+                    let checkSrc info (cilState : cilState) =
                         match info with
                         | Some (srcAddress : address) ->
                             let dstType = lazy dstAddress.TypeOfLocation
@@ -71,28 +71,26 @@ module internal Buffer =
                             match dstAddress, srcAddress with
                             | _ when allSafe() ->
                                 let value = cilState.Read (Ref srcAddress)
-                                let cilStates = cilState.Write (Ref dstAddress) value
-                                assert(List.length cilStates = 1)
-                                List.head cilStates
+                                cilState.Write (Ref dstAddress) value
                             | _ when dstSafe.Value ->
                                 let ptr = Types.Cast (Ref srcAddress) (dstType.Value.MakePointerType())
                                 let value = cilState.Read ptr
-                                let cilStates = cilState.Write (Ref dstAddress) value
-                                assert(List.length cilStates = 1)
-                                List.head cilStates
+                                cilState.Write (Ref dstAddress) value
                             | _ when srcSafe.Value ->
                                 let value = cilState.Read (Ref srcAddress)
                                 let ptr = Types.Cast (Ref dstAddress) (srcType.Value.MakePointerType())
-                                let cilStates = cilState.Write ptr value
-                                assert(List.length cilStates = 1)
-                                List.head cilStates
+                                cilState.Write ptr value
                             | ArrayIndex(dstAddress, dstIndices, dstArrayType), ArrayIndex(srcAddress, srcIndices, srcArrayType) ->
                                 Copy dstAddress dstIndex dstIndices dstArrayType srcAddress srcIndex srcIndices srcArrayType state bytesCount
-                                cilState
                             // TODO: implement unsafe copy
                             | _ -> internalfail $"CommonMemmove unexpected addresses {srcAddress}, {dstAddress}"
-                        | None -> cilState
-                    getAddress cilState src |> List.map checkSrc
+                        | None -> ()
+                    let addressesWithStates = getAddress cilState src
+                    let mutable resultCilStates = List.empty
+                    for address, cilState in addressesWithStates do
+                        checkSrc address cilState
+                        resultCilStates <- cilState :: resultCilStates
+                    resultCilStates
                 | None -> cilState |> List.singleton
             getAddress cilState dst |> List.collect checkDst
 

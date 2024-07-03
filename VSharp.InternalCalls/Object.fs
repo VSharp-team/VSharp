@@ -41,12 +41,8 @@ module internal Object =
                 else t
             let newObject = Memory.AllocateDefaultClass state t
             let fields = Reflection.fieldsOf false t
-            let copyField cilStates (field, _) =
-                let copyForState (cilState : cilState) =
-                    let v = cilState.ReadField object field
-                    cilState.WriteClassField newObject field v
-                List.collect copyForState cilStates
-            let cilStates = Array.fold copyField (List.singleton cilState) fields
-            for cilState in cilStates do
-                cilState.Push newObject
-            cilStates
+            for field, _ in fields do
+                let v = cilState.ReadField object field
+                cilState.WriteClassField newObject field v
+            cilState.Push newObject
+            List.singleton cilState

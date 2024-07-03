@@ -1309,7 +1309,8 @@ type ILInterpreter() as this =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Stobj.Size)
         let store (cilState : cilState) k =
             let value = Types.Cast value typ
-            cilState.Write ref value |> k
+            cilState.Write ref value
+            List.singleton cilState |> k
         x.NpeOrInvokeStatementCIL cilState ref store id
 
     member x.LdFldWithFieldInfo (fieldInfo : FieldInfo) addressNeeded (cilState : cilState) =
@@ -1342,7 +1343,8 @@ type ILInterpreter() as this =
             let reference =
                 if TypeUtils.isPointer fieldInfo.DeclaringType then targetRef
                 else Reflection.wrapField fieldInfo |> Memory.ReferenceField cilState.state targetRef
-            cilState.Write reference value |> k
+            cilState.Write reference value
+            List.singleton cilState |> k
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
 
     member private x.LdElemCommon (typ : Type option) (cilState : cilState) arrayRef indices =
@@ -1395,7 +1397,8 @@ type ILInterpreter() as this =
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
             let uncheckedStElem (cilState : cilState) (k : cilState list -> 'a) =
-                cilState.WriteIndex arrayRef indices value typ |> k
+                cilState.WriteIndex arrayRef indices value typ
+                List.singleton cilState |> k
             let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let condition =
                     if Types.IsValueType typeOfValue then True()
@@ -1467,7 +1470,8 @@ type ILInterpreter() as this =
         let value, address = cilState.Pop2()
         let store (cilState : cilState) k =
             let value = valueCast value
-            cilState.Write address value |> k
+            cilState.Write address value
+            List.singleton cilState |> k
         x.NpeOrInvokeStatementCIL cilState address store id
 
     member x.BoxNullable (t : Type) (v : term) (cilState : cilState) : cilState list =
@@ -2165,12 +2169,12 @@ type ILInterpreter() as this =
             | OpCodeValues.Xor -> (fun _ _ -> bitwiseOrBoolOperation OperationType.BitwiseXor OperationType.LogicalXor) |> fallThrough m offset cilState
             | OpCodeValues.Neg -> (fun _ _ -> performCILUnaryOperation OperationType.UnaryMinus) |> fallThrough m offset cilState
             | OpCodeValues.Not -> (fun _ _ -> bitwiseOrBoolNot) |> fallThrough m offset cilState
-            | OpCodeValues.Stloc -> stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Stloc.Size) |> int) |> forkThrough m offset cilState
-            | OpCodeValues.Stloc_0 -> stloc (fun _ _ -> 0) |> forkThrough m offset cilState
-            | OpCodeValues.Stloc_1 -> stloc (fun _ _ -> 1) |> forkThrough m offset cilState
-            | OpCodeValues.Stloc_2 -> stloc (fun _ _ -> 2) |> forkThrough m offset cilState
-            | OpCodeValues.Stloc_3 -> stloc (fun _ _ -> 3) |> forkThrough m offset cilState
-            | OpCodeValues.Stloc_S -> stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Stloc_S.Size) |> int) |> forkThrough m offset cilState
+            | OpCodeValues.Stloc -> stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Stloc.Size) |> int) |> fallThrough m offset cilState
+            | OpCodeValues.Stloc_0 -> stloc (fun _ _ -> 0) |> fallThrough m offset cilState
+            | OpCodeValues.Stloc_1 -> stloc (fun _ _ -> 1) |> fallThrough m offset cilState
+            | OpCodeValues.Stloc_2 -> stloc (fun _ _ -> 2) |> fallThrough m offset cilState
+            | OpCodeValues.Stloc_3 -> stloc (fun _ _ -> 3) |> fallThrough m offset cilState
+            | OpCodeValues.Stloc_S -> stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Stloc_S.Size) |> int) |> fallThrough m offset cilState
             | OpCodeValues.Starg -> starg (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Starg.Size) |> int) |> forkThrough m offset cilState
             | OpCodeValues.Starg_S -> starg (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Starg_S.Size) |> int) |> forkThrough m offset cilState
             | OpCodeValues.Ldc_I4 -> ldc (fun ilBytes offset -> NumberCreator.extractInt32 ilBytes (offset + Offset.from OpCodes.Ldc_I4.Size)) typedefof<int32> |> fallThrough m offset cilState

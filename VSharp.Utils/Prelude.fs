@@ -50,6 +50,11 @@ module public Prelude =
     let inline public snd3 (_, y, _) = y
     let inline public thd3 (_, _, z) = z
 
+    let inline public fst4 (x, _, _, _) = x
+    let inline public snd4 (_, y, _, _) = y
+    let inline public thd4 (_, _, z, _) = z
+    let inline public fth4 (_, _, _, a) = a
+
     let inline public appIfNotNull f lhs rhs =
         if lhs = null then rhs else f lhs
 

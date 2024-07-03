@@ -75,7 +75,6 @@ type private SVMExplorer(explorationOptions: ExplorationOptions, statistics: SVM
     let emptyState = Memory.EmptyIsolatedState()
     let interpreter = ILInterpreter()
 
-
     do
         if options.visualize then
             DotVisualizer explorationOptions.outputDirectory :> IVisualizer |> Application.setVisualizer

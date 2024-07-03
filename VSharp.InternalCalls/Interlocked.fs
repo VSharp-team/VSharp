@@ -1,7 +1,7 @@
 namespace VSharp.System
 
 open global.System
-open VSharp
+
 open VSharp.Core
 open VSharp.Interpreter.IL
 open VSharp.Interpreter.IL.CilState
@@ -11,10 +11,9 @@ module internal Interlocked =
     let exchange (interpreter : IInterpreter) (cilState : cilState) location value =
         let exchange (cilState : cilState) k =
             let currentValue = cilState.Read location
-            let cilStates = cilState.Write location value
-            for cilState in cilStates do
-                cilState.Push currentValue
-            k cilStates
+            cilState.Write location value
+            cilState.Push currentValue
+            List.singleton cilState |> k
         interpreter.NpeOrInvoke cilState location exchange id
 
     let commonCompareExchange (interpreter : IInterpreter) (cilState : cilState) location value compared =
@@ -23,7 +22,7 @@ module internal Interlocked =
             let cilStates =
                 cilState.StatedConditionalExecutionCIL
                     (fun cilState k -> k (currentValue === compared, cilState))
-                    (fun cilState k -> k (cilState.Write location value))
+                    (fun cilState k -> k (cilState.Write location value; List.singleton cilState))
                     (fun cilState k -> k (List.singleton cilState))
                     id
             for cilState in cilStates do

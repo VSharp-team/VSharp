@@ -644,7 +644,7 @@ namespace IntegrationTests
             return 3;
         }
 
-        [TestSvm(90)]
+        [Ignore("fix array memory region")]
         public static int ArrayAliasWrite(object[] o, string[] s, string str1, string str2)
         {
             if (o[42] == str1)

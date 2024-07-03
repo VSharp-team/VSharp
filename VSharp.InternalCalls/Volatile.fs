@@ -21,3 +21,4 @@ module Volatile =
         assert(List.length args = 3)
         let ref, value = args[1], args[2]
         cilState.Write ref value
+        List.singleton cilState

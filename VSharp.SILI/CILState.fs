@@ -444,18 +444,15 @@ module CilState =
 
         member x.Write ref value =
             Memory.WriteUnsafe x.ErrorReporter.Value x.state ref value
-            List.singleton x
 
         member x.WriteClassField ref field value =
             Memory.WriteClassFieldUnsafe x.ErrorReporter.Value x.state ref field value
-            List.singleton x
 
         member x.WriteStructField term field value =
             Memory.WriteStructFieldUnsafe x.ErrorReporter.Value x.state term field value
 
         member x.WriteIndex term index value valueType =
             Memory.WriteArrayIndexUnsafe x.ErrorReporter.Value x.state term index value valueType
-            List.singleton x
 
         // -------------------------- Branching --------------------------
 
