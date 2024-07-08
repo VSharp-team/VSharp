@@ -13,12 +13,12 @@ void ConvertToWCHAR(const char *str, std::u16string &result) {
     result = conv16.from_bytes(str);
 }
 
-bool IsEnvVarPresent(const char *name) {
+bool IsEnvVarEnabled(const char *name) {
     auto value = std::getenv(name);
     return value != nullptr && value[0] == '1';
 }
 
-char *CheckEnvVarAndGet(const char *name) {
+char *RetrieveEnvVarOrFail(const char *name) {
     auto str = std::getenv(name);
     profiler_assert(str);
     return str;
@@ -29,9 +29,9 @@ bool ProfilerState::isCorrectFunctionId(FunctionID id) {
 }
 
 ProfilerState::ProfilerState(ICorProfilerInfo8 *corProfilerInfo) {
-    isPassiveRun = IsEnvVarPresent("COVERAGE_TOOL_ENABLE_PASSIVE");
-    isTestExpected = IsEnvVarPresent("COVERAGE_TOOL_EXPECT_TEST_SUITE");
-    collectMainOnly = IsEnvVarPresent("COVERAGE_TOOL_INSTRUMENT_MAIN_ONLY");
+    isPassiveRun = IsEnvVarEnabled("COVERAGE_TOOL_ENABLE_PASSIVE");
+    isTestExpected = IsEnvVarEnabled("COVERAGE_TOOL_EXPECT_TEST_SUITE");
+    collectMainOnly = IsEnvVarEnabled("COVERAGE_TOOL_INSTRUMENT_MAIN_ONLY");
 
     // mainMethod is not yet specified
     mainMethodInfo.moduleName = nullptr;
@@ -48,23 +48,23 @@ ProfilerState::ProfilerState(ICorProfilerInfo8 *corProfilerInfo) {
 
     if (isPassiveRun) {
         LOG(tout << "WORKING IN PASSIVE MODE" << std::endl);
-        passiveResultPath = CheckEnvVarAndGet("COVERAGE_TOOL_RESULT_NAME");
+        passiveResultPath = RetrieveEnvVarOrFail("COVERAGE_TOOL_RESULT_NAME");
     }
 
     if (isTestExpected) {
-        ReadAssembliesFile(CheckEnvVarAndGet("COVERAGE_TOOL_ASSEMBLY_PATHS_FILE"), &approvedAssemblies);
-        ReadAssembliesFile(CheckEnvVarAndGet("COVERAGE_TOOL_MAIN_ASSEMBLY_PATHS_FILE"), &testAssemblies);
+        ReadAssembliesFile(RetrieveEnvVarOrFail("COVERAGE_TOOL_ASSEMBLY_PATHS_FILE"), &approvedAssemblies);
+        ReadAssembliesFile(RetrieveEnvVarOrFail("COVERAGE_TOOL_MAIN_ASSEMBLY_PATHS_FILE"), &testAssemblies);
         LOG(tout << "RECEIVED ASSEMBLIES TO INSTRUMENT" << std::endl);
     }
     LOG(tout << approvedAssemblies.size() << " " << testAssemblies.size() << std::endl);
 
-    if (IsEnvVarPresent("COVERAGE_TOOL_SPECIFY_MAIN_METHOD")) {
+    if (IsEnvVarEnabled("COVERAGE_TOOL_SPECIFY_MAIN_METHOD")) {
         std::u16string assemblyNameU16;
         std::u16string moduleNameU16;
 
-        ConvertToWCHAR(CheckEnvVarAndGet("COVERAGE_TOOL_METHOD_ASSEMBLY_NAME"), assemblyNameU16);
-        ConvertToWCHAR(CheckEnvVarAndGet("COVERAGE_TOOL_METHOD_MODULE_NAME"), moduleNameU16);
-        int mainToken = std::stoi(CheckEnvVarAndGet("COVERAGE_TOOL_METHOD_TOKEN"));
+        ConvertToWCHAR(RetrieveEnvVarOrFail("COVERAGE_TOOL_METHOD_ASSEMBLY_NAME"), assemblyNameU16);
+        ConvertToWCHAR(RetrieveEnvVarOrFail("COVERAGE_TOOL_METHOD_MODULE_NAME"), moduleNameU16);
+        int mainToken = std::stoi(RetrieveEnvVarOrFail("COVERAGE_TOOL_METHOD_TOKEN"));
 
         size_t mainAssemblyNameLength = assemblyNameU16.size();
         auto* mainAssemblyName = new WCHAR[mainAssemblyNameLength];

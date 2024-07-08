@@ -83,10 +83,12 @@ bool doesContainAssembly(const WCHAR *assemblyName, int assemblyNameLength, std:
     return false;
 }
 
-// TODO: simplify the condition by adding two main modes as coverage tool config
 bool vsharp::InstrumentationIsNeeded(const WCHAR* assemblyName, int assemblySize, const WCHAR *moduleName, int moduleSize, mdMethodDef method) {
-    return IsMain(moduleName, moduleSize, method) || (!profilerState->isTestExpected && !profilerState->collectMainOnly)
-        || (profilerState->isTestExpected && doesContainAssembly(assemblyName, assemblySize, profilerState->approvedAssemblies));
+    bool shouldInstrumentAll = !profilerState->isTestExpected && !profilerState->collectMainOnly;
+    bool fromTestAssembly = profilerState->isTestExpected && doesContainAssembly(assemblyName, assemblySize, profilerState->approvedAssemblies);
+    return IsMain(moduleName, moduleSize, method)
+        || shouldInstrumentAll
+        || fromTestAssembly;
 }
 
 HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, size_t methodId, const WCHAR *moduleName, ULONG moduleNameLength) {

@@ -122,7 +122,6 @@ void CoverageTracker::invocationFinished() {
 char* CoverageTracker::serializeCoverageReport(size_t* size) {
     collectedMethodsMutex.lock();
     serializedCoverageMutex.lock();
-    printf("got locks, converting info\n");
 
     auto buffer = std::vector<char>();
     auto methodsToSerialize = std::vector<std::pair<int, MethodInfo>>();
@@ -139,7 +138,6 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
         serializePrimitive(el.first, buffer);
         el.second.serialize(buffer);
     }
-    printf("converted methods: %lld\n", buffer.size());
 
     auto threadMapping = profilerState->threadTracker->getMapping();
     for (auto mapping: threadMapping) {
@@ -162,8 +160,6 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
         serializePrimitiveArray(&serializedCoverage[i][0], serializedCoverage[i].size(), buffer);
     }
 
-    printf("converted reports: %lld\n", buffer.size());
-
     for (auto cov : trackedCoverage->items())
         delete cov.second;
     trackedCoverage->clear();
@@ -173,14 +169,10 @@ char* CoverageTracker::serializeCoverageReport(size_t* size) {
     serializedCoverageMutex.unlock();
     collectedMethodsMutex.unlock();
 
-    printf("cleared and unlocked data\n");
-
     *size = buffer.size();
     char* array = new char[*size];
-    printf("successfully allocated\n");
     std::memcpy(array, &buffer[0], *size);
 
-    printf("total bytes: %lld", *size);
     return array;
 }
 

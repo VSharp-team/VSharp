@@ -31,9 +31,6 @@ CorProfiler::~CorProfiler()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk)
 {
-    setbuf(stdout, NULL);
-
-    printf("PROFILER INITIALIZATION\n");
     const char* waitDebuggerAttached = std::getenv("COVERAGE_TOOL_WAIT_DEBUGGER_ATTACHED");
     volatile int done = waitDebuggerAttached == nullptr ? 1 : 0;
     while (!done) OS::sleepSeconds(1);
@@ -67,7 +64,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
 {
-    printf("PROFILER SHUTDOWN\n");
     std::atomic_store(&shutdownInOrder, true);
 
     // waiting until all current requests are resolved
@@ -75,17 +71,11 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
 
     LOG(tout << "SHUTDOWN");
     if (profilerState->isPassiveRun) {
-        printf("serializing information\n");
-
         size_t tmpSize;
         auto tmpBytes = profilerState->coverageTracker->serializeCoverageReport(&tmpSize);
 
-        printf("saving to %s\n", profilerState->passiveResultPath);
-
         std::ofstream fout;
         fout.open(profilerState->passiveResultPath, std::ios::out|std::ios::binary);
-        if (!fout.write(tmpBytes, static_cast<long>(tmpSize)))
-            printf("failure while saving the file\n");
         fout.close();
 
         delete tmpBytes;

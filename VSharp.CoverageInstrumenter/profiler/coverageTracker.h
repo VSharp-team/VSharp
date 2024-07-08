@@ -69,10 +69,10 @@ private:
     ThreadTracker* threadTracker;
     std::mutex serializedCoverageMutex;
     std::vector<int> serializedCoverageThreadIds;
-public:
     std::vector<std::vector<char>> serializedCoverage;
     std::mutex collectedMethodsMutex;
     std::vector<MethodInfo> collectedMethods;
+public:
     explicit CoverageTracker(ThreadTracker* threadTracker, ThreadInfo* threadInfo, bool collectMainOnly);
     bool isCollectMainOnly() const;
     void addCoverage(OFFSET offset, CoverageEvent event, int methodId);
