@@ -207,4 +207,16 @@ void CoverageTracker::invocationAborted() {
         return (CoverageHistory*) nullptr;
     });
 }
+
+void CoverageTracker::printMethodDebug(int methodId)
+{
+    LOG(
+        collectedMethodsMutex.lock();
+        auto method = collectedMethods[methodId];
+        auto wl = method.assemblyNameLength;
+        auto ws = method.assemblyName;
+        tout << ' ' << std::string(ws, ws + wl - 1) << '.' << method.methodName << std::endl;
+        collectedMethodsMutex.unlock();
+    );
+}
 //endregion

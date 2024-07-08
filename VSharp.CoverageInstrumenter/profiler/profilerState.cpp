@@ -132,11 +132,7 @@ void vsharp::ProfilerState::setEntryMain(char *assemblyName, int assemblyNameLen
 
 void vsharp::ProfilerState::printMethod(std::string message, int methodId) {
     LOG(
-        coverageTracker->collectedMethodsMutex.lock();
-        auto method = coverageTracker->collectedMethods[methodId];
-        auto wl = method.assemblyNameLength;
-        auto ws = method.assemblyName;
-        tout << message << ' ' << std::string(ws, ws + wl - 1) << '.' << method.methodName << std::endl;
-        coverageTracker->collectedMethodsMutex.unlock();
+        tout << message;
+        coverageTracker->printMethodDebug(methodId);
     );
 }

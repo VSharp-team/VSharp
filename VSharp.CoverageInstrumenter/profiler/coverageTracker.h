@@ -81,6 +81,7 @@ public:
     size_t collectMethod(MethodInfo info);
     char* serializeCoverageReport(size_t* size);
     void clear();
+    void printMethodDebug(int methodId);
     ~CoverageTracker();
 };
 
