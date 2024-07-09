@@ -76,6 +76,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
 
         std::ofstream fout;
         fout.open(profilerState->passiveResultPath, std::ios::out|std::ios::binary);
+        fout.write(tmpBytes, static_cast<long>(tmpSize));
         fout.close();
 
         delete tmpBytes;
