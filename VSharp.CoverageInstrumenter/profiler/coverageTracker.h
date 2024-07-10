@@ -19,7 +19,8 @@ enum CoverageEvent {
     Call,
     Tailcall,
     TrackCoverage,
-    StsfldHit
+    StsfldHit,
+    ThrowLeave,
 };
 
 struct MethodInfo {
@@ -28,8 +29,12 @@ struct MethodInfo {
     WCHAR *assemblyName;
     ULONG moduleNameLength;
     WCHAR *moduleName;
+    std::string methodName;
 
     void serialize(std::vector<char>& buffer) const;
+
+    // frees previously allocated resources for it; the object is not supposed to be used afterwards
+    void Dispose();
 };
 
 struct CoverageRecord {
@@ -37,6 +42,7 @@ struct CoverageRecord {
     CoverageEvent event;
     ThreadID thread;
     int methodId;
+    long long timestamp;
 
     void serialize(std::vector<char>& buffer) const;
 };
@@ -57,15 +63,15 @@ class CoverageTracker {
 
 private:
     bool collectMainOnly;
-    std::mutex collectedMethodsMutex;
-    std::vector<MethodInfo> collectedMethods;
     std::mutex visitedMethodsMutex;
     std::set<int> visitedMethods;
     ThreadStorage<CoverageHistory*>* trackedCoverage;
     ThreadTracker* threadTracker;
     std::mutex serializedCoverageMutex;
-    std::vector<std::vector<char>> serializedCoverage;
     std::vector<int> serializedCoverageThreadIds;
+    std::vector<std::vector<char>> serializedCoverage;
+    std::mutex collectedMethodsMutex;
+    std::vector<MethodInfo> collectedMethods;
 public:
     explicit CoverageTracker(ThreadTracker* threadTracker, ThreadInfo* threadInfo, bool collectMainOnly);
     bool isCollectMainOnly() const;
@@ -75,6 +81,7 @@ public:
     size_t collectMethod(MethodInfo info);
     char* serializeCoverageReport(size_t* size);
     void clear();
+    void printMethodDebug(int methodId);
     ~CoverageTracker();
 };
 

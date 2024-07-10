@@ -101,6 +101,9 @@ public:
         return result;
     }
 
+    ~ThreadStorage() {
+        clear();
+    }
 };
 
 #endif //VSHARP_COVERAGEINSTRUMENTER_THREADSTORAGE_H

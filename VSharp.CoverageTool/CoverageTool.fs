@@ -5,6 +5,7 @@ open System.Diagnostics
 open System.IO
 open System.Reflection
 open System.Runtime.InteropServices
+open FSharpx.Collections
 open Microsoft.FSharp.NativeInterop
 
 open VSharp
@@ -15,30 +16,44 @@ open VSharp.CSharpUtils
 #nowarn "9"
 
 module private ExternalCalls =
-    [<DllImport("libvsharpCoverage", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)>]
+    [<DllImport(CoverageToolInfo.DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)>]
     extern void SetEntryMain(byte* assemblyName, int assemblyNameLength, byte* moduleName, int moduleNameLength, int methodToken)
 
-    [<DllImport("libvsharpCoverage", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)>]
+    [<DllImport(CoverageToolInfo.DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)>]
     extern void GetHistory(nativeint size, nativeint data)
 
-    [<DllImport("libvsharpCoverage", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)>]
+    // frees up the memory used to pass history information; a must call after every GetHistory
+    [<DllImport(CoverageToolInfo.DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)>]
+    extern void ClearHistory()
+
+    [<DllImport(CoverageToolInfo.DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)>]
     extern void SetCurrentThreadId(int id)
 
 module private Configuration =
 
-    let (|Windows|MacOs|Linux|) _ =
-        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then Windows
-        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then Linux
-        elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then MacOs
-        else Prelude.__notImplemented__()
-
-    let libExtension =
-        match () with
-        | Windows -> ".dll"
-        | Linux -> ".so"
-        | MacOs -> ".dylib"
-
-    let private enabled = "1"
+    // TODO: a enum to avoid unnecessary code copy?
+    let private availableCoverageToolOptions = [|
+        "CORECLR_PROFILER";
+        "CORECLR_PROFILER_PATH";
+        "CORECLR_ENABLE_PROFILING";
+        "COVERAGE_TOOL_INSTRUMENT_MAIN_ONLY";
+        "COVERAGE_TOOL_RESULT_NAME";
+        "COVERAGE_TOOL_SPECIFY_MAIN_METHOD";
+        "COVERAGE_TOOL_METHOD_ASSEMBLY_NAME";
+        "COVERAGE_TOOL_METHOD_MODULE_NAME";
+        "COVERAGE_TOOL_METHOD_TOKEN";
+        "COVERAGE_TOOL_ENABLE_PASSIVE";
+        "COVERAGE_TOOL_RESULT_NAME";
+        "COVERAGE_TOOL_EXPECT_TEST_SUITE";
+        "COVERAGE_TOOL_ASSEMBLY_PATHS_FILE";
+        "COVERAGE_TOOL_MAIN_ASSEMBLY_PATHS_FILE";
+        |]
+    
+    let createUnspecifiedCoverageToolConfiguration() =
+        let result = EnvironmentCollection()
+        for envVar in availableCoverageToolOptions do
+            result[envVar] <- EnvVarUnspecified
+        result
 
     [<EnvironmentConfiguration>]
     type private BaseCoverageToolConfiguration = {
@@ -58,6 +73,8 @@ module private Configuration =
         passiveModeEnable: string
         [<EnvironmentVariable("COVERAGE_TOOL_RESULT_NAME")>]
         resultName: string
+        [<EnvironmentVariable("COVERAGE_TOOL_SPECIFY_MAIN_METHOD")>]
+        mainMethodSpecified: string
         [<EnvironmentVariable("COVERAGE_TOOL_METHOD_ASSEMBLY_NAME")>]
         assemblyName: string
         [<EnvironmentVariable("COVERAGE_TOOL_METHOD_MODULE_NAME")>]
@@ -66,34 +83,59 @@ module private Configuration =
         methodToken: string
     }
 
+    [<EnvironmentConfiguration>]
+    type private UnderDotnetTestConfiguration = {
+        [<EnvironmentVariable("COVERAGE_TOOL_ENABLE_PASSIVE")>]
+        passiveModeEnable: string
+        [<EnvironmentVariable("COVERAGE_TOOL_RESULT_NAME")>]
+        resultNamePath: string
+        [<EnvironmentVariable("COVERAGE_TOOL_EXPECT_TEST_SUITE")>]
+        expectTestSuite: string
+        [<EnvironmentVariable("COVERAGE_TOOL_ASSEMBLY_PATHS_FILE")>]
+        assemblyPathsFile: string
+        [<EnvironmentVariable("COVERAGE_TOOL_MAIN_ASSEMBLY_PATHS_FILE")>]
+        mainAssemblyPathsFile: string
+    }
+
     let private withCoverageToolConfiguration mainOnly processInfo =
-        let currentDirectory = Directory.GetCurrentDirectory()
         let configuration =
             {
-                coreclrProfiler = "{2800fea6-9667-4b42-a2b6-45dc98e77e9e}"
-                coreclrProfilerPath = $"{currentDirectory}{Path.DirectorySeparatorChar}libvsharpCoverage{libExtension}"
-                coreclrEnableProfiling = enabled
-                instrumentMainOnly = if mainOnly then enabled else ""
+                coreclrProfiler = CoverageToolInfo.ProfilerUid
+                coreclrProfilerPath = CoverageToolInfo.fullPath
+                coreclrEnableProfiling = CoverageToolInfo.Enable
+                instrumentMainOnly = if mainOnly then CoverageToolInfo.Enable else ""
             }
         withConfiguration configuration processInfo
 
     let withMainOnlyCoverageToolConfiguration =
         withCoverageToolConfiguration true
 
-    let withAllMethodsCoverageToolConfiguration =
-        withCoverageToolConfiguration false
+    let withAllMethodsCoverageToolConfiguration (collection: EnvironmentCollection) =
+        withCoverageToolConfiguration false collection
 
-    let withPassiveModeConfiguration (method : MethodBase) resultName processInfo =
+    let withPassiveModeConfiguration (method: MethodBase) resultName processInfo =
         let configuration =
             {
-                passiveModeEnable = enabled
+                passiveModeEnable = CoverageToolInfo.Enable
                 resultName = resultName
+                mainMethodSpecified = CoverageToolInfo.Enable 
                 assemblyName = method.Module.Assembly.FullName
                 moduleName = method.Module.FullyQualifiedName
                 methodToken = method.MetadataToken.ToString()
             }
         withConfiguration configuration processInfo
-
+        
+    let withUnderDotnetTestConfiguration allAssembliesPath mainAssembliesPath resultNamePath processInfo =
+        let configuration =
+            {
+                passiveModeEnable = CoverageToolInfo.Enable
+                resultNamePath = resultNamePath
+                expectTestSuite = CoverageToolInfo.Enable
+                assemblyPathsFile = allAssembliesPath
+                mainAssemblyPathsFile = mainAssembliesPath
+            }
+        withConfiguration configuration processInfo
+    
     let isCoverageToolAttached () = isConfigured<BaseCoverageToolConfiguration> ()
 
 type InteractionCoverageTool() =
@@ -107,7 +149,7 @@ type InteractionCoverageTool() =
 
     member this.GetRawHistory () =
         if not entryMainWasSet then
-            Prelude.internalfail "Try call GetRawHistory, while entryMain wasn't set"
+            Prelude.internalfail "Calling GetRawHistory when entryMain isn't set"
         let sizePtr = NativePtr.stackalloc<uint> 1
         let dataPtrPtr = NativePtr.stackalloc<nativeint> 1
 
@@ -118,6 +160,9 @@ type InteractionCoverageTool() =
 
         let data = Array.zeroCreate<byte> size
         Marshal.Copy(dataPtr, data, 0, size)
+        
+        ExternalCalls.ClearHistory()
+        
         data
 
     member this.SetEntryMain (assembly : Assembly) (moduleName : string) (methodToken : int) =
@@ -138,8 +183,11 @@ type InteractionCoverageTool() =
     member this.SetCurrentThreadId id =
         ExternalCalls.SetCurrentThreadId(id)
 
-    static member WithCoverageTool (procInfo : ProcessStartInfo) =
-        Configuration.withMainOnlyCoverageToolConfiguration procInfo
+    static member WithCoverageTool processInfo =
+        let configuration =
+            Configuration.createUnspecifiedCoverageToolConfiguration()
+            |> Configuration.withMainOnlyCoverageToolConfiguration
+        setProcInfoEnvironment configuration processInfo
 
 type PassiveCoverageTool(workingDirectory: DirectoryInfo, method: MethodBase) =
 
@@ -185,12 +233,16 @@ type PassiveCoverageTool(workingDirectory: DirectoryInfo, method: MethodBase) =
         (double coveredSize) / (double cfg.MethodSize) * 100. |> int
 
     member this.RunWithCoverage (args: string) =
+        let passiveEnv =
+            Configuration.createUnspecifiedCoverageToolConfiguration()
+            |> Configuration.withMainOnlyCoverageToolConfiguration
+            |> Configuration.withPassiveModeConfiguration method resultName
+        
         let procInfo = ProcessStartInfo()
         procInfo.Arguments <- args
         procInfo.FileName <- DotnetExecutablePath.ExecutablePath
         procInfo.WorkingDirectory <- workingDirectory.FullName
-        Configuration.withMainOnlyCoverageToolConfiguration procInfo
-        Configuration.withPassiveModeConfiguration method resultName procInfo
+        setProcInfoEnvironment passiveEnv procInfo
 
         let method = Application.getMethod method
         if not method.HasBody then
@@ -212,3 +264,4 @@ type PassiveCoverageTool(workingDirectory: DirectoryInfo, method: MethodBase) =
             else
                 Logger.error $"Run with coverage failed with exit code: {proc.ExitCode}"
                 -1
+

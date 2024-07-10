@@ -25,11 +25,11 @@ public:
     explicit Instrumenter(ICorProfilerInfo8 &profilerInfo);
     ~Instrumenter();
 
-    HRESULT instrument(FunctionID functionId);
+    HRESULT instrument(FunctionID functionId, std::string methodName);
 };
 
 bool IsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method);
-bool InstrumentationIsNeeded(const WCHAR *moduleName, int moduleSize, mdMethodDef method);
+bool InstrumentationIsNeeded(const WCHAR* assemblyName, int assemblySize, const WCHAR *moduleName, int moduleSize, mdMethodDef method);
 
 }
 

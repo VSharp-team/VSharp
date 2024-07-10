@@ -35,18 +35,34 @@ CoverageProbes* vsharp::getProbes() {
 
 void vsharp::InitializeProbes() {
     auto covProbes = vsharp::getProbes();
-    covProbes->Coverage = new ProbeCall((INT_PTR) &Track_Coverage);
-    covProbes->Branch = new ProbeCall((INT_PTR) &Branch);
-    covProbes->Enter = new ProbeCall((INT_PTR) &Track_Enter);
-    covProbes->EnterMain = new ProbeCall((INT_PTR) &Track_EnterMain);
-    covProbes->Leave = new ProbeCall((INT_PTR) &Track_Leave);
-    covProbes->LeaveMain = new ProbeCall((INT_PTR) &Track_LeaveMain);
-    covProbes->Finalize_Call = new ProbeCall((INT_PTR) &Finalize_Call);
-    covProbes->Call = new ProbeCall((INT_PTR) &Track_Call);
-    covProbes->Tailcall = new ProbeCall((INT_PTR) &Track_Tailcall);
-    covProbes->Stsfld = new ProbeCall((INT_PTR) &Track_Stsfld);
-    covProbes->Throw = new ProbeCall((INT_PTR) &Track_Throw);
+    covProbes->Coverage          = new ProbeCall((INT_PTR) &Track_Coverage);
+    covProbes->Branch            = new ProbeCall((INT_PTR) &Branch);
+    covProbes->Enter             = new ProbeCall((INT_PTR) &Track_Enter);
+    covProbes->EnterMain         = new ProbeCall((INT_PTR) &Track_EnterMain);
+    covProbes->Leave             = new ProbeCall((INT_PTR) &Track_Leave);
+    covProbes->LeaveMain         = new ProbeCall((INT_PTR) &Track_LeaveMain);
+    covProbes->Finalize_Call     = new ProbeCall((INT_PTR) &Finalize_Call);
+    covProbes->Call              = new ProbeCall((INT_PTR) &Track_Call);
+    covProbes->Tailcall          = new ProbeCall((INT_PTR) &Track_Tailcall);
+    covProbes->Stsfld            = new ProbeCall((INT_PTR) &Track_Stsfld);
+    covProbes->Throw             = new ProbeCall((INT_PTR) &Track_Throw);
     LOG(tout << "probes initialized" << std::endl);
+}
+
+void vsharp::DestroyProbes() {
+    auto covProbes = vsharp::getProbes();
+    delete covProbes->Coverage;
+    delete covProbes->Branch;
+    delete covProbes->Enter;
+    delete covProbes->EnterMain;
+    delete covProbes->Leave;
+    delete covProbes->LeaveMain;
+    delete covProbes->Finalize_Call;
+    delete covProbes->Call;
+    delete covProbes->Tailcall;
+    delete covProbes->Stsfld;
+    delete covProbes->Throw;
+    LOG(tout << "probes destroyed" << std::endl);
 }
 
 CoverageProbes vsharp::coverageProbes;
@@ -54,31 +70,31 @@ CoverageProbes vsharp::coverageProbes;
 //region Probes declarations
 void vsharp::Track_Coverage(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Coverage: method = " << methodId << ", offset = " << HEX(offset));
+    profilerState->printMethod("Track_Coverage", methodId);
     profilerState->coverageTracker->addCoverage(offset, TrackCoverage, methodId);
 }
 
 void vsharp::Track_Stsfld(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Stsfld: method = " << methodId << ", offset = " << HEX(offset));
+    profilerState->printMethod("Track_Stsfld", methodId);
     profilerState->coverageTracker->addCoverage(offset, StsfldHit, methodId);
 }
 
 void vsharp::Branch(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Branch: method = " << methodId << ", offset = " << HEX(offset));
+    profilerState->printMethod("Branch", methodId);
     profilerState->coverageTracker->addCoverage(offset, BranchHit, methodId);
 }
 
 void vsharp::Track_Call(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Call: method = " << methodId << ", offset = " << HEX(offset));
+    profilerState->printMethod("Track_Call", methodId);
     profilerState->coverageTracker->addCoverage(offset, Call, methodId);
 }
 
 void vsharp::Track_Tailcall(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Tailcall: method = " << methodId << ", offset = " << HEX(offset));
+    profilerState->printMethod("Track_Tailcall", methodId);
     // popping frame before tailcall execution
     profilerState->threadTracker->stackBalanceDown();
     profilerState->coverageTracker->addCoverage(offset, Tailcall, methodId);
@@ -86,10 +102,10 @@ void vsharp::Track_Tailcall(OFFSET offset, int methodId) {
 
 void vsharp::Track_Enter(OFFSET offset, int methodId, int isSpontaneous) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
+    profilerState->printMethod("Entered", methodId);
     if (profilerState->threadTracker->isPossibleStackOverflow()) {
         LOG(tout << "Possible stack overflow: " << methodId);
     }
-    LOG(tout << "Track_Enter: " << methodId);
     if (!profilerState->coverageTracker->isCollectMainOnly())
         profilerState->coverageTracker->addCoverage(offset, Enter, methodId);
     profilerState->threadTracker->stackBalanceUp();
@@ -98,11 +114,12 @@ void vsharp::Track_Enter(OFFSET offset, int methodId, int isSpontaneous) {
 void vsharp::Track_EnterMain(OFFSET offset, int methodId, int isSpontaneous) {
     if (profilerState->threadTracker->isCurrentThreadTracked()) {
         // Recursive enter
-        LOG(tout << "(recursive) Track_EnterMain: " << methodId);
+        profilerState->printMethod("Entered main (recursive)", methodId);
         profilerState->threadTracker->stackBalanceUp();
+        profilerState->coverageTracker->addCoverage(offset, Enter, methodId);
         return;
     }
-    LOG(tout << "Track_EnterMain: " << methodId);
+    profilerState->printMethod("Entered Main", methodId);
     profilerState->threadTracker->trackCurrentThread();
     profilerState->threadTracker->stackBalanceUp();
     profilerState->coverageTracker->addCoverage(offset, EnterMain, methodId);
@@ -110,7 +127,7 @@ void vsharp::Track_EnterMain(OFFSET offset, int methodId, int isSpontaneous) {
 
 void vsharp::Track_Leave(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Leave: " << methodId);
+    profilerState->printMethod("Left", methodId);
     if (!profilerState->coverageTracker->isCollectMainOnly())
         profilerState->coverageTracker->addCoverage(offset, Leave, methodId);
     profilerState->threadTracker->stackBalanceDown();
@@ -118,19 +135,20 @@ void vsharp::Track_Leave(OFFSET offset, int methodId) {
 
 void vsharp::Track_LeaveMain(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
-    profilerState->coverageTracker->addCoverage(offset, LeaveMain, methodId);
-    LOG(tout << "Track_LeaveMain: " << methodId);
+    profilerState->printMethod("Left main", methodId);
     if (profilerState->threadTracker->stackBalanceDown()) {
-        // first main frame is not yet reached
+        // first main frame has not yet been reached
+        profilerState->coverageTracker->addCoverage(offset, Leave, methodId);
         return;
     }
+    profilerState->coverageTracker->addCoverage(offset, LeaveMain, methodId);
     profilerState->threadTracker->loseCurrentThread();
 }
 
 void vsharp::Track_Throw(OFFSET offset, int methodId) {
     if (!profilerState->threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Throw: method = " << methodId << ", offset = " << HEX(offset));
-    profilerState->coverageTracker->addCoverage(offset, Leave, methodId);
+    profilerState->printMethod("Throw", methodId);
+    profilerState->coverageTracker->addCoverage(offset, ThrowLeave, methodId);
 }
 
 void vsharp::Finalize_Call(OFFSET offset) {
