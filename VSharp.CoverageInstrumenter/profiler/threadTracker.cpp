@@ -75,7 +75,7 @@ void ThreadTracker::unwindFunctionLeave() {
     if ((profilerState->collectMainOnly && profilerState->mainFunctionId != functionId)
         || profilerState->funcIdToMethodId.find(functionId) == profilerState->funcIdToMethodId.end()) return;
     profilerState->coverageTracker->addCoverage(0, ThrowLeave, profilerState->funcIdToMethodId[functionId]);
-    if ((!isInFilter() || stackBalance() > 0) && !stackBalanceDown()) {
+    if (!isInFilter() && !stackBalanceDown()) {
         // stack is empty; function left
         loseCurrentThread();
     }
