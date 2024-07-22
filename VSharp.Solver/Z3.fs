@@ -1505,44 +1505,58 @@ module internal Z3 =
                 solver.Parameters <- parameters
             | None -> ()
 
+        let safeUnsatCore () : term array =
+            try
+                solver.UnsatCore |> Array.map (builder.Decode typeof<bool>)
+            with 
+            | _ -> Array.empty
+
+        let checkSatImpl (q : term) : smtResult = 
+            Logger.printLog Logger.Trace "SOLVER: trying to solve constraints..."
+            Logger.printLogLazy Logger.Trace "%s" (lazy q.ToString())
+            try
+                try
+                    let query = builder.EncodeTerm q
+                    let assumptions = query.assumptions
+                    let assumptions =
+                        seq {
+                            yield! (Seq.cast<_> assumptions)
+                            yield query.expr
+                        } |> Array.ofSeq
+
+                    let result = solver.Check assumptions
+                    match result with
+                    | Status.SATISFIABLE ->
+                        Logger.trace "SATISFIABLE"
+                        let z3Model = solver.Model
+                        let model = builder.MkModel z3Model
+                        SmtSat { mdl = model }
+                    | Status.UNSATISFIABLE ->
+                        Logger.trace "UNSATISFIABLE"
+                        SmtUnsat { core = safeUnsatCore () }
+                    | Status.UNKNOWN ->
+                        Logger.error $"Solver returned Status.UNKNOWN. Reason: {solver.ReasonUnknown}\n\
+                            Expression: {assumptions |> Seq.map (fun a -> a.ToString()) |> Seq.toList}"
+
+                        Logger.trace "UNKNOWN"
+                        SmtUnknown solver.ReasonUnknown
+                    | _ -> __unreachable__()
+                with
+                | :? EncodingException as e ->
+                    Logger.printLog Logger.Info "SOLVER: exception was thrown: %s" e.Message
+                    SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+            finally
+                builder.Reset()
+
         interface ISolver with
             member x.CheckSat (q : term) : smtResult =
-                Logger.printLog Logger.Trace "SOLVER: trying to solve constraints..."
-                Logger.printLogLazy Logger.Trace "%s" (lazy q.ToString())
-                try
-                    try
-                        let query = builder.EncodeTerm q
-                        let assumptions = query.assumptions
-                        let assumptions =
-                            seq {
-                                yield! (Seq.cast<_> assumptions)
-                                yield query.expr
-                            } |> Array.ofSeq
-
-                        let result = solver.Check assumptions
-                        match result with
-                        | Status.SATISFIABLE ->
-                            Logger.trace "SATISFIABLE"
-                            let z3Model = solver.Model
-                            let model = builder.MkModel z3Model
-                            SmtSat { mdl = model }
-                        | Status.UNSATISFIABLE ->
-                            Logger.trace "UNSATISFIABLE"
-                            SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
-                        | Status.UNKNOWN ->
-                            Logger.error $"Solver returned Status.UNKNOWN. Reason: {solver.ReasonUnknown}\n\
-                                Expression: {assumptions |> Seq.map (fun a -> a.ToString()) |> Seq.toList}"
-
-                            Logger.trace "UNKNOWN"
-                            SmtUnknown solver.ReasonUnknown
-                        | _ -> __unreachable__()
-                    with
-                    | :? EncodingException as e ->
-                        Logger.printLog Logger.Info "SOLVER: exception was thrown: %s" e.Message
-                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
-                finally
-                    builder.Reset()
-
+                Cache.lookup q
+                |> Option.defaultWith (fun () -> 
+                    let res = checkSatImpl q
+                    Cache.update q res
+                    res
+                )
+                
             member x.Assert (fml : term) =
                 Logger.printLogLazy Logger.Trace "SOLVER: Asserting: %s" (lazy fml.ToString())
                 let encoded = builder.EncodeTerm fml
