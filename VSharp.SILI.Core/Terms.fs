@@ -390,7 +390,13 @@ module internal Terms =
 
     let makeBinary operation x y t =
         assert(Operations.isBinary operation)
-        Expression (Operator operation) [x; y] t
+        match operation with
+        | OperationType.Greater -> Expression (Operator OperationType.Less) [y; x] t
+        | OperationType.GreaterOrEqual -> Expression (Operator OperationType.LessOrEqual) [y; x] t
+        | _ when Operations.isCommutative operation ->
+            let args = if x.GetHashCode() < y.GetHashCode() then [x; y] else [y; x]
+            Expression (Operator operation) args t 
+        | _ -> Expression (Operator operation) [x; y] t
 
     let makeNAry operation x t =
         match x with
