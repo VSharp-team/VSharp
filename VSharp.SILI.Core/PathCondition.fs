@@ -33,6 +33,7 @@ module internal PC =
             | _ when List.isEmpty xs' -> falsePC()
             | _ when List.length xs' = List.length xs -> PersistentSet.add pc cond
             | _ -> add pc (disjunction xs')
+        | {term = Conjunction xs} -> List.fold add pc xs
         | _ ->
             let notCond = !!cond
             let pc' = pc |> PersistentSet.fold (fun pc e ->
