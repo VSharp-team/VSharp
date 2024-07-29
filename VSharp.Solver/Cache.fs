@@ -8,8 +8,16 @@ open VSharp.Core
 open VSharp.Prelude
 
 module Cache =
-    let transpose (xs: 'a option seq) : 'a seq option =
-        Seq.fold (fun acc x -> Option.map2 Seq.cons x acc) (Some Seq.empty) xs
+    let (|SeqEmpty|SeqCons|) (xs: 'a seq) =
+        match Seq.tryHead xs with
+        | Some x -> SeqCons(x, Seq.tail xs)
+        | None -> SeqEmpty
+
+    let rec transpose (xs: 'a option seq) : 'a seq option =
+        match xs with
+        | SeqCons(Some x, xs) -> transpose xs |> Option.map (Seq.cons x)
+        | SeqCons(None, _) -> None
+        | SeqEmpty -> Some Seq.empty
 
     let rec coreParts (core: term) : term list =
         match core with
@@ -38,16 +46,24 @@ module Cache =
             namings.Add(k, v)
             true
 
-    let (|SeqEmpty|SeqCons|) (xs: 'a seq) =
-        match Seq.tryHead xs with
-        | Some x -> SeqCons(x, Seq.tail xs)
-        | None -> SeqEmpty
+    let rec isSourcePure (src: ISymbolicConstantSource) : bool =
+        match src with
+        | StackReading _ -> true
+        | GetHashCodeSource _ -> true
+        | :? functionResultConstantSource -> true
+        | StructFieldSource(src, _) -> isSourcePure src
+        | HeapAddressSource src -> isSourcePure src
+        | PointerOffsetSource src -> isSourcePure src
+        | PointerAddressSource src -> isSourcePure src
+        | _ -> false
 
     let rec tryRenameImpl (namings: Dictionary<string, string>) (lhs: term) (rhs: term) : bool =
         match lhs.term, rhs.term with
         | Nop, Nop -> true
         | Concrete(o1, _), Concrete(o2, _) when o1.Equals(o2) -> true
-        | Constant(v1, s1, ty1), Constant(v2, s2, ty2) when s1.Equals(s2) && ty1.Equals(ty2) ->
+        | Constant(v1, s1, ty1), Constant(v2, s2, ty2) when
+            (isSourcePure s1 && isSourcePure s2) || (s1.Equals(s2) && ty1.Equals(ty2))
+            ->
             addRenaming namings v1.v v2.v
         | Expression(op1, ts1, ty1), Expression(op2, ts2, ty2) when
             op1.Equals(op2) && ty1.Equals(ty2) && List.length ts1 = List.length ts2
@@ -87,36 +103,50 @@ module Cache =
         else
             None
 
+    let rec alphaHashCode (t: term) : int =
+        match t.term with
+        | Constant(_, src, t) when isSourcePure src -> t.GetHashCode()
+        | Expression(op, args, ty) ->
+            [ op.GetHashCode()
+              (List.map alphaHashCode args).GetHashCode()
+              ty.GetHashCode() ]
+                .GetHashCode()
+        | Struct(fields, t) ->
+            (fields
+             |> PersistentDict.toSeq
+             |> Seq.map (fun (id, field) -> [ id.GetHashCode(); alphaHashCode field ].GetHashCode())
+             |> Seq.cons (t.GetHashCode())
+             |> Seq.toList)
+                .GetHashCode()
+        | Ptr(b, ty, t) -> [ b.GetHashCode(); ty.GetHashCode(); alphaHashCode t ].GetHashCode()
+        | Slice(h, vals) -> (sliceTerms h vals |> Seq.map alphaHashCode |> Seq.toList).GetHashCode()
+        | Ite(ite) -> (iteTerms ite |> Seq.map alphaHashCode |> Seq.toList).GetHashCode()
+        // TODO: probably branch for address is needed
+        | _ -> t.GetHashCode()
+
+
     let (=~=) (lhs: term) (rhs: term) =
-        lhs.GetHashCode() = rhs.GetHashCode()
-        && tryRename (Dictionary<string, string>()) lhs rhs
+        tryRename (Dictionary<string, string>()) lhs rhs
+
+    [<CustomEquality; NoComparison>]
+    type alphaTerm =
+        { value: term
+          hc: int }
+
+        static member from(t: term) : alphaTerm = { value = t; hc = alphaHashCode t }
+
+        override self.Equals(o: obj) =
+            match o with
+            | :? alphaTerm as other -> self.hc = other.hc && self.value =~= other.value
+            | _ -> false
+
+        override self.GetHashCode() = self.hc
 
     let bigAnd (xs: term seq) : term =
         match xs with
         | SeqCons(x, xs) ->
             Seq.fold (fun acc x -> Expression (Operator OperationType.LogicalAnd) [ acc; x ] typeof<bool>) x xs
         | SeqEmpty -> failwith "cannot construct `and` from empty expression"
-
-    let isSubset (core: term array) (q: term list) : bool =
-        core
-        |> Array.map (fun part -> List.tryFind ((=~=) part) q)
-        |> transpose
-        |> Option.map List.ofSeq
-        |> Option.filter (fun candidates -> bigAnd core =~= bigAnd candidates)
-        |> Option.isSome
-
-    [<CustomEquality; NoComparison>]
-    type alphaTerm =
-        { inner: term }
-
-        static member from(t: term) : alphaTerm = { inner = t }
-
-        override self.Equals(o: obj) =
-            match o with
-            | :? alphaTerm as other -> self.inner =~= other.inner
-            | _ -> false
-
-        override self.GetHashCode() = self.inner.GetHashCode()
 
     [<CustomEquality; NoComparison>]
     type unsatCore =
@@ -136,29 +166,103 @@ module Cache =
 
         override self.GetHashCode() = self.all.GetHashCode()
 
-    let smtResults: Dictionary<alphaTerm, smtResult> = Dictionary()
-    let unsatCores: HashSet<unsatCore> = HashSet()
+    let isSubset (core: unsatCore) (q: alphaTerm list) : bool =
+        core.parts
+        |> Array.map alphaTerm.from
+        |> Array.map (fun part -> List.tryFind ((=) part) q)
+        |> transpose
+        |> Option.map List.ofSeq
+        |> Option.filter (fun candidates ->
+            core.all = alphaTerm.from (candidates |> Seq.map (fun t -> t.value) |> bigAnd))
+        |> Option.isSome
+
+    [<Struct>]
+    type partEntry = { core: int; idxInCore: int }
+
+    let unsatCores: List<unsatCore> = List()
+    let partsMapping: Dictionary<alphaTerm, List<partEntry>> = Dictionary()
 
     // ======================= Public API =======================
 
     let public update (q: term) (outcome: smtResult) : unit =
         match outcome with
         // TODO: Decoding of bool expression can fail, so current workaround is to return empty core
-        | SmtUnsat { core = core } when not (Array.isEmpty core) -> unsatCores.Add(unsatCore.fromParts core) |> ignore
+        | SmtUnsat { core = core } when not (Array.isEmpty core) ->
+            let core = unsatCore.fromParts core
+            let idx = unsatCores.Count
+            unsatCores.Add(core)
+
+            for i, part in Seq.indexed core.parts do
+                let part = alphaTerm.from part
+                let entry = { core = idx; idxInCore = i }
+
+                if partsMapping.ContainsKey(part) then
+                    partsMapping[part].Add(entry)
+                else
+                    partsMapping.Add(part, List [ entry ])
+
+            ()
         | _ -> ()
 
-        smtResults.TryAdd(alphaTerm.from q, outcome) |> ignore
+    let rec foreach (f: 'a -> 'b option) (seq: 'a seq) : 'b option =
+        match seq with
+        | SeqCons(x, xs) ->
+            match f x with
+            | Some x -> Some x
+            | None -> foreach f xs
+        | SeqEmpty -> None
+
+    [<Struct>]
+    type coreMatch = { partInCore: int; partInQuery: int }
 
     // TODO: probably should substitute constants's names
     let public lookup (q: term) : smtResult option =
-        let aq = { inner = q }
+        let qParts = q |> coreParts |> List.map alphaTerm.from |> Array.ofList
+        let coreToEntriesInQuery: Dictionary<int, List<coreMatch>> = Dictionary()
 
-        if smtResults.ContainsKey(aq) then
-            Some smtResults[aq]
-        else
-            let qParts = coreParts q
+        let candidate =
+            qParts
+            |> Seq.indexed
+            |> foreach (fun (i, part) ->
+                let entries =
+                    if partsMapping.ContainsKey(part) then
+                        partsMapping[part]
+                    else
+                        List()
 
-            unsatCores
-            |> Seq.filter (fun core -> unsatCore.size core < List.length qParts)
-            |> Seq.tryFind (fun core -> isSubset core.parts qParts)
-            |> Option.map (fun core -> SmtUnsat { core = core.parts })
+                entries
+                |> foreach (fun entry ->
+                    let coreIdx = entry.core
+
+                    let coreEntry =
+                        { partInCore = entry.idxInCore
+                          partInQuery = i }
+
+                    if coreToEntriesInQuery.ContainsKey(coreIdx) then
+                        coreToEntriesInQuery[coreIdx].Add(coreEntry)
+                    else
+                        coreToEntriesInQuery.Add(coreIdx, List [ coreEntry ])
+
+                    Some coreIdx
+                    |> Option.filter (fun idx -> coreToEntriesInQuery[idx].Count = unsatCores[idx].parts.Length)
+                    |> Option.map (fun idx ->
+                        let coreEntries = coreToEntriesInQuery[idx]
+
+                        let subQuery =
+                            coreEntries
+                            |> Seq.map (fun entry -> Array.get qParts entry.partInQuery)
+                            |> Seq.map (fun t -> t.value)
+                            |> bigAnd
+
+                        let core = unsatCores[idx]
+
+                        let core =
+                            coreEntries
+                            |> Seq.map (fun entry -> Array.get core.parts entry.partInCore)
+                            |> bigAnd
+
+                        (subQuery, core))
+                    |> Option.filter (fun (subQuery, core) -> alphaTerm.from subQuery = alphaTerm.from core)
+                    |> Option.map (fun _ -> unsatCores[coreIdx])))
+
+        candidate |> Option.map (fun core -> SmtUnsat { core = core.parts })
