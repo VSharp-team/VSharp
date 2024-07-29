@@ -1516,13 +1516,14 @@ module internal Z3 =
             Logger.printLogLazy Logger.Trace "%s" (lazy q.ToString())
             try
                 try
-                    let query = builder.EncodeTerm q
-                    let assumptions = query.assumptions
                     let assumptions =
-                        seq {
-                            yield! (Seq.cast<_> assumptions)
-                            yield query.expr
-                        } |> Array.ofSeq
+                        Cache.coreParts q
+                        |> Seq.map builder.EncodeTerm
+                        |> Seq.collect (fun encoding -> seq {
+                            yield! (Seq.cast<_> encoding.assumptions)
+                            yield encoding.expr
+                        })
+                        |> Seq.toArray
 
                     let result = solver.Check assumptions
                     match result with
