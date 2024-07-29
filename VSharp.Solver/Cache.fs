@@ -246,23 +246,15 @@ module Cache =
                     Some coreIdx
                     |> Option.filter (fun idx -> coreToEntriesInQuery[idx].Count = unsatCores[idx].parts.Length)
                     |> Option.map (fun idx ->
-                        let coreEntries = coreToEntriesInQuery[idx]
-
                         let subQuery =
-                            coreEntries
+                            coreToEntriesInQuery[idx]
+                            |> Seq.sortBy (fun entry -> entry.partInCore)
                             |> Seq.map (fun entry -> Array.get qParts entry.partInQuery)
                             |> Seq.map (fun t -> t.value)
                             |> bigAnd
 
-                        let core = unsatCores[idx]
-
-                        let core =
-                            coreEntries
-                            |> Seq.map (fun entry -> Array.get core.parts entry.partInCore)
-                            |> bigAnd
-
-                        (subQuery, core))
-                    |> Option.filter (fun (subQuery, core) -> alphaTerm.from subQuery = alphaTerm.from core)
+                        (subQuery, unsatCores[idx]))
+                    |> Option.filter (fun (subQuery, core) -> alphaTerm.from subQuery = core.all)
                     |> Option.map (fun _ -> unsatCores[coreIdx])))
 
         candidate |> Option.map (fun core -> SmtUnsat { core = core.parts })
