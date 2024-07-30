@@ -394,7 +394,7 @@ module internal Terms =
         | OperationType.Greater -> Expression (Operator OperationType.Less) [y; x] t
         | OperationType.GreaterOrEqual -> Expression (Operator OperationType.LessOrEqual) [y; x] t
         | _ when Operations.isCommutative operation ->
-            let args = if x.GetHashCode() < y.GetHashCode() then [x; y] else [y; x]
+            let args = if x.GetHashCode() <= y.GetHashCode() then [x; y] else [y; x]
             Expression (Operator operation) args t 
         | _ -> Expression (Operator operation) [x; y] t
 
