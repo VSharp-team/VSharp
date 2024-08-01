@@ -115,3 +115,20 @@ module internal Branching =
         commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch State.merge2Results k
     let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
         statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
+
+    let assumeStatedConditionalExecution (state : state) assume =
+        assert(isBool assume)
+        let pc = state.pc
+        assert(PC.toSeq pc |> conjunction |> state.model.Eval |> isTrue)
+        let assumePc = PC.add pc assume
+        state.AddConstraint assume
+        let typeStorage = state.typeStorage
+        TypeStorage.addTypeConstraint typeStorage.Constraints assume
+        if state.model.Eval assume |> isFalse then
+            match checkSat state with
+            | SolverInteraction.SmtUnsat _
+            | SolverInteraction.SmtUnknown _ ->
+                internalfail "assumeStatedConditionalExecution: fail"
+            | SolverInteraction.SmtSat model ->
+                state.model <- model.mdl
+                assert(PC.toSeq assumePc |> conjunction |> state.model.Eval |> isTrue)

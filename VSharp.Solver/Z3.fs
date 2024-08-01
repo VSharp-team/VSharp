@@ -7,6 +7,7 @@ open System.Collections.Generic
 open VSharp
 open VSharp.TypeUtils
 open VSharp.Core
+open VSharp.Core.API.Types
 open VSharp.Core.API.Memory
 open VSharp.Core.SolverInteraction
 
@@ -869,7 +870,7 @@ module internal Z3 =
                 (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
             Cps.List.foldrk constructUnion (elseValue, []) iteType.branches (fun (ite, assumptions) ->
             {expr = ite; assumptions = assumptions})
-            
+
         member private x.EncodeExpression term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with
@@ -1020,6 +1021,9 @@ module internal Z3 =
             let res = x.MemoryReading specialize keysAreMatch encodeKey inst path key mo
             match regionSort with
             | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
+            | SetCountSort _
+            | DictionaryCountSort _
+            | ListCountSort _ -> x.GenerateLengthAssumptions res
             | _ -> res
 
         // Generating assumptions for instantiation
@@ -1074,6 +1078,112 @@ module internal Z3 =
             | ArrayLengthSort _ -> x.GenerateLengthAssumptions res
             | _ -> res
 
+        member private x.DictionaryReading<'key when 'key : equality>
+            (keysAreMatch : heapCollectionKey<'key> -> heapCollectionKey<'key> -> productRegion<intervals<vectorTime>, points<'key>> -> BoolExpr list * BoolExpr)
+            encodeKey
+            hasDefaultValue
+            (key : heapCollectionKey<'key>)
+            mo
+            typ
+            source
+            path
+            name
+            =
+            assert mo.defaultValue.IsNone
+            let inst (k : Expr[]) =
+                let domainSort = [|x.Type2Sort addressType; x.Type2Sort typeof<'key>|]
+                let valueSort = x.Type2Sort typ
+                if hasDefaultValue then x.DefaultValue valueSort, List.empty
+                else
+                    let regionSort = GetHeapReadingRegionSort source
+                    let sort = ctx.MkArraySort(domainSort, valueSort)
+                    let array = x.GetRegionConstant name sort path regionSort
+                    if containsAddress typ then
+                        addRegionAccess regionSort path k
+                    let expr = ctx.MkSelect(array, k)
+                    expr, x.GenerateInstAssumptions expr typ
+            let specialize v _ _ = v
+            let res = x.MemoryReading specialize keysAreMatch encodeKey inst path key mo
+            let res = if typ = typeof<char> then x.GenerateCharAssumptions res else res
+            res
+            // TODO: Counts Assumptions
+
+        member private x.AddrDictionaryReading keysAreMatch encodeKey hasDefaultValue key mo typ source path name =
+            assert mo.defaultValue.IsNone
+            let inst (k : Expr[]) =
+                let domainSort = [|x.Type2Sort addressType; x.Type2Sort addressType|]
+                let valueSort = x.Type2Sort typ
+                if hasDefaultValue then x.DefaultValue valueSort, List.empty
+                else
+                    let regionSort = GetHeapReadingRegionSort source
+                    let sort = ctx.MkArraySort(domainSort, valueSort)
+                    let array = x.GetRegionConstant name sort path regionSort
+                    if containsAddress typ then
+                        addRegionAccess regionSort path k
+                    let expr = ctx.MkSelect(array, k)
+                    expr, x.GenerateInstAssumptions expr typ
+            let specialize v _ _ = v
+            let res = x.MemoryReading specialize keysAreMatch encodeKey inst path key mo
+            let res = if typ = typeof<char> then x.GenerateCharAssumptions res else res
+            res
+            // TODO: Counts Assumptions
+
+        member private x.SetReading<'key when 'key : equality>
+            (keysAreMatch : heapCollectionKey<'key> -> heapCollectionKey<'key> -> productRegion<intervals<vectorTime>, points<'key>> -> BoolExpr list * BoolExpr)
+            encodeKey
+            hasDefaultValue
+            (key : heapCollectionKey<'key>)
+            mo
+            typ
+            source
+            path
+            name
+            =
+            assert mo.defaultValue.IsNone
+            let inst (k : Expr[]) =
+                let domainSort = [|x.Type2Sort addressType; x.Type2Sort typeof<'key>|]
+                let valueSort = x.Type2Sort typeof<bool>
+                if hasDefaultValue then x.DefaultValue valueSort, List.empty
+                else
+                    let regionSort = GetHeapReadingRegionSort source
+                    let sort = ctx.MkArraySort(domainSort, valueSort)
+                    let array = x.GetRegionConstant name sort path regionSort
+                    if containsAddress typ then
+                        addRegionAccess regionSort path k
+                    let expr = ctx.MkSelect(array, k)
+                    expr, x.GenerateInstAssumptions expr typ
+            let specialize v _ _ = v
+            let res = x.MemoryReading specialize keysAreMatch encodeKey inst path key mo
+            res
+
+        member private x.AddrSetReading
+            (keysAreMatch : addrCollectionKey -> addrCollectionKey-> productRegion<intervals<vectorTime>, intervals<vectorTime>> -> BoolExpr list * BoolExpr)
+            encodeKey
+            hasDefaultValue
+            (key : addrCollectionKey)
+            mo
+            typ
+            source
+            path
+            name
+            =
+            assert mo.defaultValue.IsNone
+            let inst (k : Expr[]) =
+                let domainSort = [|x.Type2Sort addressType; x.Type2Sort addressType|]
+                let valueSort = x.Type2Sort typeof<bool>
+                if hasDefaultValue then x.DefaultValue valueSort, List.empty
+                else
+                    let regionSort = GetHeapReadingRegionSort source
+                    let sort = ctx.MkArraySort(domainSort, valueSort)
+                    let array = x.GetRegionConstant name sort path regionSort
+                    if containsAddress typ then
+                        addRegionAccess regionSort path k
+                    let expr = ctx.MkSelect(array, k)
+                    expr, x.GenerateInstAssumptions expr typ
+            let specialize v _ _ = v
+            let res = x.MemoryReading specialize keysAreMatch encodeKey inst path key mo
+            res
+
         member private x.ArrayIndexReading key hasDefaultValue mo typ source path name =
             let encodeKey = function
                 | OneArrayIndexKey(address, indices) -> address :: indices |> x.EncodeTerms
@@ -1087,6 +1197,38 @@ module internal Z3 =
                 | OneArrayIndexKey(_, indices) -> indices
                 | _ -> internalfail $"EncodeMemoryAccessConstant: unexpected array key {key}"
             x.ArrayReading SpecializeWithKey keysAreMatch encodeKey hasDefaultValue indices key mo typ source path name
+
+        member private x.DictionaryKeyReading<'key when 'key : equality> (key : heapCollectionKey<'key>) hasDefaultValue mo typ source path name =
+            let encodeKey ({address = address; key = key} : heapCollectionKey<'key>) = [address; key] |> x.EncodeTerms
+            let keysAreMatch read update updateRegion =
+                let matchCondition = (read :> IMemoryKey<'a,'b>).MatchCondition update updateRegion
+                let {expr = matchConditionEncoded; assumptions = assumptions} = x.EncodeTerm matchCondition
+                assumptions, matchConditionEncoded :?> BoolExpr
+            x.DictionaryReading<'key> keysAreMatch encodeKey hasDefaultValue key mo typ source path name
+
+        member private x.AddrDictionaryKeyReading (key : addrCollectionKey) hasDefaultValue mo typ source path name =
+            let encodeKey ({address = address; key = key} : addrCollectionKey) = [address; key] |> x.EncodeTerms
+            let keysAreMatch read update updateRegion =
+                let matchCondition = (read :> IMemoryKey<'a,'b>).MatchCondition update updateRegion
+                let {expr = matchConditionEncoded; assumptions = assumptions} = x.EncodeTerm matchCondition
+                assumptions, matchConditionEncoded :?> BoolExpr
+            x.AddrDictionaryReading keysAreMatch encodeKey hasDefaultValue key mo typ source path name
+
+        member private x.SetKeyReading<'key when 'key : equality> (key : heapCollectionKey<'key>) hasDefaultValue mo typ source path name =
+            let encodeKey ({address = address; key = item} : heapCollectionKey<'key>) = [address; item] |> x.EncodeTerms
+            let keysAreMatch read update updateRegion =
+                let matchCondition = (read :> IMemoryKey<'a,'b>).MatchCondition update updateRegion
+                let {expr = matchConditionEncoded; assumptions = assumptions} = x.EncodeTerm matchCondition
+                assumptions, matchConditionEncoded :?> BoolExpr
+            x.SetReading<'key> keysAreMatch encodeKey hasDefaultValue key mo typ source path name
+
+        member private x.AddrSetKeyReading (key : addrCollectionKey) hasDefaultValue mo typ source path name =
+            let encodeKey ({address = address; key = item} : addrCollectionKey) = [address; item] |> x.EncodeTerms
+            let keysAreMatch read update updateRegion =
+                let matchCondition = (read :> IMemoryKey<'a,'b>).MatchCondition update updateRegion
+                let {expr = matchConditionEncoded; assumptions = assumptions} = x.EncodeTerm matchCondition
+                assumptions, matchConditionEncoded :?> BoolExpr
+            x.AddrSetReading keysAreMatch encodeKey hasDefaultValue key mo typ source path name
 
         member private x.VectorIndexReading (key : heapVectorIndexKey) hasDefaultValue mo typ source path name =
             let encodeKey (k : heapVectorIndexKey) =
@@ -1156,6 +1298,58 @@ module internal Z3 =
             | HeapReading(key, mo) -> x.HeapReading key mo typ source path name
             | ArrayIndexReading(hasDefaultValue, key, mo) ->
                 x.ArrayIndexReading key hasDefaultValue mo typ source path name
+            | BoolDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<bool> key hasDefaultValue mo typ source path name
+            | ByteDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<byte> key hasDefaultValue mo typ source path name
+            | SByteDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<sbyte> key hasDefaultValue mo typ source path name
+            | CharDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<char> key hasDefaultValue mo typ source path name
+            | DecimalDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<decimal> key hasDefaultValue mo typ source path name
+            | DoubleDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<double> key hasDefaultValue mo typ source path name
+            | IntDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<int> key hasDefaultValue mo typ source path name
+            | UIntDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<uint> key hasDefaultValue mo typ source path name
+            | LongDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<int64> key hasDefaultValue mo typ source path name
+            | ULongDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<uint64> key hasDefaultValue mo typ source path name
+            | ShortDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<int16> key hasDefaultValue mo typ source path name
+            | UShortDictionaryReading(hasDefaultValue, key, mo) ->
+                x.DictionaryKeyReading<uint16> key hasDefaultValue mo typ source path name
+            | AddrDictionaryReading(hasDefaultValue, key, mo) ->
+                x.AddrDictionaryKeyReading key hasDefaultValue mo typ source path name
+            | BoolSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<bool> key hasDefaultValue mo typ source path name
+            | ByteSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<byte> key hasDefaultValue mo typ source path name
+            | SByteSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<sbyte> key hasDefaultValue mo typ source path name
+            | CharSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<char> key hasDefaultValue mo typ source path name
+            | DecimalSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<decimal> key hasDefaultValue mo typ source path name
+            | DoubleSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<double> key hasDefaultValue mo typ source path name
+            | IntSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<int> key hasDefaultValue mo typ source path name
+            | UIntSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<uint> key hasDefaultValue mo typ source path name
+            | LongSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<int64> key hasDefaultValue mo typ source path name
+            | ULongSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<uint64> key hasDefaultValue mo typ source path name
+            | ShortSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<int16> key hasDefaultValue mo typ source path name
+            | UShortSetReading(hasDefaultValue, key, mo) ->
+                x.SetKeyReading<uint16> key hasDefaultValue mo typ source path name
+            | AddrSetReading(hasDefaultValue, key, mo) ->
+                x.AddrSetKeyReading key hasDefaultValue mo typ source path name
             | VectorIndexReading(hasDefaultValue, key, mo) ->
                 x.VectorIndexReading key hasDefaultValue mo typ source path name
             | StackBufferReading(key, mo) -> x.StackBufferReading key mo typ source path name
@@ -1223,11 +1417,58 @@ module internal Z3 =
                 let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 let indices = exprs |> Seq.tail |> Seq.map (x.Decode Types.IndexType) |> List.ofSeq
                 ArrayIndex(heapAddress, indices, typ)
+            | DictionaryKeySort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                let key = x.Decode typ.keyType exprs[1]
+                DictionaryKey(heapAddress, key, typ)
+            | AddrDictionaryKeySort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                let key = x.Decode addressType exprs[1]
+                DictionaryKey(heapAddress, key, typ)
+            | DictionaryHasKeySort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                let key = x.Decode typ.keyType exprs[1]
+                DictionaryHasKey(heapAddress, key, typ)
+            | AddrDictionaryHasKeySort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                let key = x.Decode typ.keyType exprs[1]
+                DictionaryHasKey(heapAddress, key, typ)
+            | SetKeySort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                let item = x.Decode typ.setValueType exprs[1]
+                SetKey(heapAddress, item, typ)
+            | AddrSetKeySort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                let item = x.Decode addressType exprs[1]
+                SetKey(heapAddress, item, typ)
+            | ListIndexSort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                let index = x.Decode typeof<int> exprs[1]
+                ListIndex(heapAddress, index, typ)
             | ArrayLengthSort typ ->
                 assert(exprs.Length = 2)
                 let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 let index = x.Decode Types.IndexType exprs[1]
                 ArrayLength(heapAddress, index, typ)
+            | DictionaryCountSort typ ->
+                assert(exprs.Length = 1)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                DictionaryCount(heapAddress, typ)
+            | SetCountSort typ ->
+                assert(exprs.Length = 1)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                SetCount(heapAddress, typ)
+            | ListCountSort typ ->
+                assert(exprs.Length = 1)
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                ListCount(heapAddress, typ)
             | ArrayLowerBoundSort typ ->
                 assert(exprs.Length = 2)
                 let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
@@ -1356,7 +1597,17 @@ module internal Z3 =
             | HeapFieldSort field -> FillClassFieldsRegion state field constantValue
             | StaticFieldSort typ -> FillStaticsRegion state typ constantValue
             | ArrayIndexSort arrayType -> FillArrayRegion state arrayType constantValue
+            | DictionaryKeySort dictionaryType -> FillDictionaryRegion state dictionaryType constantValue
+            | AddrDictionaryKeySort dictionaryType -> FillAddrDictionaryRegion state dictionaryType constantValue
+            | DictionaryHasKeySort dictionaryType -> FillDictionaryKeysRegion state dictionaryType constantValue
+            | AddrDictionaryHasKeySort dictionaryType -> FillAddrDictionaryKeysRegion state dictionaryType constantValue
+            | SetKeySort setType -> FillSetRegion state setType constantValue
+            | AddrSetKeySort setType -> FillAddrSetRegion state setType constantValue
+            | ListIndexSort listType -> FillListRegion state listType constantValue
             | ArrayLengthSort arrayType -> FillLengthRegion state arrayType constantValue
+            | DictionaryCountSort dictionaryType -> FillDictionaryCountRegion state dictionaryType constantValue
+            | SetCountSort setType -> FillSetCountRegion state setType constantValue
+            | ListCountSort listType -> FillListCountRegion state listType constantValue
             | ArrayLowerBoundSort arrayType -> FillLowerBoundRegion state arrayType constantValue
             | StackBufferSort key -> FillStackBufferRegion state key constantValue
             | BoxedSort typ -> FillBoxedRegion state typ constantValue

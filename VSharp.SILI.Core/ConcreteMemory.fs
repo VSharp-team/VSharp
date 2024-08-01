@@ -1,19 +1,24 @@
 namespace VSharp.Core
 
 open System
+open System.Collections
 open System.Collections.Generic
 open System.Runtime.CompilerServices
+open FSharpx.Collections
 open VSharp
 open VSharp.Utils
+open VSharp.TypeUtils
 
 type private ChildKind =
     | Field of fieldId
     | Index of int[] * Type
+    | Key of collectionKey * Type
     with
     member x.Type with get() =
         match x with
         | Field f -> f.typ
-        | Index(_, t) -> t
+        | Index(_, t)
+        | Key(_, t) -> t
 
 type private ChildLocation =
     { childKind : ChildKind; structFields : fieldId list }
@@ -329,11 +334,70 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
             else string[index] :> obj
         | obj -> internalfail $"reading array index from concrete memory: expected to read array, but got {obj}"
 
+    member internal x.ReadDictionaryKey address (key : collectionKey) =
+        match x.ReadObject address with
+        | :? IDictionary as dict ->
+            let valueType = dict.GetType().GetGenericArguments()[1]
+            let k = collectionKeyValueToObj key
+            let value = dict[k]
+            if Reflection.isReferenceOrContainsReferences valueType then
+                x.TrackChild(address, value, Key(key, valueType))
+            value
+        | obj -> internalfail $"reading dictionary key from concrete memory: expected to read dictionary, but got {obj}"
+
+    member internal x.DictionaryHasKey address (key : collectionKey) =
+        match x.ReadObject address with
+        | :? IDictionary as dict ->
+            let k = collectionKeyValueToObj key
+            dict.Contains(k)
+        | obj -> internalfail $"contains dictionary key from concrete memory: expected to read dictionary, but got {obj}"
+
+    member internal x.ReadSetKey address (item : collectionKey) =
+        match x.ReadObject address with
+        | Set set ->
+            let valueType = set.GetType().GetGenericArguments()[0]
+            let i = collectionKeyValueToObj item
+            let method = set.GetType().GetMethod("Contains")
+            let contains = method.Invoke(set, [| i |])
+            if Reflection.isReferenceOrContainsReferences valueType then
+                x.TrackChild(address, contains, Key(item, valueType))
+            contains :?> bool
+        | obj -> internalfail $"reading set from concrete memory: expected to read set, but got {obj}"
+
+    member internal x.ReadListIndex address index =
+        match x.ReadObject address with
+        | :? IList as list ->
+            let valueType = list.GetType().GetGenericArguments()[0]
+            let value = list[index]
+            if Reflection.isReferenceOrContainsReferences valueType then
+                x.TrackChild(address, value, Index([| index |], valueType))
+            value
+        | obj -> internalfail $"reading list index from concrete memory: expected to read list, but got {obj}"
+
     member internal x.GetAllArrayData address =
         match x.ReadObject address with
         | :? Array as array -> Array.getArrayIndicesWithValues array
         | :? String as string -> string.ToCharArray() |> Array.getArrayIndicesWithValues
         | obj -> internalfail $"reading array data concrete memory: expected to read array, but got {obj}"
+
+    member internal x.GetAllDictionaryData address =
+        match x.ReadObject address with
+        | :? IDictionary as dict ->
+            Reflection.keyAndValueSeqFromDictionaryObj dict
+        | obj -> internalfail $"reading dictionary data concrete memory: expected to read dictionary, but got {obj}"
+
+    member internal x.GetAllSetData address =
+        match x.ReadObject address with
+        | Set obj ->
+            let set = obj :?> IEnumerable
+            seq { for obj in set -> obj }
+        | obj -> internalfail $"reading set data concrete memory: expected to read set, but got {obj}"
+
+    member internal x.GetAllListData address =
+        match x.ReadObject address with
+        | :? IList as list ->
+            seq { for obj in list -> obj }
+        | obj -> internalfail $"reading list data concrete memory: expected to read list, but got {obj}"
 
     member internal x.ReadArrayLowerBound address dimension =
         match x.ReadObject address with
@@ -346,6 +410,21 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
         | :? Array as array -> array.GetLength(dimension)
         | :? String as string when dimension = 0 -> 1 + string.Length
         | obj -> internalfail $"reading array length from concrete memory: expected to read array, but got {obj}"
+
+    member internal x.ReadDictionaryCount address =
+        match x.ReadObject address with
+        | dict when dict.GetType().Name = "Dictionary`2" -> Reflection.getCountByReflection dict
+        | obj -> internalfail $"reading dictionary length from concrete memory: expected to read dictionary, but got {obj}"
+
+    member internal x.ReadSetCount address =
+        match x.ReadObject address with
+        | Set set -> Reflection.getCountByReflection set
+        | obj -> internalfail $"reading set length from concrete memory: expected to read set, but got {obj}"
+
+    member internal x.ReadListCount address =
+        match x.ReadObject address with
+        | List list -> Reflection.getCountByReflection list
+        | obj -> internalfail $"reading list length from concrete memory: expected to read list, but got {obj}"
 
     member internal x.ReadBoxedLocation address =
         let obj = x.ReadObject address
@@ -388,6 +467,73 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
             let newString = String(charArray)
             x.WriteObject address newString
         | obj -> internalfail $"writing array index to concrete memory: expected to read array, but got {obj}"
+
+    member internal x.WriteDictionaryKey address (key : collectionKey) value =
+        match x.ReadObject address with
+        | :? IDictionary as dict ->
+            let valueType = dict.GetType().GetGenericArguments()[1]
+            let castedValue =
+                if value <> null then x.CastIfNeed value valueType
+                else value
+            let objKey = collectionKeyValueToObj key
+            dict[objKey] <- castedValue
+            if Reflection.isReferenceOrContainsReferences valueType then
+                x.SetChild(dict, value, Key(key, valueType))
+        | obj -> internalfail $"writing dictionary key to concrete memory: expected to read dictionary, but got {obj}"
+    member internal x.WriteSetKey address (item : collectionKey) (value : obj) =
+        ignore <|
+            match x.ReadObject address with
+            | Set set ->
+                let itemType = set.GetType().GetGenericArguments()[0]
+                let i = collectionKeyValueToObj item
+                let i =
+                    if i <> null then x.CastIfNeed i itemType
+                    else i
+                let methodName = if (value :?> bool) then "Add" else "Remove"
+                let method = set.GetType().GetMethod(methodName)
+                let contains = method.Invoke(set, [| i |])
+                if Reflection.isReferenceOrContainsReferences itemType then
+                    x.TrackChild(address, contains, Key(item, itemType))
+                contains :?> bool
+            | obj -> internalfail $"writing set key to concrete memory: expected to read set, but got {obj}"
+
+    member internal x.WriteListIndex address (index : int) item  =
+        match x.ReadObject address with
+        | List list ->
+            let itemType = list.GetType().GetGenericArguments()[0]
+            let castedValue =
+                if item <> null then x.CastIfNeed item itemType
+                else item
+            let list = list :?> IList
+            let count = list.Count
+            if index < count then list[index] <- castedValue
+            else ignore <| list.Add(castedValue)
+            if Reflection.isReferenceOrContainsReferences itemType then
+                x.SetChild(dict, item, Index([| index |], itemType))
+        | obj -> internalfail $"writing list index to concrete memory: expected to read list, but got {obj}"
+
+    member internal x.ListRemoveAt address (index : int) =
+        match x.ReadObject address with
+        | :? IList as list -> list.RemoveAt(index)
+        | obj -> internalfail $"remove from list in concrete memory: expected to read list, but got {obj}"
+
+    member internal x.InsertIndex address (index : int) (item : obj) =
+        match x.ReadObject address with
+        | :? IList as list ->
+            let itemType = list.GetType().GetGenericArguments()[0]
+            let castedValue =
+                if item <> null then x.CastIfNeed item itemType
+                else item
+            list.Insert(index, castedValue)
+        | obj -> internalfail $"insert in list in concrete memory: expected to read list, but got {obj}"
+
+    member internal x.ListCopyToRange list (index : int) array (arrayIndex : int) (count : int) =
+        match x.ReadObject list, x.ReadObject array with
+        | List list, (:? Array as array) ->
+            let argty = [| typeof<int>; array.GetType(); typeof<int>; typeof<int> |]
+            let method = list.GetType().GetMethod("CopyTo", argty)
+            ignore <| method.Invoke(list, [| index; array; arrayIndex; count |])
+        | list, array -> internalfail $"list copyToRange in concrete memory: got {list}, {array}"
 
     member internal x.WriteBoxedLocation (address : concreteHeapAddress) (obj : obj) : unit =
         let phys = virtToPhys[address]

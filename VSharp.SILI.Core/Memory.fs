@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open System
+open System.Collections
 open System.Collections.Generic
 open System.Reflection
 open FSharpx.Collections
@@ -8,6 +9,8 @@ open VSharp
 open VSharp.Core
 open VSharp.TypeUtils
 open VSharp.Utils
+open DictionaryType
+open SetType
 
 #nowarn "69"
 
@@ -130,6 +133,8 @@ module internal Memory =
             override x.Time = x.time
             override x.TypeOfLocation = x.key.TypeOfLocation
 
+    // -------------------------------- Reading --------------------------------
+
     [<StructuralEquality;NoComparison>]
     type private heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
         {picker : regionPicker<'key, 'reg>; key : 'key; memoryObject : memoryRegion<'key, 'reg>; time : vectorTime}
@@ -151,6 +156,14 @@ module internal Memory =
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
 
+    type private generalDictionaryReading<'key when 'key : equality> = heapReading<heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+    type private addrDictionaryReading = heapReading<addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+    type private dictionaryCountReading = heapReading<heapAddressKey, vectorTime intervals>
+
+    type private generalSetReading<'key when 'key : equality> = heapReading<heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+    type private addrSetReading = heapReading<addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+    type private setCountReading = heapReading<heapAddressKey, vectorTime intervals>
+
     let (|HeapReading|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? heapReading<heapAddressKey, vectorTime intervals> as hr -> Some(hr.key, hr.memoryObject)
@@ -161,6 +174,136 @@ module internal Memory =
         | :? heapReading<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>> ->
             internalfail "unexpected array index reading via 'heapReading' source"
         | :? arrayReading as ar -> Some(isConcreteHeapAddress ar.key.Address, ar.key, ar.memoryObject)
+        | _ -> None
+
+    let (|BoolDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<bool> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|ByteDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<byte> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|SByteDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<sbyte> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|CharDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<char> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|DecimalDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<decimal> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|DoubleDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<double> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|IntDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<int> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|UIntDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<uint> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|LongDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<int64> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|ULongDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<uint64> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|ShortDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<int16> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|UShortDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalDictionaryReading<uint16> as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|AddrDictionaryReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? addrDictionaryReading as dr -> Some(isConcreteHeapAddress dr.key.address, dr.key, dr.memoryObject)
+        | _ -> None
+
+    let (|BoolSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<bool> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|ByteSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<byte> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|SByteSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<sbyte> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|CharSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<char> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|DecimalSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<decimal> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|DoubleSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<double> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|IntSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<int> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|UIntSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<uint> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|LongSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<int64> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|ULongSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<uint64> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|ShortSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<int16> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|UShortSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? generalSetReading<uint16> as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
+        | _ -> None
+
+    let (|AddrSetReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? addrSetReading as st -> Some(isConcreteHeapAddress st.key.address, st.key, st.memoryObject)
         | _ -> None
 
     let (|ArrayRangeReading|_|) (src : ISymbolicConstantSource) =
@@ -192,13 +335,39 @@ module internal Memory =
 
     let getHeapReadingRegionSort (src : ISymbolicConstantSource) =
         match src with
-        | :? heapReading<heapAddressKey, vectorTime intervals>                                as hr -> hr.picker.sort
+        | :? heapReading<heapAddressKey, vectorTime intervals> as hr -> hr.picker.sort
         | :? heapReading<heapVectorIndexKey, productRegion<vectorTime intervals, int points>> as hr -> hr.picker.sort
-        | :? heapReading<stackBufferIndexKey, int points>                                     as hr -> hr.picker.sort
-        | :? heapReading<symbolicTypeKey, freeRegion<typeWrapper>>                            as hr -> hr.picker.sort
+        | :? heapReading<stackBufferIndexKey, int points> as hr -> hr.picker.sort
+        | :? heapReading<symbolicTypeKey, freeRegion<typeWrapper>> as hr -> hr.picker.sort
         | :? heapReading<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>> ->
             internalfail "unexpected array index reading via 'heapReading' source"
         | :? arrayReading as ar -> ar.picker.sort
+        | :? generalDictionaryReading<bool> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<byte> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<sbyte> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<char> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<decimal> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<double> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<int> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<uint> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<int64> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<uint64> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<int16> as dr -> dr.picker.sort
+        | :? generalDictionaryReading<uint16> as dr -> dr.picker.sort
+        | :? addrDictionaryReading as dr -> dr.picker.sort
+        | :? generalSetReading<bool> as st -> st.picker.sort
+        | :? generalSetReading<byte> as st -> st.picker.sort
+        | :? generalSetReading<sbyte> as st -> st.picker.sort
+        | :? generalSetReading<char> as st -> st.picker.sort
+        | :? generalSetReading<decimal> as st -> st.picker.sort
+        | :? generalSetReading<double> as st -> st.picker.sort
+        | :? generalSetReading<int> as st -> st.picker.sort
+        | :? generalSetReading<uint> as st -> st.picker.sort
+        | :? generalSetReading<int64> as st -> st.picker.sort
+        | :? generalSetReading<uint64> as st -> st.picker.sort
+        | :? generalSetReading<int16> as st -> st.picker.sort
+        | :? generalSetReading<uint16> as st -> st.picker.sort
+        | :? addrSetReading as st -> st.picker.sort
         | _ -> __unreachable__()
 
     let composeBaseSource state (baseSource : ISymbolicConstantSource) =
@@ -290,11 +459,6 @@ module internal Memory =
             Constant name source typ
         | _ -> constant
 
-    let private accessRegion (dict : pdict<'a, memoryRegion<'key, 'reg>>) key typ =
-        match PersistentDict.tryFind dict key with
-        | Some value -> value
-        | None -> MemoryRegion.empty typ
-
     let private isHeapAddressDefault state address =
         state.complete ||
         match address.term with
@@ -325,7 +489,7 @@ module internal Memory =
 
     let writeStruct structTerm field value = commonWriteStruct None structTerm field value
     let guardedWriteStruct guard structTerm field value = commonWriteStruct guard structTerm field value
-    
+
     let isSafeContextWrite actualType neededType =
         assert(neededType <> typeof<Void>)
         neededType = actualType
@@ -349,13 +513,7 @@ module internal Memory =
     type Memory private (
         evaluationStack : evaluationStack,
         stack : callStack,                                              // Arguments and local variables
-        stackBuffers : pdict<stackKey, stackBufferRegion>,              // Buffers allocated via stackAlloc
-        classFields : pdict<fieldId, heapRegion>,                       // Fields of classes in heap
-        arrays : pdict<arrayType, arrayRegion>,                         // Contents of arrays in heap
-        lengths : pdict<arrayType, vectorRegion>,                       // Lengths by dimensions of arrays in heap
-        lowerBounds : pdict<arrayType, vectorRegion>,                   // Lower bounds by dimensions of arrays in heap
-        staticFields : pdict<fieldId, staticsRegion>,                   // Static fields of types without type variables
-        boxedLocations : pdict<Type, heapRegion>,                       // Value types boxed in heap
+        memoryRegions : pdict<IMemoryRegionId, IMemoryRegion>,
         concreteMemory : ConcreteMemory,                                // Fully concrete objects
         allocatedTypes : pdict<concreteHeapAddress, symbolicType>,      // Types of heap locations allocated via new
         initializedAddresses : pset<term>,                              // Addresses, which invariants were initialized
@@ -369,14 +527,8 @@ module internal Memory =
         let mutable stack = stack
         let mutable evaluationStack = evaluationStack
         let mutable allocatedTypes = allocatedTypes
-        let mutable arrays = arrays
-        let mutable lowerBounds = lowerBounds
-        let mutable lengths = lengths
         let mutable initializedAddresses = initializedAddresses
-        let mutable classFields = classFields
-        let mutable staticFields = staticFields
-        let mutable stackBuffers = stackBuffers
-        let mutable boxedLocations = boxedLocations
+        let mutable memoryRegions = memoryRegions
         let mutable delegates = delegates
         let mutable memoryMode = memoryMode
 
@@ -396,6 +548,13 @@ module internal Memory =
             assert(not <| PersistentDict.contains concreteAddress allocatedTypes)
             allocatedTypes <- PersistentDict.add concreteAddress symbolicType allocatedTypes
             concreteAddress
+
+        let getOrPutRegionCommon (key : IMemoryRegionId) typ memory =
+            match PersistentDict.tryFind memory key with
+            | Some value -> value
+            | None -> key.Empty typ
+
+        let getOrPutRegion key typ = getOrPutRegionCommon key typ memoryRegions
 
         // ---------------- Try term to object ----------------
 
@@ -428,46 +587,188 @@ module internal Memory =
 
         let writeLowerBoundSymbolic guard address dimension arrayType value =
             ensureConcreteType arrayType.elemType
-            let mr = accessRegion lowerBounds arrayType lengthType
+            let mrKey = MemoryRegionId.createArrayLowerBoundsId arrayType
+            let mr = getOrPutRegion mrKey lengthType :?> arrayLowerBoundsRegion
             let key = {address = address; index = dimension}
             let mr' = MemoryRegion.write mr guard key value
-            lowerBounds <- PersistentDict.add arrayType mr' lowerBounds
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
 
         let writeLengthSymbolic guard address dimension arrayType value =
             ensureConcreteType arrayType.elemType
-            let mr = accessRegion lengths arrayType lengthType
+            let mrKey = MemoryRegionId.createArrayLengthsId arrayType
+            let mr = getOrPutRegion mrKey lengthType :?> arrayLengthsRegion
             let key = {address = address; index = dimension}
             let mr' = MemoryRegion.write mr guard key value
-            lengths <- PersistentDict.add arrayType mr' lengths
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeDictionaryCount guard address dictionaryType value =
+            ensureConcreteType dictionaryType.keyType
+            let mrKey = MemoryRegionId.createDictionaryCountsId dictionaryType
+            let mr = getOrPutRegion mrKey lengthType :?> dictionaryCountsRegion
+            let key = { address = address }
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeSetCount guard address setType value =
+            ensureConcreteType setType.setValueType
+            let mrKey = MemoryRegionId.createSetCountsId setType
+            let mr = getOrPutRegion mrKey lengthType :?> setCountsRegion
+            let key = { address = address }
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeListCount guard address listType value =
+            ensureConcreteType listType.listValueType
+            let mrKey = MemoryRegionId.createListCountsId listType
+            let mr = getOrPutRegion mrKey lengthType :?> listCountsRegion
+            let key = { address = address }
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
 
         let writeArrayKeySymbolic guard key arrayType value =
             let elementType = arrayType.elemType
             ensureConcreteType elementType
-            let mr = accessRegion arrays arrayType elementType
+            let mrKey = MemoryRegionId.createArraysId arrayType
+            let mr = getOrPutRegion mrKey elementType :?> arraysRegion
             let mr' = MemoryRegion.write mr guard key value
-            let newArrays = PersistentDict.add arrayType mr' arrays
-            arrays <- newArrays
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
 
         let writeArrayIndexSymbolic guard address indices arrayType value =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
             let key = OneArrayIndexKey(address, indices)
             writeArrayKeySymbolic guard key arrayType value
 
+        let writeGeneralDictionaryKeyToKeysSymbolic (key : heapCollectionKey<'key>) guard dictionaryType value =
+            let mrKey = MemoryRegionId.createDictionaryKeysId dictionaryType
+            let mr = getOrPutRegion mrKey typeof<bool> :?> dictionariesRegion<'key>
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeGeneralDictionaryKeySymbolic (key : heapCollectionKey<'key>) guard dictionaryType value valueType =
+            writeGeneralDictionaryKeyToKeysSymbolic key guard dictionaryType <| True()
+            let mrKey = MemoryRegionId.createDictionariesId dictionaryType
+            let mr = getOrPutRegion mrKey valueType :?> dictionariesRegion<'key>
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeAddrDictionaryKeyToKeysSymbolic key guard dictionaryType value =
+            let mrKey = MemoryRegionId.createDictionaryKeysId dictionaryType
+            let mr = getOrPutRegion mrKey typeof<bool> :?> addrDictionaryKeysRegion
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeAddrDictionaryKeySymbolic key guard dictionaryType value valueType =
+            writeAddrDictionaryKeyToKeysSymbolic key guard dictionaryType <| True()
+            let mrKey = MemoryRegionId.createDictionariesId dictionaryType
+            let mr = getOrPutRegion mrKey valueType :?> addrDictionariesRegion
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeDictionaryKeySymbolic guard address key (dictionaryType : dictionaryType) value =
+            let valueType = dictionaryType.valueType
+            ensureConcreteType valueType
+            let write =
+                match dictionaryType with
+                | BoolDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<bool>)
+                | ByteDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<byte>)
+                | SByteDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<sbyte>)
+                | CharDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<char>)
+                | DecimalDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<decimal>)
+                | DoubleDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<double>)
+                | IntDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<int>)
+                | UIntDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<uint>)
+                | LongDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<int64>)
+                | ULongDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<uint64>)
+                | ShortDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<int16>)
+                | UShortDictionary _ -> writeGeneralDictionaryKeySymbolic <| ({ address = address; key = key } : heapCollectionKey<uint16>)
+                | AddrDictionary _ -> writeAddrDictionaryKeySymbolic <| ({ address = address; key = key } : addrCollectionKey)
+                | _ -> __unreachable__()
+            write guard dictionaryType value valueType
+
+        let writeDictionaryKeyToKeysSymbolic guard address key (dictionaryType : dictionaryType) value =
+            let valueType = dictionaryType.valueType
+            ensureConcreteType valueType
+            let write =
+                match dictionaryType with
+                | BoolDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<bool>)
+                | ByteDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<byte>)
+                | SByteDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<sbyte>)
+                | CharDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<char>)
+                | DecimalDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<decimal>)
+                | DoubleDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<double>)
+                | IntDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<int>)
+                | UIntDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<uint>)
+                | LongDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<int64>)
+                | ULongDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<uint64>)
+                | ShortDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<int16>)
+                | UShortDictionary _ -> writeGeneralDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : heapCollectionKey<uint16>)
+                | AddrDictionary _ -> writeAddrDictionaryKeyToKeysSymbolic <| ({ address = address; key = key } : addrCollectionKey)
+                | _ -> __unreachable__()
+            write guard dictionaryType value
+
+        let writeGeneralSetKeySymbolic (key : heapCollectionKey<'key>) guard setType value =
+            let mrKey = MemoryRegionId.createSetsId setType
+            let mr = getOrPutRegion mrKey typeof<bool> :?> setsRegion<'key>
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeAddrSetKeySymbolic key guard setType value =
+            let mrKey = MemoryRegionId.createSetsId setType
+            let mr = getOrPutRegion mrKey typeof<bool> :?> addrSetsRegion
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
+        let writeSetKeySymbolic guard address item (setType : setType) value =
+            let itemType = setType.setValueType
+            ensureConcreteType itemType
+            let write =
+                match setType with
+                | BoolSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<bool>)
+                | ByteSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<byte>)
+                | SByteSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<sbyte>)
+                | CharSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<char>)
+                | DecimalSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<decimal>)
+                | DoubleSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<double>)
+                | IntSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<int>)
+                | UIntSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<uint>)
+                | LongSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<int64>)
+                | ULongSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<uint64>)
+                | ShortSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<int16>)
+                | UShortSet _ -> writeGeneralSetKeySymbolic <| ({ address = address; key = item } : heapCollectionKey<uint16>)
+                | AddrSet _ -> writeAddrSetKeySymbolic <| ({ address = address; key = item } : addrCollectionKey)
+                | _ -> __unreachable__()
+            write guard setType value
+
+        let writeListIndexSymbolic guard address index (listType : listType) value =
+            let key = OneArrayIndexKey(address, [index])
+            let mrKey = MemoryRegionId.createListsId listType
+            let mr = getOrPutRegion mrKey listType.listValueType :?> listsRegion
+            let mr' = MemoryRegion.write mr guard key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
+
         let writeStackLocation key value =
             stack <- CallStack.writeStackLocation stack key value
 
         let writeClassFieldSymbolic guard address (field : fieldId) value =
             ensureConcreteType field.typ
-            let mr = accessRegion classFields field field.typ
+            let mrKey = MemoryRegionId.createClassFieldsId field
+            let mr = getOrPutRegion mrKey field.typ :?> classFieldsRegion
             let key = {address = address}
             let mr' = MemoryRegion.write mr guard key value
-            classFields <- PersistentDict.add field mr' classFields
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
 
         let writeArrayRangeSymbolic guard address fromIndices toIndices arrayType value =
             let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
             let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
             let key = RangeArrayIndexKey(address, fromIndices, toIndices)
             writeArrayKeySymbolic guard key arrayType value
+
+        let writeListRangeSymbolic address fromIdx toIdx listType value =
+            let key = RangeArrayIndexKey(address, [fromIdx], [toIdx])
+            let mrKey = MemoryRegionId.createListsId listType
+            let mr = getOrPutRegion mrKey listType.listValueType :?> listsRegion
+            let mr' = MemoryRegion.write mr None key value
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
 
         let fillArrayBoundsSymbolic guard address lengths lowerBounds arrayType =
             let d = List.length lengths
@@ -479,17 +780,19 @@ module internal Memory =
             List.iter2 writeLowerBounds lowerBounds [0 .. d-1]
 
         let writeStackBuffer stackKey guard index value =
-            let mr = accessRegion stackBuffers stackKey typeof<int8>
+            let mrKey = MemoryRegionId.createStackBuffersId stackKey
+            let mr = getOrPutRegion mrKey typeof<int8> :?> stackBuffersRegion
             let key : stackBufferIndexKey = {index = index}
             let mr' = MemoryRegion.write mr guard key value
-            stackBuffers <- PersistentDict.add stackKey mr' stackBuffers
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
 
         let writeBoxedLocationSymbolic guard (address : term) value typ =
             ensureConcreteType typ
-            let mr = accessRegion boxedLocations typ typ
+            let mrKey = MemoryRegionId.createBoxedLocationsId typ
+            let mr = getOrPutRegion mrKey typ :?> boxedLocationsRegion
             let key = {address = address}
             let mr' = MemoryRegion.write mr guard key value
-            boxedLocations <- PersistentDict.add typ mr' boxedLocations
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
 
         let writeAddressUnsafe (reporter : IErrorReporter) address startByte value =
             let addressSize = sizeOf address
@@ -566,12 +869,6 @@ module internal Memory =
             Memory(
                 EvaluationStack.empty,
                 CallStack.empty,
-                PersistentDict.empty,
-                PersistentDict.empty,
-                PersistentDict.empty,
-                PersistentDict.empty,
-                PersistentDict.empty,
-                PersistentDict.empty,
                 PersistentDict.empty,
                 ConcreteMemory(),
                 PersistentDict.empty,
@@ -698,6 +995,27 @@ module internal Memory =
             let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
             let name = picker.mkName key
             self.MakeSymbolicValue source name typ
+
+        member self.MakeGeneralDictionarySymbolicHeapRead<'key when 'key : equality> picker (key : heapCollectionKey<'key>) time typ memoryObject =
+            let source : generalDictionaryReading<'key> = {picker = picker; key = key; memoryObject = memoryObject; time = time}
+            let name = picker.mkName key
+            self.MakeSymbolicValue source name typ
+
+        member self.MakeAddrDictionarySymbolicHeapRead picker (key : addrCollectionKey) time typ memoryObject =
+            let source : addrDictionaryReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
+            let name = picker.mkName key
+            self.MakeSymbolicValue source name typ
+
+        member self.MakeGeneralSetSymbolicHeapRead<'key when 'key : equality> picker (key : heapCollectionKey<'key>) time typ memoryObject =
+            let source : generalSetReading<'key> = {picker = picker; key = key; memoryObject = memoryObject; time = time}
+            let name = picker.mkName key
+            self.MakeSymbolicValue source name typ
+
+        member self.MakeAddrSetSymbolicHeapRead picker (key : addrCollectionKey) time typ memoryObject =
+            let source : addrSetReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
+            let name = picker.mkName key
+            self.MakeSymbolicValue source name typ
+
         member self.RangeReadingUnreachable _ _ = __unreachable__()
         member self.SpecializedReading (readKey : heapArrayKey) utKey =
             match utKey with
@@ -711,7 +1029,8 @@ module internal Memory =
 
         member private self.ReadLowerBoundSymbolic address dimension arrayType =
             let extractor (state : state) =
-                accessRegion state.memory.LowerBounds (state.SubstituteTypeVariablesIntoArrayType arrayType) lengthType
+                let mrKey = MemoryRegionId.createArrayLowerBoundsId <| state.SubstituteTypeVariablesIntoArrayType arrayType
+                getOrPutRegionCommon mrKey lengthType state.memory.MemoryRegions :?> arrayLowerBoundsRegion
             let mkName (key : heapVectorIndexKey) = $"LowerBound({key.address}, {key.index})"
             let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || arrayType.isVector
             let key = {address = address; index = dimension}
@@ -727,12 +1046,64 @@ module internal Memory =
 
         member private self.ReadLengthSymbolic address dimension arrayType =
             let extractor (state : state) =
-                accessRegion state.memory.Lengths (state.SubstituteTypeVariablesIntoArrayType arrayType) lengthType
+                let mrKey = MemoryRegionId.createArrayLengthsId <| state.SubstituteTypeVariablesIntoArrayType arrayType
+                getOrPutRegionCommon mrKey lengthType state.memory.MemoryRegions :?> arrayLengthsRegion
             let mkName (key : heapVectorIndexKey) = $"Length({key.address}, {key.index})"
             let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
             let key = {address = address; index = dimension}
             let inst typ memoryRegion =
                 let sort = ArrayLengthSort arrayType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = mkName
+                        isDefaultKey = isDefault; isDefaultRegion = false
+                    }
+                self.MakeSymbolicHeapRead picker key state.startingTime typ memoryRegion
+            MemoryRegion.read (extractor state) key (isDefault state) inst self.RangeReadingUnreachable
+
+        member private self.ReadDictionaryCountSymbolic address dictionaryType =
+            let extractor (state : state) =
+                let mrKey = MemoryRegionId.createDictionaryCountsId <| state.SubstituteTypeVariablesIntoDictionaryType dictionaryType
+                getOrPutRegionCommon mrKey lengthType state.memory.MemoryRegions :?> dictionaryCountsRegion
+            let mkName (key : heapAddressKey) = $"Count({key.address})"
+            let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
+            let key = { address = address }
+            let inst typ memoryRegion =
+                let sort = DictionaryCountSort dictionaryType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = mkName
+                        isDefaultKey = isDefault; isDefaultRegion = false
+                    }
+                self.MakeSymbolicHeapRead picker key state.startingTime typ memoryRegion
+            MemoryRegion.read (extractor state) key (isDefault state) inst self.RangeReadingUnreachable
+
+        member private self.ReadSetCountSymbolic address setType =
+            let extractor (state : state) =
+                let mrKey = MemoryRegionId.createSetCountsId <| state.SubstituteTypeVariablesIntoSetType setType
+                getOrPutRegionCommon mrKey lengthType state.memory.MemoryRegions :?> setCountsRegion
+            let mkName (key : heapAddressKey) = $"Count({key.address})"
+            let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
+            let key = { address = address }
+            let inst typ memoryRegion =
+                let sort = SetCountSort setType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = mkName
+                        isDefaultKey = isDefault; isDefaultRegion = false
+                    }
+                self.MakeSymbolicHeapRead picker key state.startingTime typ memoryRegion
+            MemoryRegion.read (extractor state) key (isDefault state) inst self.RangeReadingUnreachable
+
+        member private self.ReadListCountSymbolic address listType =
+            let extractor (state : state) =
+                let mrKey = MemoryRegionId.createListCountsId <| state.SubstituteTypeVariablesIntoListType listType
+                getOrPutRegionCommon mrKey lengthType state.memory.MemoryRegions :?> listCountsRegion
+            let mkName (key : heapAddressKey) = $"Count({key.address})"
+            let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
+            let key = { address = address }
+            let inst typ memoryRegion =
+                let sort = ListCountSort listType
                 let picker =
                     {
                         sort = sort; extract = extractor; mkName = mkName
@@ -756,11 +1127,243 @@ module internal Memory =
                 self.MakeArraySymbolicHeapRead picker key time typ memory
             MemoryRegion.read region key (isDefault state) instantiate self.SpecializedReading
 
+        member private self.ReadListRegion listType extractor region (isDefaultRegion : bool) (key : heapArrayKey) =
+            let isDefault state (key : heapArrayKey) = isHeapAddressDefault state key.Address
+            let instantiate typ memory =
+                let sort = ListIndexSort listType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = toString
+                        isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion
+                    }
+                let time =
+                    if isValueType typ then state.startingTime
+                    else MemoryRegion.maxTime region.updates state.startingTime
+                self.MakeArraySymbolicHeapRead picker key time typ memory
+            MemoryRegion.read region key (isDefault state) instantiate self.SpecializedReading
+
+        member private self.ReadGeneralDictionaryRegion<'key when 'key : equality> dictionaryType extractor region (isDefaultRegion : bool) (key : heapCollectionKey<'key>) =
+            let isDefault state (key : heapCollectionKey<'key>) = isHeapAddressDefault state key.address
+            let instantiate typ memory =
+                let sort = DictionaryKeySort dictionaryType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = toString
+                        isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion
+                    }
+                let time =
+                    if isValueType typ then state.startingTime
+                    else MemoryRegion.maxTime region.updates state.startingTime
+                self.MakeGeneralDictionarySymbolicHeapRead<'key> picker key time typ memory
+            MemoryRegion.read region key (isDefault state) instantiate self.RangeReadingUnreachable
+
+        member private self.ReadAddrDictionaryRegion dictionaryType extractor region (isDefaultRegion : bool) (key : addrCollectionKey) =
+            let isDefault state (key : addrCollectionKey) = isHeapAddressDefault state key.address
+            let instantiate typ memory =
+                let sort = AddrDictionaryKeySort dictionaryType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = toString
+                        isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion
+                    }
+                let time =
+                    if isValueType typ then state.startingTime
+                    else MemoryRegion.maxTime region.updates state.startingTime
+                self.MakeAddrDictionarySymbolicHeapRead picker key time typ memory
+            MemoryRegion.read region key (isDefault state) instantiate self.RangeReadingUnreachable
+
+        member private self.HasGeneralDictionaryRegion<'key when 'key : equality> dictionaryType extractor region (isDefaultRegion : bool) (key : heapCollectionKey<'key>) =
+            let isDefault state (key : heapCollectionKey<'key>) = isHeapAddressDefault state key.address
+            let instantiate typ memory =
+                let sort = DictionaryHasKeySort dictionaryType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = toString
+                        isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion
+                    }
+                let time =
+                    if isValueType typ then state.startingTime
+                    else MemoryRegion.maxTime region.updates state.startingTime
+                self.MakeGeneralSetSymbolicHeapRead<'key> picker key time typ memory
+            MemoryRegion.read region key (isDefault state) instantiate self.RangeReadingUnreachable
+
+        member private self.HasAddrDictionaryRegion dictionaryType extractor region (isDefaultRegion : bool) (key : addrCollectionKey) =
+            let isDefault state (key : addrCollectionKey) = isHeapAddressDefault state key.address
+            let instantiate typ memory =
+                let sort = AddrDictionaryHasKeySort dictionaryType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = toString
+                        isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion
+                    }
+                let time =
+                    if isValueType typ then state.startingTime
+                    else MemoryRegion.maxTime region.updates state.startingTime
+                self.MakeAddrSetSymbolicHeapRead picker key time typ memory
+            MemoryRegion.read region key (isDefault state) instantiate self.RangeReadingUnreachable
+
+        member private self.ReadGeneralSetRegion<'key when 'key : equality> setType extractor region (isDefaultRegion : bool) (key : heapCollectionKey<'key>) =
+            let isDefault state (key : heapCollectionKey<'key>) = isHeapAddressDefault state key.address
+            let instantiate typ memory =
+                let sort = SetKeySort setType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = toString
+                        isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion
+                    }
+                let time =
+                    if isValueType typ then state.startingTime
+                    else MemoryRegion.maxTime region.updates state.startingTime
+                self.MakeGeneralSetSymbolicHeapRead<'key> picker key time typ memory
+            MemoryRegion.read region key (isDefault state) instantiate self.RangeReadingUnreachable
+
+        member private self.ReadAddrSetRegion setType extractor region (isDefaultRegion : bool) (key : addrCollectionKey) =
+            let isDefault state (key : addrCollectionKey) = isHeapAddressDefault state key.address
+            let instantiate typ memory =
+                let sort = AddrSetKeySort setType
+                let picker =
+                    {
+                        sort = sort; extract = extractor; mkName = toString
+                        isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion
+                    }
+                let time =
+                    if isValueType typ then state.startingTime
+                    else MemoryRegion.maxTime region.updates state.startingTime
+                self.MakeAddrSetSymbolicHeapRead picker key time typ memory
+            MemoryRegion.read region key (isDefault state) instantiate self.RangeReadingUnreachable
+
         member private self.ReadArrayKeySymbolic key arrayType =
             let extractor (state : state) =
                 let arrayType = state.SubstituteTypeVariablesIntoArrayType arrayType
-                accessRegion state.memory.Arrays arrayType arrayType.elemType
+                let mrKey = MemoryRegionId.createArraysId arrayType
+                getOrPutRegionCommon mrKey arrayType.elemType state.memory.MemoryRegions :?> arraysRegion
             self.ReadArrayRegion arrayType extractor (extractor state) false key
+
+
+        member private self.ReadListRangeSymbolic address fromIdx toIdx listType =
+            let key = RangeArrayIndexKey(address, [fromIdx], [toIdx])
+            let extractor (state : state) =
+                let listType = state.SubstituteTypeVariablesIntoListType listType
+                let mrKey = MemoryRegionId.createListsId listType
+                getOrPutRegionCommon mrKey listType.listValueType state.memory.MemoryRegions :?> listsRegion
+            self.ReadListRegion listType extractor (extractor state) false key
+
+        member private self.ReadListIndexSymbolic address index listType =
+            let key = OneArrayIndexKey(address, [index])
+            let extractor (state : state) =
+                let listType = state.SubstituteTypeVariablesIntoListType listType
+                let mrKey = MemoryRegionId.createListsId listType
+                getOrPutRegionCommon mrKey listType.listValueType state.memory.MemoryRegions
+                :?> listsRegion
+            self.ReadListRegion listType extractor (extractor state) false key
+
+        member private self.ReadGeneralDictionaryKeySymbolic<'key when 'key : equality> address key dictionaryType =
+            let key : heapCollectionKey<'key> = { address = address; key = key }
+            let extractor (state : state) =
+                let dictionaryType = state.SubstituteTypeVariablesIntoDictionaryType dictionaryType
+                let mrKey = MemoryRegionId.createDictionariesId dictionaryType
+                getOrPutRegionCommon mrKey dictionaryType.valueType state.memory.MemoryRegions
+                :?> memoryRegion<heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+            self.ReadGeneralDictionaryRegion<'key> dictionaryType extractor (extractor state) false key
+
+        member private self.ReadAddrDictionaryKeySymbolic address key dictionaryType =
+            let key : addrCollectionKey = { address = address; key = key }
+            let extractor (state : state) =
+                let dictionaryType = state.SubstituteTypeVariablesIntoDictionaryType dictionaryType
+                let mrKey = MemoryRegionId.createDictionariesId dictionaryType
+                getOrPutRegionCommon mrKey dictionaryType.valueType state.memory.MemoryRegions :?> addrDictionariesRegion
+            self.ReadAddrDictionaryRegion dictionaryType extractor (extractor state) false key
+
+        member private self.ReadDictionaryKeySymbolic address key dictionaryType =
+            let read =
+                match dictionaryType with
+                | BoolDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<bool>
+                | ByteDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<byte>
+                | SByteDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<sbyte>
+                | CharDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<char>
+                | DecimalDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<decimal>
+                | DoubleDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<double>
+                | IntDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<int>
+                | UIntDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<uint>
+                | LongDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<int64>
+                | ULongDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<uint64>
+                | ShortDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<int16>
+                | UShortDictionary _ -> self.ReadGeneralDictionaryKeySymbolic<uint16>
+                | AddrDictionary _ -> self.ReadAddrDictionaryKeySymbolic
+                | _ -> __unreachable__()
+            read address key dictionaryType
+
+        member private self.HasGeneralDictionaryKeySymbolic<'key when 'key : equality> address key dictionaryType =
+            let key : heapCollectionKey<'key> = { address = address; key = key }
+            let extractor (state : state) =
+                let dictionaryType = state.SubstituteTypeVariablesIntoDictionaryType dictionaryType
+                let mrKey = MemoryRegionId.createDictionaryKeysId dictionaryType
+                getOrPutRegionCommon mrKey typeof<bool> state.memory.MemoryRegions
+                :?> memoryRegion<heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+            self.HasGeneralDictionaryRegion<'key> dictionaryType extractor (extractor state) false key
+
+        member private self.HasAddrDictionaryKeySymbolic address key dictionaryType =
+            let key : addrCollectionKey = { address = address; key = key }
+            let extractor (state : state) =
+                let dictionaryType = state.SubstituteTypeVariablesIntoDictionaryType dictionaryType
+                let mrKey = MemoryRegionId.createDictionaryKeysId dictionaryType
+                getOrPutRegionCommon mrKey typeof<bool> state.memory.MemoryRegions :?> addrDictionaryKeysRegion
+            self.HasAddrDictionaryRegion dictionaryType extractor (extractor state) false key
+
+        member private self.DictionaryHasKeySymbolic address key dictionaryType =
+            let read =
+                match dictionaryType with
+                | BoolDictionary _ -> self.HasGeneralDictionaryKeySymbolic<bool>
+                | ByteDictionary _ -> self.HasGeneralDictionaryKeySymbolic<byte>
+                | SByteDictionary _ -> self.HasGeneralDictionaryKeySymbolic<sbyte>
+                | CharDictionary _ -> self.HasGeneralDictionaryKeySymbolic<char>
+                | DecimalDictionary _ -> self.HasGeneralDictionaryKeySymbolic<decimal>
+                | DoubleDictionary _ -> self.HasGeneralDictionaryKeySymbolic<double>
+                | IntDictionary _ -> self.HasGeneralDictionaryKeySymbolic<int>
+                | UIntDictionary _ -> self.HasGeneralDictionaryKeySymbolic<uint>
+                | LongDictionary _ -> self.HasGeneralDictionaryKeySymbolic<int64>
+                | ULongDictionary _ -> self.HasGeneralDictionaryKeySymbolic<uint64>
+                | ShortDictionary _ -> self.HasGeneralDictionaryKeySymbolic<int16>
+                | UShortDictionary _ -> self.HasGeneralDictionaryKeySymbolic<uint16>
+                | AddrDictionary _ -> self.HasAddrDictionaryKeySymbolic
+                | _ -> __unreachable__()
+            read address key dictionaryType
+
+        member private self.ReadGeneralSetKeySymbolic<'key when 'key : equality> address item setType =
+            let key : heapCollectionKey<'key> = { address = address; key = item }
+            let extractor (state : state) =
+                let setType = state.SubstituteTypeVariablesIntoSetType setType
+                let mrKey = MemoryRegionId.createSetsId setType
+                getOrPutRegionCommon mrKey typeof<bool> state.memory.MemoryRegions
+                :?> memoryRegion<heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+            self.ReadGeneralSetRegion<'key> setType extractor (extractor state) false key
+
+        member private self.ReadAddrSetKeySymbolic address item setType =
+            let key : addrCollectionKey = { address = address; key = item }
+            let extractor (state : state) =
+                let setType = state.SubstituteTypeVariablesIntoSetType setType
+                let mrKey = MemoryRegionId.createSetsId setType
+                getOrPutRegionCommon mrKey typeof<bool> state.memory.MemoryRegions :?> addrSetsRegion
+            self.ReadAddrSetRegion setType extractor (extractor state) false key
+
+        member private self.ReadSetKeySymbolic address item setType =
+            let read =
+                match setType with
+                | BoolSet _ -> self.ReadGeneralSetKeySymbolic<bool>
+                | ByteSet _ -> self.ReadGeneralSetKeySymbolic<byte>
+                | SByteSet _ -> self.ReadGeneralSetKeySymbolic<sbyte>
+                | CharSet _ -> self.ReadGeneralSetKeySymbolic<char>
+                | DecimalSet _ -> self.ReadGeneralSetKeySymbolic<decimal>
+                | DoubleSet _ -> self.ReadGeneralSetKeySymbolic<double>
+                | IntSet _ -> self.ReadGeneralSetKeySymbolic<int>
+                | UIntSet _ -> self.ReadGeneralSetKeySymbolic<uint>
+                | LongSet _ -> self.ReadGeneralSetKeySymbolic<int64>
+                | ULongSet _ -> self.ReadGeneralSetKeySymbolic<uint64>
+                | ShortSet _ -> self.ReadGeneralSetKeySymbolic<int16>
+                | UShortSet _ -> self.ReadGeneralSetKeySymbolic<uint16>
+                | AddrSet _ -> self.ReadAddrSetKeySymbolic
+                | _ -> __unreachable__()
+            read address item setType
 
         member private self.ReadArrayIndexSymbolic address indices arrayType =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
@@ -779,6 +1382,49 @@ module internal Memory =
                 let key = OneArrayIndexKey(address, List.map (int >> makeNumber) index)
                 let value = self.ObjToTerm regionType value
                 key, value
+            Seq.map prepareData data |> MemoryRegion.memset region
+
+        member private self.ListRegionMemsetData concreteAddress data listType (region : listsRegion) =
+            let address = ConcreteHeapAddress concreteAddress
+            let regionType = listType.listValueType
+            let prepareData idx value =
+                let key = OneArrayIndexKey(address, [makeNumber idx])
+                let value = self.ObjToTerm regionType value
+                key, value
+            Seq.mapi prepareData data |> MemoryRegion.memset region
+
+        member private self.AddrDictionaryRegionMemsetData concreteAddress data dictionaryType (region : addrDictionariesRegion) =
+            let address = ConcreteHeapAddress concreteAddress
+            let keyType = dictionaryType.keyType
+            let regionType = dictionaryType.valueType
+            let prepareData (key, value) =
+                let key : addrCollectionKey = { address = address; key = self.ObjToTerm keyType key }
+                let value = self.ObjToTerm regionType (value :> obj)
+                key, value
+            Seq.map prepareData data |> MemoryRegion.memset region
+
+        member private self.GeneralDictionaryRegionMemsetData<'key when 'key : equality> concreteAddress data dictionaryType region =
+            let address = ConcreteHeapAddress concreteAddress
+            let keyType = dictionaryType.keyType
+            let regionType = dictionaryType.valueType
+            let prepareData (key, value) =
+                let key : heapCollectionKey<'key> = { address = address; key = self.ObjToTerm keyType key }
+                let value = self.ObjToTerm regionType (value :> obj)
+                key, value
+            Seq.map prepareData data |> MemoryRegion.memset region
+
+        member private self.GeneralSetRegionMemsetData<'key when 'key : equality> concreteAddress (data : seq<obj>) itemType region =
+            let address = ConcreteHeapAddress concreteAddress
+            let prepareData item =
+                let key : heapCollectionKey<'key> = { address = address; key = self.ObjToTerm itemType item }
+                key, True()
+            Seq.map prepareData data |> MemoryRegion.memset region
+
+        member private self.AddrSetRegionMemsetData concreteAddress data itemType region =
+            let address = ConcreteHeapAddress concreteAddress
+            let prepareData item =
+                let key : addrCollectionKey = { address = address; key = self.ObjToTerm itemType item }
+                key, True()
             Seq.map prepareData data |> MemoryRegion.memset region
 
         member private self.ArrayRegionFromData concreteAddress data regionType =
@@ -800,14 +1446,208 @@ module internal Memory =
             let key = OneArrayIndexKey(address, indices)
             self.ReadArrayRegion arrayType (always region) region true key
 
+        member private self.ReadSymbolicIndexFromConcreteList concreteAddress listData index listType =
+            let address = ConcreteHeapAddress concreteAddress
+            let region = MemoryRegion.emptyWithExplicit listType.listValueType concreteAddress
+            let region : listsRegion = self.ListRegionMemsetData concreteAddress listData listType region
+            let key = OneArrayIndexKey(address, [index])
+            self.ReadListRegion listType (always region) region true key
+
+        member private self.ReadSymbolicKeyFromConcreteGeneralDictionary<'key when 'key : equality> concreteAddress data key dictionaryType =
+            let address = ConcreteHeapAddress concreteAddress
+            let region = MemoryRegion.emptyWithExplicit dictionaryType.valueType concreteAddress
+            let region : memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>> =
+                self.GeneralDictionaryRegionMemsetData<'key> concreteAddress data dictionaryType region
+            let key : heapCollectionKey<'key> = { address = address; key = key }
+            self.ReadGeneralDictionaryRegion<'key> dictionaryType (always region) region true key
+
+        member private self.ReadSymbolicKeyFromConcreteAddrDictionary concreteAddress data key dictionaryType =
+            let address = ConcreteHeapAddress concreteAddress
+            let regionType = dictionaryType.valueType
+            let region = MemoryRegion.emptyWithExplicit regionType concreteAddress
+            let region : addrDictionariesRegion = self.AddrDictionaryRegionMemsetData concreteAddress data dictionaryType region
+            let key : addrCollectionKey = { address = address; key = key }
+            self.ReadAddrDictionaryRegion dictionaryType (always region) region true key
+
+        member private self.ReadSymbolicKeyFromConcreteDictionary concreteAddress data key dictionaryType =
+            let read =
+                match dictionaryType with
+                | BoolDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<bool>
+                | ByteDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<byte>
+                | SByteDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<sbyte>
+                | CharDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<char>
+                | DecimalDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<decimal>
+                | DoubleDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<double>
+                | IntDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<int>
+                | UIntDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<uint>
+                | LongDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<int64>
+                | ULongDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<uint64>
+                | ShortDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<int16>
+                | UShortDictionary _ -> self.ReadSymbolicKeyFromConcreteGeneralDictionary<uint16>
+                | AddrDictionary _ -> self.ReadSymbolicKeyFromConcreteAddrDictionary
+                | _ -> __unreachable__()
+            read concreteAddress data key dictionaryType
+
+        member private self.HasSymbolicKeyFromConcreteGeneralDictionary<'key when 'key : equality> concreteAddress data key dictionaryType =
+            let address = ConcreteHeapAddress concreteAddress
+            let keyType = dictionaryType.keyType
+            let region = MemoryRegion.emptyWithExplicit typeof<bool> concreteAddress
+            let region : memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>> =
+                self.GeneralSetRegionMemsetData<'key> concreteAddress data keyType region
+            let key : heapCollectionKey<'key> = { address = address; key = key }
+            self.HasGeneralDictionaryRegion<'key> dictionaryType (always region) region true key
+
+        member private self.HasSymbolicKeyFromConcreteAddrDictionary concreteAddress data key dictionaryType =
+            let address = ConcreteHeapAddress concreteAddress
+            let keyType = dictionaryType.keyType
+            let region = MemoryRegion.emptyWithExplicit typeof<bool> concreteAddress
+            let region : addrDictionaryKeysRegion = self.AddrSetRegionMemsetData concreteAddress data keyType region
+            let key : addrCollectionKey = { address = address; key = key }
+            self.HasAddrDictionaryRegion dictionaryType (always region) region true key
+
+        member private self.DictionaryHasSymbolicKeyFromConcreteDictionary concreteAddress data key dictionaryType =
+            let contains =
+                match dictionaryType with
+                | BoolDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<bool>
+                | ByteDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<byte>
+                | SByteDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<sbyte>
+                | CharDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<char>
+                | DecimalDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<decimal>
+                | DoubleDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<double>
+                | IntDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<int>
+                | UIntDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<uint>
+                | LongDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<int64>
+                | ULongDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<uint64>
+                | ShortDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<int16>
+                | UShortDictionary _ -> self.HasSymbolicKeyFromConcreteGeneralDictionary<uint16>
+                | AddrDictionary _ -> self.HasSymbolicKeyFromConcreteAddrDictionary
+                | _ -> __unreachable__()
+            contains concreteAddress data key dictionaryType
+
+        member private self.ReadSymbolicKeyFromConcreteGeneralSet<'key when 'key : equality> concreteAddress data item setType =
+            let address = ConcreteHeapAddress concreteAddress
+            let itemType = setType.setValueType
+            let region = MemoryRegion.emptyWithExplicit typeof<bool> concreteAddress
+            let region : memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>> =
+                self.GeneralSetRegionMemsetData<'key> concreteAddress data itemType region
+            let key : heapCollectionKey<'key> = { address = address; key = item }
+            self.ReadGeneralSetRegion<'key> setType (always region) region true key
+
+        member private self.ReadSymbolicKeyFromConcreteAddrSet concreteAddress data item setType =
+            let address = ConcreteHeapAddress concreteAddress
+            let itemType = setType.setValueType
+            let region = MemoryRegion.emptyWithExplicit typeof<bool> concreteAddress
+            let region : addrSetsRegion = self.AddrSetRegionMemsetData concreteAddress data itemType region
+            let key : addrCollectionKey = { address = address; key = item }
+            self.ReadAddrSetRegion setType (always region) region true key
+
+        member private self.ReadSymbolicKeyFromConcreteSet concreteAddress data item setType =
+            let read =
+                match setType with
+                | BoolSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<bool>
+                | ByteSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<byte>
+                | SByteSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<sbyte>
+                | CharSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<char>
+                | DecimalSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<decimal>
+                | DoubleSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<double>
+                | IntSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<int>
+                | UIntSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<uint>
+                | LongSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<int64>
+                | ULongSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<uint64>
+                | ShortSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<int16>
+                | UShortSet _ -> self.ReadSymbolicKeyFromConcreteGeneralSet<uint16>
+                | AddrSet _ -> self.ReadSymbolicKeyFromConcreteAddrSet
+                | _ -> __unreachable__()
+            read concreteAddress data item setType
+
         member private self.ArrayMemsetData concreteAddress data arrayType =
             let arrayType = state.SubstituteTypeVariablesIntoArrayType arrayType
             let elemType = arrayType.elemType
             ensureConcreteType elemType
-            let region = accessRegion arrays arrayType elemType
+            let mrKey = MemoryRegionId.createArraysId arrayType
+            let region = getOrPutRegion mrKey elemType :?> arraysRegion
             let region' = self.ArrayRegionMemsetData concreteAddress data elemType region
             let region' = MemoryRegion.addExplicitAddress concreteAddress region'
-            arrays <- PersistentDict.add arrayType region' arrays
+            memoryRegions <- PersistentDict.add mrKey region' memoryRegions
+
+        member private self.GeneralDictionaryMemsetData<'key when 'key : equality> concreteAddress data valueType dictionaryType =
+            let mrKey = MemoryRegionId.createDictionariesId dictionaryType
+            let region = getOrPutRegion mrKey valueType :?> memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>>
+            let region' = self.GeneralDictionaryRegionMemsetData<'key> concreteAddress data dictionaryType region
+            let region' = MemoryRegion.addExplicitAddress concreteAddress region'
+            memoryRegions <- PersistentDict.add mrKey region' memoryRegions
+
+        member private self.AddrDictionaryMemsetData concreteAddress data valueType dictionaryType =
+            let mrKey = MemoryRegionId.createDictionariesId dictionaryType
+            let region = getOrPutRegion mrKey valueType :?> addrDictionariesRegion
+            let region' = self.AddrDictionaryRegionMemsetData concreteAddress data dictionaryType region
+            let region' = MemoryRegion.addExplicitAddress concreteAddress region'
+            memoryRegions <- PersistentDict.add mrKey region' memoryRegions
+
+        member private self.DictionaryMemsetData concreteAddress data dictionaryType =
+            let dictionaryType = state.SubstituteTypeVariablesIntoDictionaryType dictionaryType
+            let valueType = dictionaryType.valueType
+            ensureConcreteType valueType
+            let memset =
+                match dictionaryType with
+                | BoolDictionary _ -> self.GeneralDictionaryMemsetData<bool>
+                | ByteDictionary _ -> self.GeneralDictionaryMemsetData<byte>
+                | SByteDictionary _ -> self.GeneralDictionaryMemsetData<sbyte>
+                | CharDictionary _ -> self.GeneralDictionaryMemsetData<char>
+                | DecimalDictionary _ -> self.GeneralDictionaryMemsetData<decimal>
+                | DoubleDictionary _ -> self.GeneralDictionaryMemsetData<double>
+                | IntDictionary _ -> self.GeneralDictionaryMemsetData<int>
+                | UIntDictionary _ -> self.GeneralDictionaryMemsetData<uint>
+                | LongDictionary _ -> self.GeneralDictionaryMemsetData<int64>
+                | ULongDictionary _ -> self.GeneralDictionaryMemsetData<uint64>
+                | ShortDictionary _ -> self.GeneralDictionaryMemsetData<int16>
+                | UShortDictionary _ -> self.GeneralDictionaryMemsetData<uint16>
+                | AddrDictionary _ -> self.AddrDictionaryMemsetData
+                | kt -> internalfail $"Dictionary memset data: expected key type but get {kt}"
+            memset concreteAddress data valueType dictionaryType
+
+        member private self.GeneralSetMemsetData<'key when 'key : equality> concreteAddress data setType =
+            let mrKey = MemoryRegionId.createSetsId setType
+            let region = getOrPutRegion mrKey typeof<bool> :?> memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>>
+            let region' = self.GeneralSetRegionMemsetData<'key> concreteAddress data setType.setValueType region
+            let region' = MemoryRegion.addExplicitAddress concreteAddress region'
+            memoryRegions <- PersistentDict.add mrKey region' memoryRegions
+
+        member private self.AddrSetMemsetData concreteAddress data setType =
+            let mrKey = MemoryRegionId.createSetsId setType
+            let region = getOrPutRegion mrKey typeof<bool> :?> addrSetsRegion
+            let region' = self.AddrSetRegionMemsetData concreteAddress data setType.setValueType region
+            let region' = MemoryRegion.addExplicitAddress concreteAddress region'
+            memoryRegions <- PersistentDict.add mrKey region' memoryRegions
+
+        member private self.SetMemsetData concreteAddress data setType =
+            let setType = state.SubstituteTypeVariablesIntoSetType setType
+            let itemType = setType.setValueType
+            ensureConcreteType itemType
+            let memset =
+                match setType with
+                | BoolSet _ -> self.GeneralSetMemsetData<bool>
+                | ByteSet _ -> self.GeneralSetMemsetData<byte>
+                | SByteSet _ -> self.GeneralSetMemsetData<sbyte>
+                | CharSet _ -> self.GeneralSetMemsetData<char>
+                | DecimalSet _ -> self.GeneralSetMemsetData<decimal>
+                | DoubleSet _ -> self.GeneralSetMemsetData<double>
+                | IntSet _ -> self.GeneralSetMemsetData<int>
+                | UIntSet _ -> self.GeneralSetMemsetData<uint>
+                | LongSet _ -> self.GeneralSetMemsetData<int64>
+                | ULongSet _ -> self.GeneralSetMemsetData<uint64>
+                | ShortSet _ -> self.GeneralSetMemsetData<int16>
+                | UShortSet _ -> self.GeneralSetMemsetData<uint16>
+                | AddrSet _ -> self.AddrSetMemsetData
+                | st -> internalfail $"Set memset data: expected item type but get {st}"
+            memset concreteAddress data setType
+
+        member private self.ListMemsetData concreteAddress data listType =
+            let mrKey = MemoryRegionId.createListsId listType
+            let region = getOrPutRegion mrKey listType.listValueType :?> listsRegion
+            let region' = self.ListRegionMemsetData concreteAddress data listType region
+            let region' = MemoryRegion.addExplicitAddress concreteAddress region'
+            memoryRegions <- PersistentDict.add mrKey region' memoryRegions
 
         member private self.MakeSymbolicStackRead key typ time =
             let source = {key = key; time = time}
@@ -828,6 +1668,27 @@ module internal Memory =
                 cm.ReadArrayLength address dim |> self.ObjToTerm typeof<int>
             | _ -> self.ReadLengthSymbolic address dimension arrayType
 
+        member private self.ReadDictionaryCount address dictionaryType =
+            let cm = concreteMemory
+            match address.term with
+            | ConcreteHeapAddress address when cm.Contains address ->
+                cm.ReadDictionaryCount address |> self.ObjToTerm typeof<int>
+            | _ -> self.ReadDictionaryCountSymbolic address dictionaryType
+
+        member private self.ReadSetCount address setType =
+            let cm = concreteMemory
+            match address.term with
+            | ConcreteHeapAddress address when cm.Contains address ->
+                cm.ReadSetCount address |> self.ObjToTerm typeof<int>
+            | _ -> self.ReadSetCountSymbolic address setType
+
+        member private self.ReadListCount address listType =
+            let cm = concreteMemory
+            match address.term with
+            | ConcreteHeapAddress address when cm.Contains address ->
+                cm.ReadListCount address |> self.ObjToTerm typeof<int>
+            | _ -> self.ReadListCountSymbolic address listType
+
         member private self.ReadArrayIndex address indices arrayType =
             let cm = concreteMemory
             let concreteIndices = tryIntListFromTermList indices
@@ -840,12 +1701,57 @@ module internal Memory =
             // TODO: remember all concrete data from 'ConcreteMemory' and add it to symbolic constant [Test: ConcreteDictionaryTest1]
             | _ -> self.ReadArrayIndexSymbolic address indices arrayType
 
+        member private self.ReadDictionaryKey address key dictionaryType =
+            let cm = concreteMemory
+            let concreteKey = tryCollectionKeyFromTerm key
+            match address.term, concreteKey with
+            | ConcreteHeapAddress address, Some concreteKey when cm.Contains address ->
+                cm.ReadDictionaryKey address concreteKey |> self.ObjToTerm dictionaryType.valueType
+            | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
+                let data = cm.GetAllDictionaryData concreteAddress
+                self.ReadSymbolicKeyFromConcreteDictionary concreteAddress data key dictionaryType
+            | _ -> self.ReadDictionaryKeySymbolic address key dictionaryType
+
+        member private self.ReadDictionaryKeyContains address key dictionaryType =
+            let cm = concreteMemory
+            let concreteKey = tryCollectionKeyFromTerm key
+            match address.term, concreteKey with
+            | ConcreteHeapAddress address, Some concreteKey when cm.Contains address ->
+                cm.DictionaryHasKey address concreteKey |> makeBool
+            | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
+                let data = Seq.map fst <| cm.GetAllDictionaryData concreteAddress
+                self.DictionaryHasSymbolicKeyFromConcreteDictionary concreteAddress data key dictionaryType
+            | _ -> self.DictionaryHasKeySymbolic address key dictionaryType
+
+        member private self.ReadSetKey address item setType =
+            let cm = concreteMemory
+            let concreteItem = tryCollectionKeyFromTerm item
+            match address.term, concreteItem with
+            | ConcreteHeapAddress address, Some concreteItem when cm.Contains address ->
+                cm.ReadSetKey address concreteItem |> makeBool
+            | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
+                let data = cm.GetAllSetData concreteAddress
+                self.ReadSymbolicKeyFromConcreteSet concreteAddress data item setType
+            | _ -> self.ReadSetKeySymbolic address item setType
+
+        member private self.ReadListIndex address index listType =
+            let cm = concreteMemory
+            let concreteIndex = tryIntFromTerm index
+            match address.term, concreteIndex with
+            | ConcreteHeapAddress address, Some concreteIndex when cm.Contains address ->
+                cm.ReadListIndex address concreteIndex |> self.ObjToTerm listType.listValueType
+            | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
+                let data = cm.GetAllListData concreteAddress
+                self.ReadSymbolicIndexFromConcreteList concreteAddress data index listType
+            | _ -> self.ReadListIndexSymbolic address index listType
+
         member private self.CommonReadClassFieldSymbolic address (field : fieldId) =
             let symbolicType = field.typ
             let extractor (state : state) =
                 let field = state.SubstituteTypeVariablesIntoField field
                 let typ = state.SubstituteTypeVariables symbolicType
-                accessRegion state.memory.ClassFields field typ
+                let mrKey = MemoryRegionId.createClassFieldsId field
+                getOrPutRegionCommon mrKey typ state.memory.MemoryRegions :?> classFieldsRegion
             let region = extractor state
             let mkName = fun (key : heapAddressKey) -> $"{key.address}.{field}"
             let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
@@ -864,7 +1770,9 @@ module internal Memory =
             MemoryRegion.read region key (isDefault state) instantiate self.RangeReadingUnreachable
 
         member private self.ReadBoxedSymbolic address typ =
-            let extractor state = accessRegion state.memory.BoxedLocations typ typ
+            let extractor (state : state) =
+                let mrKey = MemoryRegionId.createBoxedLocationsId typ
+                getOrPutRegionCommon mrKey typ state.memory.MemoryRegions :?> boxedLocationsRegion
             let region = extractor state
             let mkName (key : heapAddressKey) = $"boxed {key.address} of {typ}"
             let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
@@ -896,7 +1804,8 @@ module internal Memory =
             let extractor (state : state) =
                 let field = state.SubstituteTypeVariablesIntoField field
                 let typ = state.SubstituteTypeVariables field.typ
-                accessRegion state.memory.StaticFields field typ
+                let mrKey = MemoryRegionId.createStaticFieldsId field
+                getOrPutRegionCommon mrKey typ state.memory.MemoryRegions :?> staticFieldsRegion
             let mkName = fun (key : symbolicTypeKey) -> $"{key.typ}.{field}"
             let isDefault state _ = state.complete // TODO: when statics are allocated? always or never? depends on our exploration strategy
             let key = {typ = typ}
@@ -911,7 +1820,9 @@ module internal Memory =
             MemoryRegion.read (extractor state) key (isDefault state) inst self.RangeReadingUnreachable
 
         member private self.ReadStackBuffer (stackKey : stackKey) index =
-            let extractor state = accessRegion state.memory.StackBuffers (stackKey.Map state.TypeVariableSubst) typeof<int8>
+            let extractor (state : state) =
+                let mrKey = MemoryRegionId.createStackBuffersId <| stackKey.Map state.TypeVariableSubst
+                getOrPutRegionCommon mrKey typeof<int8> state.memory.MemoryRegions :?> stackBuffersRegion
             let mkName (key : stackBufferIndexKey) = $"{stackKey}[{key.index}]"
             let isDefault _ _ = true
             let key : stackBufferIndexKey = {index = index}
@@ -948,6 +1859,13 @@ module internal Memory =
             | BoxedLocation(address, typ) -> self.ReadBoxedLocation address typ
             | StackBufferIndex(key, index) -> self.ReadStackBuffer key index
             | ArrayLowerBound(address, dimension, typ) -> self.ReadLowerBound address dimension typ
+            | DictionaryKey(address, key, typ) -> self.ReadDictionaryKey address key typ
+            | DictionaryCount(address, typ) -> self.ReadDictionaryCount address typ
+            | DictionaryHasKey(address, key, typ) -> self.ReadDictionaryKeyContains address key typ
+            | SetKey(address, item, typ) -> self.ReadSetKey address item typ
+            | SetCount(address, typ) -> self.ReadSetCount address typ
+            | ListIndex(address, index, typ) -> self.ReadListIndex address index typ
+            | ListCount(address, typ) -> self.ReadListCount address typ
 
     // ------------------------------- Unsafe reading -------------------------------
 
@@ -1271,6 +2189,34 @@ module internal Memory =
                 Merging.guardedMap referenceField filtered
             | _ -> internalfailf $"Referencing field: expected reference, but got {reference}"
 
+        member private self.ReferenceKey reference key typ =
+            let t = symbolicTypeToDictionaryType typ
+            Ref <| DictionaryKey(reference, key, t)
+
+        member private self.DictionaryKeyContains dict key typ =
+            let t = symbolicTypeToDictionaryType typ
+            Ref <| DictionaryHasKey(dict, key, t)
+
+        member private self.DictionaryCount dict typ =
+            let t = symbolicTypeToDictionaryType typ
+            Ref <| DictionaryCount(dict, t)
+
+        member private self.SetKey reference item typ =
+            let t = symbolicTypeToSetType typ
+            Ref <| SetKey(reference, item, t)
+
+        member private self.SetCount reference typ =
+            let t = symbolicTypeToSetType typ
+            Ref <| SetCount(reference, t)
+
+        member private self.ListIndex reference index typ =
+            let t = symbolicTypeToListType typ
+            Ref <| ListIndex(reference, index, t)
+
+        member private self.ListCount reference typ =
+            let t = symbolicTypeToListType typ
+            Ref <| ListCount(reference, t)
+
     // --------------------------- General reading ---------------------------
 
         // TODO: take type of heap address
@@ -1314,6 +2260,46 @@ module internal Memory =
             let termLens = List.map lenToObj lens
             fillArrayBoundsSymbolic None address termLens termLBs arrayType
 
+        member private self.FillDictionaryKeysSymbolic guard address data dictionaryType =
+            let fill (key, _) =
+                let key = self.ObjToTerm dictionaryType.keyType key
+                writeDictionaryKeyToKeysSymbolic guard address key dictionaryType <| True()
+            Seq.iter fill data
+
+        member private self.FillDictionaryCountsSymbolic guard address data dictionaryType =
+            let count = makeNumber <| Seq.length data
+            writeDictionaryCount guard address dictionaryType count
+
+        member private self.UnmarshallDictionary concreteAddress (dict : IDictionary) =
+            let address = ConcreteHeapAddress concreteAddress
+            let dictionaryType = dict.GetType() |> symbolicTypeToDictionaryType
+            let data = Reflection.keyAndValueSeqFromDictionaryObj dict
+            self.DictionaryMemsetData concreteAddress data dictionaryType
+            self.FillDictionaryKeysSymbolic None address data dictionaryType
+            self.FillDictionaryCountsSymbolic None address data dictionaryType
+
+        member private self.FillSetCountsSymbolic guard address data setType =
+            let count = Seq.length data |> makeNumber
+            writeSetCount guard address setType count
+
+        member private self.UnmarshallSet concreteAddress (set : obj) =
+            let address = ConcreteHeapAddress concreteAddress
+            let setType = set.GetType() |> symbolicTypeToSetType
+            let data = seq { for item in (set :?> IEnumerable) -> item }
+            self.SetMemsetData concreteAddress data setType
+            self.FillSetCountsSymbolic None address data setType
+
+        member private self.FillListCountsSymbolic guard address data listType =
+            let count = Seq.length data |> makeNumber
+            writeListCount guard address listType count
+
+        member private self.UnmarshallList concreteAddress (list : obj) =
+            let address = ConcreteHeapAddress concreteAddress
+            let listType = list.GetType() |> symbolicTypeToListType
+            let data = seq { for item in (list :?> IEnumerable) -> item }
+            self.ListMemsetData concreteAddress data listType
+            self.FillListCountsSymbolic None address data listType
+
         member private self.UnmarshallString concreteAddress (string : string) =
             let address = ConcreteHeapAddress concreteAddress
             let concreteStringLength = string.Length
@@ -1328,6 +2314,9 @@ module internal Memory =
             concreteMemory.Remove concreteAddress
             match obj with
             | :? Array as array -> self.UnmarshallArray concreteAddress array
+            | :? IDictionary as dict -> self.UnmarshallDictionary concreteAddress dict
+            | Set set -> self.UnmarshallSet concreteAddress set
+            | List list -> self.UnmarshallList concreteAddress list
             | :? String as string -> self.UnmarshallString concreteAddress string
             | _ -> self.UnmarshallClass concreteAddress obj
 
@@ -1353,6 +2342,99 @@ module internal Memory =
                 self.Unmarshall a
                 writeArrayIndexSymbolic guard address indices arrayType value
             | _ -> writeArrayIndexSymbolic guard address indices arrayType value
+
+        member private self.CommonWriteDictionaryKey guard address key dictionaryType value =
+            let concreteValue = self.TryTermToObj value
+            let concreteKey = tryCollectionKeyFromTerm key
+            match address.term, concreteValue, concreteKey, guard with
+            | ConcreteHeapAddress a, Some obj, Some concreteKey, None when concreteMemory.Contains a ->
+                concreteMemory.WriteDictionaryKey a concreteKey obj
+            | ConcreteHeapAddress a, _, _, _ when concreteMemory.Contains a ->
+                self.Unmarshall a
+                writeDictionaryKeySymbolic guard address key dictionaryType value
+            | _ -> writeDictionaryKeySymbolic guard address key dictionaryType value
+
+        member private self.CommonWriteSetKey guard address item setType value =
+            let concreteValue = self.TryTermToObj value
+            let concreteKey = tryCollectionKeyFromTerm item
+            match address.term, concreteValue, concreteKey, guard with
+            | ConcreteHeapAddress a, Some obj, Some concreteKey, None when concreteMemory.Contains a ->
+                concreteMemory.WriteSetKey a concreteKey obj
+            | ConcreteHeapAddress a, _, _, _ when concreteMemory.Contains a ->
+                self.Unmarshall a
+                writeSetKeySymbolic guard address item setType value
+            | _ -> writeSetKeySymbolic guard address item setType value
+
+        member private self.CommonWriteListIndex guard address index listType value =
+            let concreteValue = self.TryTermToObj value
+            let concreteIndex = tryIntFromTerm index
+            match address.term, concreteValue, concreteIndex, guard with
+            | ConcreteHeapAddress a, Some obj, Some concreteIndex, None when concreteMemory.Contains a ->
+                concreteMemory.WriteListIndex a concreteIndex obj
+            | ConcreteHeapAddress a, _, _, _ when concreteMemory.Contains a ->
+                self.Unmarshall a
+                writeListIndexSymbolic guard address index listType value
+            | _ -> writeListIndexSymbolic guard address index listType value
+
+        member private self.ListRemoveAt address index (listType : listType) count =
+            let concreteIndex = tryIntFromTerm index
+            match address.term, concreteIndex with
+            | ConcreteHeapAddress a, Some concreteIndex when concreteMemory.Contains a ->
+                concreteMemory.ListRemoveAt a concreteIndex
+            | ConcreteHeapAddress a, _ when concreteMemory.Contains a ->
+                self.Unmarshall a
+                let srcFrom = add index <| makeNumber 1
+                let srcMemory = self.ReadListRangeSymbolic address srcFrom count listType
+                let dstTo = sub count <| makeNumber 1
+                writeListRangeSymbolic address index dstTo listType srcMemory
+            | _ ->
+                let srcFrom = add index <| makeNumber 1
+                let srcMemory = self.ReadListRangeSymbolic address srcFrom count listType
+                let dstTo = sub count <| makeNumber 1
+                writeListRangeSymbolic address index dstTo listType srcMemory
+
+        member private self.ListInsertIndex address index value (listType : listType) count =
+            let concreteIndex = tryIntFromTerm index
+            let concreteValue = self.TryTermToObj value
+            match address.term, concreteIndex, concreteValue with
+            | ConcreteHeapAddress a, Some concreteIndex, Some concreteValue when concreteMemory.Contains a ->
+                concreteMemory.InsertIndex a concreteIndex concreteValue
+            | ConcreteHeapAddress a, _, _ when concreteMemory.Contains a ->
+                self.Unmarshall a
+                let srcMemory = self.ReadListRangeSymbolic address index count listType
+                let dstTo = add count <| makeNumber 1
+                let dstFrom = add index <| makeNumber 1
+                writeListRangeSymbolic address dstFrom dstTo listType srcMemory
+                writeListIndexSymbolic None address index listType value
+            | _ ->
+                let srcMemory = self.ReadListRangeSymbolic address index count listType
+                let dstTo = add count <| makeNumber 1
+                let dstFrom = add index <| makeNumber 1
+                writeListRangeSymbolic address dstFrom dstTo listType srcMemory
+                writeListIndexSymbolic None address index listType value
+
+        member private self.ListCopyToSymbolic list array index arrayIndex count listType arrayType =
+            let srcTo = add index count
+            let srcMemory = self.ReadListRangeSymbolic list index srcTo listType
+            let dstTo = add arrayIndex count
+            writeArrayRangeSymbolic None array [arrayIndex] [dstTo] arrayType srcMemory
+
+        member private self.ListCopyToRange list index array arrayIndex count listType arrayType =
+            let conIdx = tryIntFromTerm index
+            let conArrayIdx = tryIntFromTerm arrayIndex
+            let conCount = tryIntFromTerm count
+            let cm = concreteMemory
+            match list.term, array.term, conIdx, conArrayIdx, conCount with
+            | ConcreteHeapAddress listAddr, ConcreteHeapAddress arrayAddr, Some conIdx, Some conArrayIdx, Some conCount
+                when (cm.Contains listAddr) && (cm.Contains arrayAddr) ->
+                cm.ListCopyToRange listAddr conIdx arrayAddr conArrayIdx conCount
+            | ConcreteHeapAddress listAddr, _, _, _, _ when cm.Contains listAddr ->
+                self.Unmarshall listAddr
+                self.ListCopyToSymbolic list array index arrayIndex count listType arrayType
+            | _, ConcreteHeapAddress arrayAddr, _, _, _ when cm.Contains arrayAddr ->
+                self.Unmarshall arrayAddr
+                self.ListCopyToSymbolic list array index arrayIndex count listType arrayType
+            | _ -> self.ListCopyToSymbolic list array index arrayIndex count listType arrayType
 
         member private self.CommonWriteArrayRange guard address fromIndices toIndices arrayType value =
             let concreteValue = self.TryTermToObj value
@@ -1499,6 +2581,9 @@ module internal Memory =
                 self.WriteIntersectingField reporter guard address field value
             | ClassField(address, field) -> self.CommonWriteClassField guard address field value
             | ArrayIndex(address, indices, typ) -> self.CommonWriteArrayIndex guard address indices typ value
+            | DictionaryKey(address, key, typ) -> self.CommonWriteDictionaryKey guard address key typ value
+            | SetKey(address, item, typ) -> self.CommonWriteSetKey guard address item typ value
+            | ListIndex(address, index, typ) -> self.CommonWriteListIndex guard address index typ value
             | StaticField(typ, field) -> self.CommonWriteStaticField guard typ field value
             | StructField(address, field) ->
                 let oldStruct = self.ReadSafe reporter address
@@ -1510,6 +2595,10 @@ module internal Memory =
             // NOTE: Cases below is needed to construct a model
             | ArrayLength(address, dimension, typ) -> writeLengthSymbolic guard address dimension typ value
             | ArrayLowerBound(address, dimension, typ) -> writeLowerBoundSymbolic guard address dimension typ value
+            | DictionaryCount(address, typ) -> writeDictionaryCount guard address typ value
+            | DictionaryHasKey(address, key, typ) -> writeDictionaryKeyToKeysSymbolic guard address key typ value
+            | SetCount(address, typ) -> writeSetCount guard address typ value
+            | ListCount(address, typ) -> writeListCount guard address typ value
 
         // TODO: unify allocation with unmarshalling
         member private self.CommonAllocateString length contents =
@@ -1742,20 +2831,22 @@ module internal Memory =
         member private self.InitializeArray address indicesAndValues arrayType =
             let elementType = arrayType.elemType
             ensureConcreteType elementType
-            let mr = accessRegion arrays arrayType elementType
+            let mrKey = MemoryRegionId.createArraysId arrayType
+            let mr = getOrPutRegion mrKey elementType :?> arraysRegion
             let keysAndValues = Seq.map (fun (i, v) -> OneArrayIndexKey(address, i), v) indicesAndValues
             let mr' = MemoryRegion.memset mr keysAndValues
-            arrays <- PersistentDict.add arrayType mr' arrays
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
 
         member private self.CommonWriteStaticField guard typ (field : fieldId) value =
             ensureConcreteType field.typ
             let fieldType =
                 if isImplementationDetails typ then typeof<byte>.MakeArrayType()
                 else field.typ
-            let mr = accessRegion staticFields field fieldType
+            let mrKey = MemoryRegionId.createStaticFieldsId field
+            let mr = getOrPutRegion mrKey fieldType :?> staticFieldsRegion
             let key = {typ = typ}
             let mr' = MemoryRegion.write mr guard key value
-            staticFields <- PersistentDict.add field mr' staticFields
+            memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
             let currentMethod = CallStack.getCurrentFunc stack
             if not currentMethod.IsStaticConstructor then
                 concreteMemory.StaticFieldChanged field
@@ -1824,10 +2915,11 @@ module internal Memory =
             | _ ->
                 let address = self.AllocateVector elementType length
                 let arrayType = arrayType.CreateVector elementType
-                let mr = accessRegion arrays arrayType elementType
+                let mrKey = MemoryRegionId.createArraysId arrayType
+                let mr = getOrPutRegion mrKey elementType :?> arraysRegion
                 let keysAndValues = Seq.mapi (fun i v -> OneArrayIndexKey(address, [makeNumber i]), Concrete v elementType) contents
                 let mr' = MemoryRegion.memset mr keysAndValues
-                arrays <- PersistentDict.add arrayType mr' arrays
+                memoryRegions <- PersistentDict.add mrKey mr' memoryRegions
                 address
 
         member private self.AllocateEmptyString length =
@@ -1970,51 +3062,27 @@ module internal Memory =
             override _.AllocatedTypes
                 with get() = allocatedTypes
                 and set value = allocatedTypes <- value
-            override _.Arrays
-                with get() = arrays
-                and set value = arrays <- value
-            override _.BoxedLocations
-                with get() = boxedLocations
-                and set value = boxedLocations <- value
-            override _.ClassFields
-                with get() = classFields
-                and set value = classFields <- value
+            override _.MemoryRegions
+                with get() = memoryRegions
+                and set value = memoryRegions <- value
             override _.ConcreteMemory with get() = concreteMemory
             override _.Delegates with get() = delegates
             override _.EvaluationStack
                 with get() = evaluationStack
                 and set value = evaluationStack <- value
             override _.InitializedAddresses with get() = initializedAddresses
-            override _.Lengths
-                with get() = lengths
-                and set value = lengths <- value
-            override _.LowerBounds
-                with get() = lowerBounds
-                and set value = lowerBounds <- value
             override _.MemoryMode
                 with get() = memoryMode
                 and set value = memoryMode <- value
             override _.Stack
                 with get() = stack
                 and set(callStack: callStack) = stack <- callStack
-            override _.StackBuffers
-                with get() = stackBuffers
-                and set value = stackBuffers <- value
-            override _.StaticFields
-                with get() = staticFields
-                and set value = staticFields <- value
 
             override self.Copy() =
                 let copy = Memory(
                         evaluationStack,
                         stack,
-                        stackBuffers,
-                        classFields,
-                        arrays,
-                        lengths,
-                        lowerBounds,
-                        staticFields,
-                        boxedLocations,
+                        memoryRegions,
                         concreteMemory.Copy(),
                         allocatedTypes,
                         initializedAddresses,
@@ -2032,6 +3100,16 @@ module internal Memory =
             member self.ReadLowerBound address dimension arrayType = self.ReadLowerBound address dimension arrayType
             member self.ReadStaticField typ field = self.ReadStaticField typ field
             member self.ReferenceField reference fieldId = self.ReferenceField reference fieldId
+            member self.ReferenceKey reference key typ = self.ReferenceKey reference key typ
+            member self.DictionaryKeyContains reference key typ = self.DictionaryKeyContains reference key typ
+            member self.DictionaryCount reference typ = self.DictionaryCount reference typ
+            member self.SetKey reference item typ = self.SetKey reference item typ
+            member self.SetCount reference typ = self.SetCount reference typ
+            member self.ListIndex reference index typ = self.ListIndex reference index typ
+            member self.ListCount reference typ = self.ListCount reference typ
+            member self.ListRemoveAt reference index listType count = self.ListRemoveAt reference index listType count
+            member self.ListInsertIndex reference index value listType count = self.ListInsertIndex reference index value listType count
+            member self.ListCopyToRange list index array arrayIndex count listType arrayType = self.ListCopyToRange list index array arrayIndex count listType arrayType
             member self.TryPtrToRef pointerBase sightType offset = self.TryPtrToRef pointerBase sightType offset
             member self.TryTermToFullyConcreteObj term = self.TryTermToFullyConcreteObj term
             member self.TryTermToObj term = self.TryTermToObj term

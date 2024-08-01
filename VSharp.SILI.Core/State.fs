@@ -164,19 +164,7 @@ and IMemory =
 
     abstract Stack : callStack with get, set
 
-    abstract StackBuffers : pdict<stackKey, stackBufferRegion> with get, set
-
-    abstract ClassFields : pdict<fieldId, heapRegion> with get, set
-
-    abstract Arrays : pdict<arrayType, arrayRegion> with get, set
-
-    abstract Lengths : pdict<arrayType, vectorRegion> with get, set
-
-    abstract LowerBounds : pdict<arrayType, vectorRegion> with get, set
-
-    abstract StaticFields : pdict<fieldId, staticsRegion> with get, set
-
-    abstract BoxedLocations : pdict<Type, heapRegion> with get, set
+    abstract MemoryRegions : pdict<IMemoryRegionId, IMemoryRegion> with get, set
 
     abstract ConcreteMemory : ConcreteMemory
 
@@ -223,6 +211,16 @@ and IMemory =
 
     abstract ReadStaticField : Type -> fieldId -> term
 
+    abstract ReferenceKey : term -> term -> Type -> term
+    abstract DictionaryKeyContains : term -> term -> Type -> term
+    abstract DictionaryCount : term -> Type -> term
+
+    abstract SetKey : term -> term -> Type -> term
+    abstract SetCount : term -> Type -> term
+
+    abstract ListIndex : term -> term -> Type -> term
+    abstract ListCount : term -> Type -> term
+
     abstract Read : IErrorReporter -> term -> term
 
     abstract ObjToTerm : Type -> obj -> term
@@ -250,6 +248,10 @@ and IMemory =
     abstract InitializeArray : heapAddress -> seq<term list * term> -> arrayType -> unit
 
     abstract WriteArrayIndex : term -> term list -> arrayType -> term -> unit
+
+    abstract ListRemoveAt : term -> term -> listType -> term -> unit
+    abstract ListInsertIndex : term -> term -> term -> listType -> term -> unit
+    abstract ListCopyToRange : term -> term -> term -> term -> term -> listType -> arrayType -> unit
 
     abstract WriteArrayRange : term -> term list -> term list -> arrayType -> term -> unit
 
@@ -370,6 +372,14 @@ and
         member x.SubstituteTypeVariablesIntoArrayType ({elemType = et} as arrayType) : arrayType =
             { arrayType with elemType = x.SubstituteTypeVariables et }
 
+        member x.SubstituteTypeVariablesIntoDictionaryType { keyType = kt; valueType = vt }  : dictionaryType =
+            { keyType = x.SubstituteTypeVariables kt; valueType = x.SubstituteTypeVariables vt  }
+
+        member x.SubstituteTypeVariablesIntoSetType { setValueType = vt } : setType =
+            { setValueType = x.SubstituteTypeVariables vt }
+
+        member x.SubstituteTypeVariablesIntoListType { listValueType = lt } : listType =
+            { listValueType = x.SubstituteTypeVariables lt }
         member x.TypeVariableSubst (t : Type) = x.CommonTypeVariableSubst t t
 
         member x.SubstituteTypeVariablesIntoField (f : fieldId) =
@@ -445,6 +455,12 @@ and
         member private x.SortVectorTime<'a> vts : (vectorTime * 'a) seq =
             Seq.sortWith (fun (k1, _ ) (k2, _ ) -> VectorTime.compare k1 k2) vts
 
+        member private x.MemoryRegionIdToString (id : IMemoryRegionId) =
+            id.ToString()
+
+        member private x.MemoryRegionToString (reg : IMemoryRegion) =
+            reg.ToString()
+
         member x.Dump () =
             // TODO: print lower bounds?
             let sortBy sorter = Seq.sortBy (fst >> sorter)
@@ -452,11 +468,8 @@ and
             let sb = StringBuilder()
             let sb =
                 (if PC.isEmpty x.pc then sb else x.pc |> PC.toString |> sprintf "Path condition: %s" |> PrettyPrinting.appendLine sb)
-                |> x.DumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") memory.ClassFields
-                |> x.DumpDict "Array contents" (sortBy x.ArrayTypeToString) x.ArrayTypeToString (MemoryRegion.toString "    ") memory.Arrays
-                |> x.DumpDict "Array lengths" (sortBy x.ArrayTypeToString) x.ArrayTypeToString (MemoryRegion.toString "    ") memory.Lengths
+                |> x.DumpDict "Memory regions" (sortBy x.MemoryRegionIdToString) x.MemoryRegionIdToString x.MemoryRegionToString memory.MemoryRegions
                 |> x.DumpDict "Types tokens" x.SortVectorTime VectorTime.print toString memory.AllocatedTypes
-                |> x.DumpDict "Static fields" (sortBy toString) toString (MemoryRegion.toString "    ") memory.StaticFields
                 |> x.DumpDict "Delegates" x.SortVectorTime VectorTime.print toString memory.Delegates
                 |> x.DumpStack memory.Stack
                 |> x.DumpInitializedTypes x.initializedTypes

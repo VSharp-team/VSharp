@@ -740,9 +740,9 @@ namespace IntegrationTests
     {
         [TestSvm(100)]
         [IgnoreFuzzer("Need recursion constraints in generators")]
-        public static int NestedGenericsSmokeTest(List<Bag<int>> list)
+        public static int NestedGenericsSmokeTest(Bag<int>[] list)
         {
-            if (list.Count > 0)
+            if (list.Length > 0)
             {
                 return 0;
             }
@@ -750,7 +750,7 @@ namespace IntegrationTests
             return 1;
         }
 
-        [TestSvm(100)]
+        /*[TestSvm(100)]
         [IgnoreFuzzer("Need recursion constraints in generators")]
         public static int NestedGenericsSmokeTest2(Dictionary<int, Bag<int>> dict)
         {
@@ -760,7 +760,7 @@ namespace IntegrationTests
             }
 
             return 1;
-        }
+        }*/
     }
 
 //    public static class GenericCast

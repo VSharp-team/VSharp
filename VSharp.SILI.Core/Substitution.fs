@@ -15,6 +15,11 @@ module Substitution =
             termSubst addr (fun addr' ->
             Cps.List.mapk termSubst index (fun index' ->
             ArrayIndex(addr', index', arrayType) |> k))
+        | DictionaryKey(addr, key, ({valueType = valueType} as dictionaryType)) ->
+            let dictionaryType = { dictionaryType with valueType = typeSubst valueType }
+            termSubst addr (fun addr' ->
+            termSubst key (fun key' ->
+            DictionaryKey(addr', key', dictionaryType) |> k))
         | StructField(addr, field) ->
             substituteAddress termSubst typeSubst addr (fun addr' ->
             StructField(addr', field) |> k)
@@ -24,6 +29,10 @@ module Substitution =
             termSubst addr (fun addr' ->
             termSubst dim (fun dim' ->
             ArrayLength(addr', dim', arrayType) |> k))
+        | DictionaryCount(addr, ({valueType = valueType} as dictionaryType)) ->
+            let dictionaryType = { dictionaryType with valueType = typeSubst valueType }
+            termSubst addr (fun addr' ->
+            DictionaryCount(addr', dictionaryType) |> k)
         | BoxedLocation(addr, typ) ->
             termSubst addr (fun addr' ->
             BoxedLocation(addr', typeSubst typ) |> k)

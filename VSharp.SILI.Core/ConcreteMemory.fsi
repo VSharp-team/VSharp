@@ -18,13 +18,29 @@ type public ConcreteMemory =
     member internal AllocateBoxedLocation : concreteHeapAddress -> obj -> Type -> unit
     member internal ReadClassField : concreteHeapAddress -> fieldId -> obj
     member internal ReadArrayIndex : concreteHeapAddress -> int list -> obj
+    member internal ReadDictionaryKey : concreteHeapAddress -> collectionKey -> obj
+    member internal DictionaryHasKey : concreteHeapAddress -> collectionKey -> bool
+    member internal ReadSetKey : concreteHeapAddress -> collectionKey -> bool
+    member internal ReadListIndex : concreteHeapAddress -> int -> obj
     member internal GetAllArrayData : concreteHeapAddress -> seq<int list * obj>
+    member internal GetAllDictionaryData : concreteHeapAddress -> seq<obj * obj>
+    member internal GetAllSetData : concreteHeapAddress -> seq<obj>
+    member internal GetAllListData : concreteHeapAddress -> seq<obj>
     member internal ReadArrayLowerBound : concreteHeapAddress -> int -> int
     member internal ReadArrayLength : concreteHeapAddress -> int -> int
+    member internal ReadDictionaryCount : concreteHeapAddress -> int
+    member internal ReadSetCount : concreteHeapAddress -> int
+    member internal ReadListCount : concreteHeapAddress -> int
     member internal ReadBoxedLocation : concreteHeapAddress -> ValueType
     member internal ReadDelegate : concreteHeapAddress -> Delegate
     member internal WriteClassField : concreteHeapAddress -> fieldId -> obj -> unit
     member internal WriteArrayIndex : concreteHeapAddress -> int list -> obj -> unit
+    member internal WriteDictionaryKey : concreteHeapAddress -> collectionKey -> obj -> unit
+    member internal WriteSetKey : concreteHeapAddress -> collectionKey -> obj -> unit
+    member internal WriteListIndex : concreteHeapAddress -> int -> obj -> unit
+    member internal ListRemoveAt : concreteHeapAddress -> int -> unit
+    member internal InsertIndex : concreteHeapAddress -> int -> obj -> unit
+    member internal ListCopyToRange : concreteHeapAddress -> int -> concreteHeapAddress -> int -> int -> unit
     member internal WriteBoxedLocation : concreteHeapAddress -> obj -> unit
     member internal InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
     member internal FillArray : concreteHeapAddress -> int -> int -> obj -> unit
