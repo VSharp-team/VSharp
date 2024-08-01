@@ -84,7 +84,13 @@ type MethodWithBody internal (m : MethodBase) =
 
     let actualMethod =
         if not isCSharpInternalCall.Value then m
-        else Loader.CSharpImplementations[fullGenericMethodName.Value]
+        else
+            let method = Loader.CSharpImplementations[fullGenericMethodName.Value]
+            if method.IsGenericMethod && (m.DeclaringType.IsGenericType || m.IsGenericMethod) then
+                let _, genericArgs, _ = Reflection.generalizeMethodBase m
+                method.MakeGenericMethod(genericArgs)
+            else method
+
     let methodBodyBytes =
         if isFSharpInternalCall.Value then null
         else actualMethod.GetMethodBody()

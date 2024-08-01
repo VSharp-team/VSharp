@@ -296,6 +296,40 @@ module TypeUtils =
             Some(ArrayType(a.GetElementType(), dim))
         | _ -> None
 
+    let (|DictionaryType|_|) = function
+        | (a : Type) when a.Name = "Dictionary`2" ->
+            let generics = a.GetGenericArguments()
+            assert(generics.Length = 2)
+            let keyType, valueType = generics[0], generics[1]
+            Some(keyType, valueType)
+        | _ -> None
+
+    let setNames = ["HashSet`1"; "SortedSet`1"]
+
+    let (|SetType|_|) = function
+        | (a : Type) when List.contains a.Name setNames ->
+            let valueType = a.GetGenericArguments()[0]
+            Some(valueType)
+        | _ -> None
+
+    let (|Set|_|) = function
+        | obj when List.contains (obj.GetType().Name) setNames ->
+            Some obj
+        | _ -> None
+
+    let listNames = ["List`1"; "LinkedList`1"]
+
+    let (|ListType|_|) = function
+        | (a : Type) when List.contains a.Name listNames ->
+            let valueType = a.GetGenericArguments()[0]
+            Some(valueType)
+        | _ -> None
+
+    let (|List|_|) = function
+        | obj when List.contains (obj.GetType().Name) listNames ->
+            Some obj
+        | _ -> None
+
     let (|ValueType|_|) = function
         | StructType(t, [||]) when t = addressType -> None
         | StructType _

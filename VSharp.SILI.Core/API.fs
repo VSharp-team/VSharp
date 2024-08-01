@@ -4,6 +4,8 @@ open System
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
+open DictionaryType
+open SetType
 
 module API =
 
@@ -35,7 +37,7 @@ module API =
     let StatedConditionalExecutionAppend (state : state) conditionInvocation thenBranch elseBranch k =
         Branching.commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch (fun x y -> [x;y]) (List.concat >> k)
     let StatedConditionalExecution = Branching.commonStatedConditionalExecutionk
-
+    let AssumeStatedConditionalExecution state assume = Branching.assumeStatedConditionalExecution state assume
     let GuardedApplyExpressionWithPC pc term f = Merging.guardedApplyWithPC pc f term
     let GuardedApplyExpression term f = Merging.guardedApply f term
     let GuardedStatedApplyStatementK state term f k = Branching.guardedStatedApplyk f state term k
@@ -120,7 +122,6 @@ module API =
         let IsBadRef term = Pointers.isBadRef term
 
         let GetHashCode term = Memory.getHashCode term
-
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
 
         let TryPtrToRef state pointerBase sightType offset =
@@ -180,6 +181,9 @@ module API =
         let (|CombinedDelegate|_|) t = (|CombinedDelegate|_|) t.term
         let (|ConcreteDelegate|_|) t = (|ConcreteDelegate|_|) t.term
 
+        let IsTrue term = isTrue term
+        let IsFalse term = isFalse term
+
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
         let (|Negation|_|) t = (|NegationT|_|) t
@@ -208,6 +212,32 @@ module API =
             | _ -> None
 
         let (|ArrayIndexReading|_|) src = Memory.(|ArrayIndexReading|_|) src
+        let (|BoolDictionaryReading|_|) src = Memory.(|BoolDictionaryReading|_|) src
+        let (|ByteDictionaryReading|_|) src = Memory.(|ByteDictionaryReading|_|) src
+        let (|SByteDictionaryReading|_|) src = Memory.(|SByteDictionaryReading|_|) src
+        let (|CharDictionaryReading|_|) src = Memory.(|CharDictionaryReading|_|) src
+        let (|DecimalDictionaryReading|_|) src = Memory.(|DecimalDictionaryReading|_|) src
+        let (|DoubleDictionaryReading|_|) src = Memory.(|DoubleDictionaryReading|_|) src
+        let (|IntDictionaryReading|_|) src = Memory.(|IntDictionaryReading|_|) src
+        let (|UIntDictionaryReading|_|) src = Memory.(|UIntDictionaryReading|_|) src
+        let (|LongDictionaryReading|_|) src = Memory.(|LongDictionaryReading|_|) src
+        let (|ULongDictionaryReading|_|) src = Memory.(|ULongDictionaryReading|_|) src
+        let (|ShortDictionaryReading|_|) src = Memory.(|ShortDictionaryReading|_|) src
+        let (|UShortDictionaryReading|_|) src = Memory.(|UShortDictionaryReading|_|) src
+        let (|AddrDictionaryReading|_|) src = Memory.(|AddrDictionaryReading|_|) src
+        let (|BoolSetReading|_|) src = Memory.(|BoolSetReading|_|) src
+        let (|ByteSetReading|_|) src = Memory.(|ByteSetReading|_|) src
+        let (|SByteSetReading|_|) src = Memory.(|SByteSetReading|_|) src
+        let (|CharSetReading|_|) src = Memory.(|CharSetReading|_|) src
+        let (|DecimalSetReading|_|) src = Memory.(|DecimalSetReading|_|) src
+        let (|DoubleSetReading|_|) src = Memory.(|DoubleSetReading|_|) src
+        let (|IntSetReading|_|) src = Memory.(|IntSetReading|_|) src
+        let (|UIntSetReading|_|) src = Memory.(|UIntSetReading|_|) src
+        let (|LongSetReading|_|) src = Memory.(|LongSetReading|_|) src
+        let (|ULongSetReading|_|) src = Memory.(|ULongSetReading|_|) src
+        let (|ShortSetReading|_|) src = Memory.(|ShortSetReading|_|) src
+        let (|UShortSetReading|_|) src = Memory.(|UShortSetReading|_|) src
+        let (|AddrSetReading|_|) src = Memory.(|AddrSetReading|_|) src
         let (|VectorIndexReading|_|) src = Memory.(|VectorIndexReading|_|) src
         let (|StackBufferReading|_|) src = Memory.(|StackBufferReading|_|) src
         let (|StaticsReading|_|) src = Memory.(|StaticsReading|_|) src
@@ -281,6 +311,8 @@ module API =
         let ArrayTypeToSymbolicType arrayType = arrayTypeToSymbolicType arrayType
         let SymbolicTypeToArrayType typ = symbolicTypeToArrayType typ
 
+        let SymbolicTypeToDictionaryType typ = symbolicTypeToDictionaryType typ
+        let SymbolicTypeToSetType typ = symbolicTypeToSetType typ
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
         let RefIsType state ref typ = TypeCasting.refIsType state ref typ
@@ -364,7 +396,7 @@ module API =
 
     module public Memory =
         open Memory
-
+        open Arithmetics
         let EmptyIsolatedState() = state.MakeEmpty false
         let EmptyCompleteState() = state.MakeEmpty true
 
@@ -433,6 +465,27 @@ module API =
 
         let ReferenceField state reference fieldId =
             state.memory.ReferenceField reference fieldId
+
+        let ReferenceKey state reference key typ =
+            state.memory.ReferenceKey reference key typ
+
+        let DictionaryKeyContains state dict key typ =
+            state.memory.DictionaryKeyContains dict key typ
+
+        let DictionaryCount state dict typ =
+            state.memory.DictionaryCount dict typ
+
+        let SetKey state set value typ =
+            state.memory.SetKey set value typ
+
+        let SetCount state set typ =
+            state.memory.SetCount set typ
+
+        let ListIndex state list index typ =
+            state.memory.ListIndex list index typ
+
+        let ListCount state list typ =
+            state.memory.ListCount list typ
 
         let private CommonTryAddressFromRef state ref shouldFork =
             let zero = MakeNumber 0
@@ -525,6 +578,121 @@ module API =
         let ReadStaticField state typ field = state.memory.ReadStaticField typ field
         let ReadDelegate state reference = state.memory.ReadDelegate reference
 
+        let rec CommonReadDictionaryKey reporter state dictionary key =
+            match dictionary.term with
+            | HeapRef(dictionary, typ) -> state.memory.Read reporter <| ReferenceKey state dictionary key typ
+            | Ite iteType ->
+                iteType.filter (fun v -> True() <> IsBadRef v)
+                |> Merging.guardedMap (fun t -> CommonReadDictionaryKey reporter state t key)
+            | _ -> internalfail $"Reading by key at {dictionary}"
+
+        let ReadDictionaryKey state (dictionary : term) (key : term) =
+            CommonReadDictionaryKey emptyReporter state dictionary key
+
+        let rec CommonContainsKey reporter state dictionary key =
+            match dictionary.term with
+            | HeapRef(dictionary, typ) -> state.memory.Read reporter <| DictionaryKeyContains state dictionary key typ
+            | Ite iteType ->
+                iteType.filter (fun v -> True() <> IsBadRef v)
+                |> Merging.guardedMap (fun t -> CommonContainsKey reporter state t key)
+            | _ -> internalfail $"Reading by key at {dictionary}"
+
+        let ContainsKey state (dictionary : term) (key : term) =
+            CommonContainsKey emptyReporter state dictionary key
+
+        let rec CommonGetDictionaryCount reporter state dict =
+            match dict.term with
+            | HeapRef(dict, typ) -> state.memory.Read reporter <| DictionaryCount state dict typ
+            | Ite iteType ->
+                iteType.filter (fun v -> True() <> IsBadRef v)
+                |> Merging.guardedMap (fun t -> CommonGetDictionaryCount reporter state t)
+            | _ -> internalfail $"Reading count by key at {dict}"
+
+        let GetDictionaryCount state (set : term) =
+            CommonGetDictionaryCount emptyReporter state set
+
+        let rec CommonReadSetKey reporter state set item =
+            match set.term with
+            | HeapRef(set, typ) -> state.memory.Read reporter <| SetKey state set item typ
+            | Ite iteType ->
+                iteType.filter (fun v -> True() <> IsBadRef v)
+                |> Merging.guardedMap (fun t -> CommonReadSetKey reporter state t item)
+            | _ -> internalfail $"Reading by key at {set}"
+
+        let ReadSetKey state (set : term) (item : term) =
+            CommonReadSetKey emptyReporter state set item
+
+        let IsSetContains state set item = ReadSetKey state set item
+
+        let rec CommonReadSetCount reporter state set =
+            match set.term with
+            | HeapRef(set, typ) -> state.memory.Read reporter <| SetCount state set typ
+            | Ite iteType ->
+                iteType.filter (fun v -> True() <> IsBadRef v)
+                |> Merging.guardedMap (fun t -> CommonReadSetCount reporter state t)
+            | _ -> internalfail $"Reading count of {set}"
+
+        let GetSetCount state (set : term) =
+            CommonReadSetCount emptyReporter state set
+
+        let rec CommonReadListIndex reporter state list index =
+            match list.term with
+            | HeapRef(list, typ) -> state.memory.Read reporter <| ListIndex state list index typ
+            | Ite iteType ->
+                iteType.filter (fun v -> True() <> IsBadRef v)
+                |> Merging.guardedMap (fun t -> CommonReadListIndex reporter state t index)
+            | _ -> internalfail $"Reading by index at {list}"
+
+        let ReadListIndex state (list : term) (index : term) =
+            CommonReadListIndex emptyReporter state list index
+
+        let rec CommonGetListCount reporter state list =
+            match list.term with
+            | HeapRef(list, typ) -> state.memory.Read reporter <| ListCount state list typ
+            | Ite iteType ->
+                iteType.filter (fun v -> True() <> IsBadRef v)
+                |> Merging.guardedMap (fun t -> CommonGetListCount reporter state t)
+            | _ -> internalfail $"Reading count of {list}"
+
+        let GetListCount state (list : term) =
+            CommonGetListCount emptyReporter state list
+
+        let rec CommonRemoveListAtIndex reporter state list index =
+            match list.term with
+            | HeapRef(listAddr, typ) ->
+                let count = GetListCount state list
+                let listType = symbolicTypeToListType typ
+                state.memory.ListRemoveAt listAddr index listType count
+                let newCount = Sub count <| MakeNumber 1
+                let address = ListCount state listAddr typ
+                state.memory.Write reporter address newCount
+            | _ -> internalfail $"Reading by index at {list}"
+
+        let RemoveListAtIndex state (list : term) (index : term) =
+            CommonRemoveListAtIndex emptyReporter state list index
+
+        let rec CommonInsertListIndex reporter state list index item =
+            match list.term with
+            | HeapRef(listAddr, typ) ->
+                let count = GetListCount state list
+                let listType = symbolicTypeToListType typ
+                state.memory.ListInsertIndex listAddr index item listType count
+                let newCount = Add count <| MakeNumber 1
+                let address = ListCount state listAddr typ
+                state.memory.Write reporter address newCount
+            | _ -> internalfail $"Reading by index at {list}"
+
+        let InsertListIndex state (list : term) (index : term) (item : term) =
+            CommonInsertListIndex emptyReporter state list index item
+
+        let ListCopyToRange state list index array indexArray count =
+            match list.term, array.term with
+            | HeapRef(listAddr, listType), HeapRef(arrayAddr, arrayTyp) ->
+                let listType = symbolicTypeToListType listType
+                let arrayType = symbolicTypeToArrayType arrayTyp
+                state.memory.ListCopyToRange listAddr index arrayAddr indexArray count listType arrayType
+            | _ -> internalfail $"List copy to range at {list} and {array}"
+
         let CombineDelegates state delegates t =
             state.memory.CombineDelegates delegates t
         let RemoveDelegate state source toRemove t =
@@ -541,6 +709,77 @@ module API =
             state.memory.Write reporter reference value
 
         let WriteStructField structure field value = writeStruct structure field value
+
+        let CommonUpdateDictionaryCount reporter state dictionary contains typ =
+            let address = DictionaryCount state dictionary typ
+            let oldCount = state.memory.Read reporter address
+            let falseValue = Add oldCount <| MakeNumber 1
+            let iteType = { branches = [(contains, oldCount)]; elseValue = falseValue }
+            let newCount = Ite iteType
+            state.memory.Write reporter address newCount
+
+        let CommonWriteDictionaryKey reporter state dictionary key value =
+            match dictionary.term with
+            | HeapRef(dictAddr, typ) ->
+                let address = ReferenceKey state dictAddr key typ
+                let contains = ContainsKey state dictionary key
+                state.memory.Write reporter address value
+                CommonUpdateDictionaryCount reporter state dictAddr contains typ
+            | _ -> internalfail $"Writing at {dictionary} by key"
+
+        let WriteDictionaryKey state dictionary key value =
+            CommonWriteDictionaryKey emptyReporter state dictionary key value
+
+        let CommonUpdateSetCount reporter state set isAdd isContains typ =
+            let address = SetCount state set typ
+            let oldCount = state.memory.Read reporter address
+            let trueValue = if isAdd then oldCount else Sub oldCount <| makeNumber 1
+            let falseValue = if isAdd then Add oldCount <| makeNumber 1 else oldCount
+            let iteType = { branches = [(isContains, trueValue)]; elseValue = falseValue }
+            let newCount = Ite iteType
+            state.memory.Write reporter address newCount
+
+        let CommonUpdateSet reporter state set item value =
+            match set.term with
+            | HeapRef(set, typ) ->
+                let address = SetKey state set item typ
+                let contains = state.memory.Read reporter address
+                state.memory.Write reporter address <| makeBool value
+                CommonUpdateSetCount reporter state set value contains typ
+                contains
+            | _ -> internalfail $"Updating {set}"
+
+        let UpdateSet state set item value =
+            CommonUpdateSet emptyReporter state set item value
+
+        let AddToSet state set (item : term) =
+            (!!) <| UpdateSet state set item true
+
+        let RemoveFromSet state set (item : term) =
+            UpdateSet state set item false
+
+        let CommonUpdateListCount reporter state list (index : term) typ =
+            let address = ListCount state list typ
+            let oldCount = state.memory.Read reporter address
+            let inRange =
+                let left = (MakeNumber 0) <<= index
+                let right = index << oldCount
+                left &&& right
+            let falseValue = Add oldCount <| MakeNumber 1
+            let iteType = { branches = [(inRange, oldCount)]; elseValue = falseValue }
+            let newCount = Ite iteType
+            state.memory.Write reporter address newCount
+
+        let CommonWriteListKey reporter state list index item =
+            match list.term with
+            | HeapRef(list, typ) ->
+                let address = ListIndex state list index typ
+                state.memory.Write reporter address item
+                CommonUpdateListCount reporter state list index typ
+            | _ -> internalfail $"Writing at {list} by index"
+
+        let WriteListKey state list index item =
+            CommonWriteListKey emptyReporter state list index item
 
         let WriteStructFieldUnsafe (reporter : IErrorReporter) state structure field value =
             reporter.ConfigureState state
@@ -830,39 +1069,200 @@ module API =
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = State.merge2Results (r1, s1) (r2, s2)
 
         let FillClassFieldsRegion state (field : fieldId) value =
-            let defaultValue = MemoryRegion.empty field.typ
-            let fill region = MemoryRegion.fillRegion value region
-            state.memory.ClassFields <- PersistentDict.update state.memory.ClassFields field defaultValue fill
+            let mrKey = MemoryRegionId.createClassFieldsId field
+            let defaultValue = classFieldsRegion.Empty() field.typ
+            let fill (region : IMemoryRegion) =
+                let region = region :?> classFieldsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
 
         let FillStaticsRegion state (field : fieldId) value =
-            let defaultValue = MemoryRegion.empty field.typ
-            let fill region = MemoryRegion.fillRegion value region
-            state.memory.StaticFields <- PersistentDict.update state.memory.StaticFields field defaultValue fill
+            let mrKey = MemoryRegionId.createStaticFieldsId field
+            let defaultValue = staticFieldsRegion.Empty() field.typ
+            let fill (region : IMemoryRegion) =
+                let region = region :?> staticFieldsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
 
         let FillArrayRegion state arrayType value =
-            let defaultValue = MemoryRegion.empty arrayType.elemType
-            let fill region = MemoryRegion.fillRegion value region
-            state.memory.Arrays <- PersistentDict.update state.memory.Arrays arrayType defaultValue fill
+            let mrKey = MemoryRegionId.createArraysId arrayType
+            let defaultValue = arraysRegion.Empty() arrayType.elemType
+            let fill (region : IMemoryRegion) =
+                let region = region :?> arraysRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillGeneralDictionaryRegion<'key when 'key : equality> state dictionaryType value =
+            let mrKey = MemoryRegionId.createDictionariesId dictionaryType
+            let defaultValue =
+                memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>>.Empty() dictionaryType.valueType
+            let fill (region : IMemoryRegion) =
+                let region  = region :?> memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>>
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillDictionaryRegion state dictionaryType value =
+            let fill =
+                match dictionaryType with
+                | BoolDictionary _ -> FillGeneralDictionaryRegion<bool>
+                | ByteDictionary _ -> FillGeneralDictionaryRegion<byte>
+                | SByteDictionary _ -> FillGeneralDictionaryRegion<sbyte>
+                | CharDictionary _ -> FillGeneralDictionaryRegion<char>
+                | DecimalDictionary _ -> FillGeneralDictionaryRegion<decimal>
+                | DoubleDictionary _ -> FillGeneralDictionaryRegion<double>
+                | IntDictionary _ -> FillGeneralDictionaryRegion<int>
+                | UIntDictionary _ -> FillGeneralDictionaryRegion<uint>
+                | LongDictionary _ -> FillGeneralDictionaryRegion<int64>
+                | ULongDictionary _ -> FillGeneralDictionaryRegion<uint64>
+                | ShortDictionary _ -> FillGeneralDictionaryRegion<int16>
+                | UShortDictionary _ -> FillGeneralDictionaryRegion<uint16>
+                | dt -> internalfail $"Fill dictionary region: got {dt.keyType} key"
+            fill state dictionaryType value
+
+        let FillAddrDictionaryRegion state dictionaryType value =
+            let mrKey = MemoryRegionId.createDictionariesId dictionaryType
+            let defaultValue =
+                addrDictionariesRegion.Empty() dictionaryType.valueType
+            let fill (region : IMemoryRegion) =
+                let region  = region :?> addrDictionariesRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillGeneralDictionaryKeysRegion<'key when 'key : equality> state setType value =
+            let mrKey = MemoryRegionId.createDictionaryKeysId setType
+            let defaultValue =
+                memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>>.Empty() typeof<bool>
+            let fill (region : IMemoryRegion) =
+                let region  = region :?> memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>>
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillDictionaryKeysRegion state dictionaryType value =
+            let fill =
+                match dictionaryType with
+                | BoolDictionary _ -> FillGeneralDictionaryKeysRegion<bool>
+                | ByteDictionary _ -> FillGeneralDictionaryKeysRegion<byte>
+                | SByteDictionary _ -> FillGeneralDictionaryKeysRegion<sbyte>
+                | CharDictionary _ -> FillGeneralDictionaryKeysRegion<char>
+                | DecimalDictionary _ -> FillGeneralDictionaryKeysRegion<decimal>
+                | DoubleDictionary _ -> FillGeneralDictionaryKeysRegion<double>
+                | IntDictionary _ -> FillGeneralDictionaryKeysRegion<int>
+                | UIntDictionary _ -> FillGeneralDictionaryKeysRegion<uint>
+                | LongDictionary _ -> FillGeneralDictionaryKeysRegion<int64>
+                | ULongDictionary _ -> FillGeneralDictionaryKeysRegion<uint64>
+                | ShortDictionary _ -> FillGeneralDictionaryKeysRegion<int16>
+                | UShortDictionary _ -> FillGeneralDictionaryKeysRegion<uint16>
+                | dt -> internalfail $"Fill dictionary keys region: got {dt.keyType} key"
+            fill state dictionaryType value
+
+        let FillAddrDictionaryKeysRegion state setType value =
+            let mrKey = MemoryRegionId.createDictionaryKeysId setType
+            let defaultValue =
+                addrSetsRegion.Empty() typeof<bool>
+            let fill (region : IMemoryRegion) =
+                let region  = region :?> addrDictionaryKeysRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillGeneralSetRegion<'key when 'key : equality> state setType value =
+            let mrKey = MemoryRegionId.createSetsId setType
+            let defaultValue =
+                memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>>.Empty() typeof<bool>
+            let fill (region : IMemoryRegion) =
+                let region  = region :?> memoryRegion<heapCollectionKey<'key>, productRegion<intervals<vectorTime>, points<'key>>>
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillSetRegion state setType value =
+            let fill =
+                match setType with
+                | BoolSet _ -> FillGeneralSetRegion<bool>
+                | ByteSet _ -> FillGeneralSetRegion<byte>
+                | SByteSet _ -> FillGeneralSetRegion<sbyte>
+                | CharSet _ -> FillGeneralSetRegion<char>
+                | DecimalSet _ -> FillGeneralSetRegion<decimal>
+                | DoubleSet _ -> FillGeneralSetRegion<double>
+                | IntSet _ -> FillGeneralSetRegion<int>
+                | UIntSet _ -> FillGeneralSetRegion<uint>
+                | LongSet _ -> FillGeneralSetRegion<int64>
+                | ULongSet _ -> FillGeneralSetRegion<uint64>
+                | ShortSet _ -> FillGeneralSetRegion<int16>
+                | UShortSet _ -> FillGeneralSetRegion<uint16>
+                | st -> internalfail $"Fill set region: got {st.setValueType} item"
+            fill state setType value
+
+        let FillAddrSetRegion state setType value =
+            let mrKey = MemoryRegionId.createSetsId setType
+            let defaultValue =
+                addrSetsRegion.Empty() typeof<bool>
+            let fill (region : IMemoryRegion) =
+                let region = region :?> addrSetsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillListRegion state listType value =
+            let mrKey = MemoryRegionId.createListsId listType
+            let defaultValue = listsRegion.Empty() listType.listValueType
+            let fill (region : IMemoryRegion) =
+                let region = region :?> listsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
 
         let FillLengthRegion state typ value =
-            let defaultValue = MemoryRegion.empty TypeUtils.lengthType
-            let fill region = MemoryRegion.fillRegion value region
-            state.memory.Lengths <- PersistentDict.update state.memory.Lengths typ defaultValue fill
+            let mrKey = MemoryRegionId.createArrayLengthsId typ
+            let defaultValue = arrayLengthsRegion.Empty() TypeUtils.lengthType
+            let fill (region : IMemoryRegion) =
+                let region = region :?> arrayLengthsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillDictionaryCountRegion state typ value =
+            let mrKey = MemoryRegionId.createDictionaryCountsId typ
+            let defaultValue = dictionaryCountsRegion.Empty() TypeUtils.lengthType
+            let fill (region : IMemoryRegion) =
+                let region = region :?> dictionaryCountsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillSetCountRegion state typ value =
+            let mrKey = MemoryRegionId.createSetCountsId typ
+            let defaultValue = setCountsRegion.Empty() TypeUtils.lengthType
+            let fill (region : IMemoryRegion) =
+                let region = region :?> setCountsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
+
+        let FillListCountRegion state typ value =
+            let mrKey = MemoryRegionId.createListCountsId typ
+            let defaultValue = listCountsRegion.Empty() TypeUtils.lengthType
+            let fill (region : IMemoryRegion) =
+                let region = region :?> listCountsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
 
         let FillLowerBoundRegion state typ value =
-            let defaultValue = MemoryRegion.empty TypeUtils.lengthType
-            let fill region = MemoryRegion.fillRegion value region
-            state.memory.LowerBounds <- PersistentDict.update state.memory.LowerBounds typ defaultValue fill
+            let mrKey = MemoryRegionId.createArrayLowerBoundsId typ
+            let defaultValue = arrayLowerBoundsRegion.Empty() TypeUtils.lengthType
+            let fill (region : IMemoryRegion) =
+                let region = region :?> arrayLowerBoundsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
 
         let FillStackBufferRegion state key value =
-            let defaultValue = MemoryRegion.empty typeof<int8>
-            let fill region = MemoryRegion.fillRegion value region
-            state.memory.StackBuffers <- PersistentDict.update state.memory.StackBuffers key defaultValue fill
+            let mrKey = MemoryRegionId.createStackBuffersId key
+            let defaultValue = stackBuffersRegion.Empty() typeof<int8>
+            let fill (region : IMemoryRegion) =
+                let region = region :?> stackBuffersRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
 
         let FillBoxedRegion state typ value =
-            let defaultValue = MemoryRegion.empty typ
-            let fill region = MemoryRegion.fillRegion value region
-            state.memory.BoxedLocations <- PersistentDict.update state.memory.BoxedLocations typ defaultValue fill
+            let mrKey = MemoryRegionId.createBoxedLocationsId typ
+            let defaultValue = boxedLocationsRegion.Empty() typ
+            let fill (region : IMemoryRegion) =
+                let region = region :?> boxedLocationsRegion
+                MemoryRegion.fillRegion value region :> IMemoryRegion
+            state.memory.MemoryRegions <- PersistentDict.update state.memory.MemoryRegions mrKey defaultValue fill
 
         let ObjectToTerm (state : state) (o : obj) (typ : Type) = state.memory.ObjToTerm typ o
         let TryTermToObject (state : state) term = state.memory.TryTermToObj term

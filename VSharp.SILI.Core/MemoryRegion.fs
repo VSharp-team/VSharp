@@ -6,6 +6,8 @@ open Microsoft.FSharp.Core
 open VSharp
 open VSharp.CSharpUtils
 open TypeUtils
+open DictionaryType
+open SetType
 open VSharp.Core
 
 type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
@@ -23,6 +25,16 @@ type regionSort =
     | HeapFieldSort of fieldId
     | StaticFieldSort of fieldId
     | ArrayIndexSort of arrayType
+    | DictionaryKeySort of dictionaryType
+    | AddrDictionaryKeySort of dictionaryType
+    | DictionaryHasKeySort of dictionaryType
+    | AddrDictionaryHasKeySort of dictionaryType
+    | DictionaryCountSort of dictionaryType
+    | SetKeySort of setType
+    | AddrSetKeySort of setType
+    | SetCountSort of setType
+    | ListIndexSort of listType
+    | ListCountSort of listType
     | ArrayLengthSort of arrayType
     | ArrayLowerBoundSort of arrayType
     | StackBufferSort of stackKey
@@ -33,8 +45,18 @@ type regionSort =
         | HeapFieldSort field
         | StaticFieldSort field -> field.typ
         | ArrayIndexSort arrayType -> arrayType.elemType
+        | DictionaryKeySort dictionaryType
+        | AddrDictionaryKeySort dictionaryType -> dictionaryType.valueType
+        | ListIndexSort listType -> listType.listValueType
+        | DictionaryHasKeySort _
+        | AddrDictionaryHasKeySort _
+        | SetKeySort _
+        | AddrSetKeySort _ -> typeof<bool>
         | ArrayLengthSort _
-        | ArrayLowerBoundSort _ -> typeof<int32>
+        | ArrayLowerBoundSort _
+        | DictionaryCountSort _
+        | SetCountSort _
+        | ListCountSort _ -> typeof<int32>
         | StackBufferSort _ -> typeof<int8>
         | BoxedSort t -> t
 
@@ -56,6 +78,23 @@ type regionSort =
             else $"ArrayLowerBound to {elementType}[{dim}]"
         | StackBufferSort stackKey -> $"StackBuffer of {stackKey}"
         | BoxedSort t -> $"Boxed of {t}"
+        | DictionaryKeySort dictionaryType
+        | AddrDictionaryKeySort dictionaryType ->
+            $"DictionaryKey to {dictionaryType.valueType}"
+        | DictionaryHasKeySort dictionaryType
+        | AddrDictionaryHasKeySort dictionaryType ->
+            $"DictionaryHasKey to {dictionaryType.valueType}"
+        | DictionaryCountSort dictionaryType ->
+            $"Counts to {dictionaryType.valueType}"
+        | SetKeySort setType
+        | AddrSetKeySort setType ->
+            $"SetKey to {setType.setValueType}"
+        | SetCountSort setType ->
+            $"Counts of {setType.setValueType}"
+        | ListIndexSort listType ->
+            $"ListIndex to {listType.listValueType}"
+        | ListCountSort listType ->
+            $"Counts of {listType.listValueType}"
 
 module private MemoryKeyUtils =
 
@@ -71,6 +110,11 @@ module private MemoryKeyUtils =
     let regionOfIntegerTerm = extractInt >> function
         | Some value -> points<int>.Singleton value
         | None -> points<int>.Universe
+
+    let regionOfValueTerm<'key when 'key : equality> (typ : Type) = function
+        | {term = Concrete(:? 'key as value, typ)} when typ = typ ->
+            points<'key>.Singleton value
+        | _ -> points<'key>.Universe
 
     let regionsOfIntegerTerms = List.map regionOfIntegerTerm >> listProductRegion<points<int>>.OfSeq
 
@@ -103,6 +147,15 @@ module private MemoryKeyUtils =
         (False(), List.zip left right) ||> List.fold (fun acc (l,r) -> acc ||| (processOne l r))
 
     let keyInIntPoints key (region : int points) =
+        let points, negateIfNeed =
+            match region with
+            | {points = points; thrown = true} -> points, (!!)
+            | {points = points; thrown = false} -> points, id
+        let point2Term point = Concrete point indexType
+        let keyInPoints point = key === (point2Term point)
+        PersistentSet.fold (fun acc p ->  acc ||| (keyInPoints p)) (False()) points |> negateIfNeed
+
+    let keyInPoints<'key when 'key : equality> key (region : points<'key>) =
         let points, negateIfNeed =
             match region with
             | {points = points; thrown = true} -> points, (!!)
@@ -193,7 +246,7 @@ type heapArrayKey =
         match x with
         | OneArrayIndexKey _ -> true
         | _ -> false
-    
+
     member x.Specialize writeKey srcA srcF srcT  =
         match x, writeKey with
         | OneArrayIndexKey(_, i), OneArrayIndexKey(_, dstI)
@@ -412,6 +465,100 @@ type heapVectorIndexKey =
 and IHeapVectorIndexKey = IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
 
 [<CustomEquality;CustomComparison>]
+type heapCollectionKey<'key when 'key : equality> =
+    { address : heapAddress; key : term }
+
+    interface IHeapCollectionKey<'key> with
+        override x.Region =
+            let addrReg = MemoryKeyUtils.regionOfHeapAddress x.address
+            let keyReg = MemoryKeyUtils.regionOfValueTerm typeof<'key> x.key
+            productRegion<vectorTime intervals, 'key points>.ProductOf addrReg keyReg
+        override x.Map mapTerm _ mapTime reg =
+            reg.Map (fun x -> x.Map mapTime) id, {address = mapTerm x.address; key = mapTerm x.key}
+        override x.IsUnion = isUnion x.address
+        override x.Unguard =
+            Merging.unguardGvs x.address |> List.map (fun (g, a) -> (g, {address = a; key = x.key}))
+        override x.InRegionCondition region =
+            let addressInVtIntervals = MemoryKeyUtils.heapAddressInVectorTimeIntervals x.address
+            let indexInPoints = MemoryKeyUtils.keyInPoints x.key
+            MemoryKeyUtils.keyInProductRegion addressInVtIntervals indexInPoints region
+        override x.IntersectionCondition key =
+             (x.address === key.address) &&& (x.key === key.key)
+        override x.MatchCondition key keyIndexingRegion =
+            let keysAreEqual = (x :> IHeapCollectionKey<'key>).IntersectionCondition key
+            let xInKeyRegion = (x :> IHeapCollectionKey<'key>).InRegionCondition keyIndexingRegion
+            keysAreEqual &&& xInKeyRegion
+        override x.IsExplicit explicitAddresses =
+            match x.address.term with
+            | ConcreteHeapAddress addr -> PersistentSet.contains addr explicitAddresses
+            | _ -> false
+        override x.IsRange = false
+    interface IComparable with
+        override x.CompareTo y =
+            match y with
+            | :? heapCollectionKey<'key> as y ->
+                let cmp = compareTerms x.address y.address
+                if cmp = 0 then compareTerms x.key y.key
+                else cmp
+            | _ -> -1
+    override x.ToString() = $"{x.address}[{x.key}]"
+    override x.Equals(other : obj) =
+        match other with
+        | :? heapCollectionKey<'key> as other ->
+            x.address = other.address && x.key = other.key
+        | _ -> false
+    override x.GetHashCode() = HashCode.Combine(x.address, x.key)
+
+and IHeapCollectionKey<'key when 'key : equality> = IMemoryKey<heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+
+[<CustomEquality;CustomComparison>]
+type addrCollectionKey =
+    { address : heapAddress; key : heapAddress }
+
+    interface IHeapAddrCollectionKey with
+        override x.Region =
+            let addrReg = MemoryKeyUtils.regionOfHeapAddress x.address
+            let keyReg = MemoryKeyUtils.regionOfHeapAddress x.key
+            productRegion<vectorTime intervals, vectorTime intervals>.ProductOf addrReg keyReg
+        override x.Map mapTerm _ mapTime reg =
+            reg.Map (fun x -> x.Map mapTime) id, {address = mapTerm x.address; key = mapTerm x.key}
+        override x.IsUnion = isUnion x.address
+        override x.Unguard =
+            Merging.unguardGvs x.address |> List.map (fun (g, a) -> (g, {address = a; key = x.key}))
+        override x.InRegionCondition region =
+            let addressInVtIntervals = MemoryKeyUtils.heapAddressInVectorTimeIntervals x.address
+            let indexInPoints = MemoryKeyUtils.heapAddressInVectorTimeIntervals x.key
+            MemoryKeyUtils.keyInProductRegion addressInVtIntervals indexInPoints region
+        override x.IntersectionCondition key =
+             (x.address === key.address) &&& (x.key === key.key)
+        override x.MatchCondition key keyIndexingRegion =
+            let keysAreEqual = (x :> IHeapAddrCollectionKey).IntersectionCondition key
+            let xInKeyRegion = (x :> IHeapAddrCollectionKey).InRegionCondition keyIndexingRegion
+            keysAreEqual &&& xInKeyRegion
+        override x.IsExplicit explicitAddresses =
+            match x.address.term with
+            | ConcreteHeapAddress addr -> PersistentSet.contains addr explicitAddresses
+            | _ -> false
+        override x.IsRange = false
+    interface IComparable with
+        override x.CompareTo y =
+            match y with
+            | :? addrCollectionKey as y ->
+                let cmp = compareTerms x.address y.address
+                if cmp = 0 then compareTerms x.key y.key
+                else cmp
+            | _ -> -1
+    override x.ToString() = $"{x.address}[{x.key}]"
+    override x.Equals(other : obj) =
+        match other with
+        | :? addrCollectionKey as other ->
+            x.address = other.address && x.key = other.key
+        | _ -> false
+    override x.GetHashCode() = HashCode.Combine(x.address, x.key)
+
+and IHeapAddrCollectionKey = IMemoryKey<addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+
+[<CustomEquality;CustomComparison>]
 type stackBufferIndexKey =
     {index : term}
     interface IStackBufferIndexKey with
@@ -552,7 +699,13 @@ module private UpdateTree =
                 (utKey.termGuard, rangeReading)::acc
             else
                 (utKey.termGuard, utKey.value)::acc) [] (Node concrete)
-        if PersistentDict.isEmpty symbolic && key.IsExplicit explicitAddresses then iteType.FromGvs branches
+
+        if PersistentDict.isEmpty symbolic && key.IsExplicit explicitAddresses then
+            if branches.Length > 1 then iteType.FromGvs branches
+            else
+                let condition, value = branches[0]
+                assert(isTrue condition)
+                { branches = []; elseValue = value }
         else if PersistentDict.isEmpty symbolic && isDefault key then
             assert not (key.IsExplicit explicitAddresses)
             let defaultCase = makeDefault()
@@ -561,7 +714,7 @@ module private UpdateTree =
             let symbolicCase = makeSymbolic (Node symbolic)
             {branches = branches; elseValue = symbolicCase}
         |> Merging.merge
-    
+
     ///Collects nodes that should have been on the top of update tree if we did not use splitting
     let rec private collectBranchLatestRecords (Node d) predicate latestRecords =
         let collectSubtreeNodes acc r (k, st) =
@@ -631,7 +784,7 @@ module private UpdateTree =
                     PersistentDict.append modifiedTree disjoint |> Node
             List.foldBack writeOneKey disjointUnguardedKey tree
 
- 
+
     let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue (tree : updateTree<'key, 'value, 'reg>) predicate =
         let mapper reg {key=k; value=v; guard = g; time = t} =
             let reg', k' = mapKey reg k
@@ -662,10 +815,16 @@ module private UpdateTree =
 
     let forall predicate tree = RegionTree.foldl (fun acc _ k -> acc && predicate k) true tree
 
+type IMemoryRegion =
+    abstract member ToString : unit -> string
+
 [<CustomEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
     {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : term option; nextUpdateTime : vectorTime; explicitAddresses : vectorTime pset}
     with
+    interface IMemoryRegion with
+        override x.ToString() = x.ToString()
+
     override x.Equals(other : obj) =
         match other with
         | :? memoryRegion<'key, 'reg> as other ->
@@ -779,6 +938,156 @@ module MemoryRegion =
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> with
     override x.ToString() = MemoryRegion.toString "" x
 
+    static member Empty() typ : memoryRegion<'key, 'reg> = MemoryRegion.empty typ
+
+type IMemoryRegionId =
+    abstract member ToString : unit -> string
+    abstract member Empty : Type -> IMemoryRegion
+
+type memoryRegionSort =
+    | StackBuffersSort | ClassFieldsSort | StaticFieldsSort | BoxedLocationsSort | ArraysSort | ArrayLengthsSort
+    | ArrayLowerBoundsSort | BoolDictionariesSort | ByteDictionariesSort | SByteDictionariesSort | CharDictionariesSort
+    | DecimalDictionariesSort | DoubleDictionariesSort | IntDictionariesSort | UIntDictionariesSort | LongDictionariesSort
+    | ULongDictionariesSort | ShortDictionariesSort | UShortDictionariesSort | AddrDictionariesSort | BoolDictionaryKeysSort
+    | ByteDictionaryKeysSort | SByteDictionaryKeysSort | CharDictionaryKeysSort | DecimalDictionaryKeysSort
+    | DoubleDictionaryKeysSort | IntDictionaryKeysSort | UIntDictionaryKeysSort | LongDictionaryKeysSort | ULongDictionaryKeysSort
+    | ShortDictionaryKeysSort | UShortDictionaryKeysSort | AddrDictionaryKeysSort | DictionaryCountsSort
+    | BoolSetsSort | ByteSetsSort | SByteSetsSort | CharSetsSort | DecimalSetsSort | DoubleSetsSort | IntSetsSort
+    | UIntSetsSort | LongSetsSort | ULongSetsSort | ShortSetsSort | UShortSetsSort | AddrSetsSort | SetCountsSort
+    | ListsSort | ListCountsSort
+
+[<CustomEquality; NoComparison>]
+type memoryRegionId<'id, 'key, 'reg when 'id : equality and 'key : equality and 'key :> IMemoryKey<'key,'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
+    { id : 'id; sort : memoryRegionSort }
+    with
+    interface IMemoryRegionId with
+        override x.ToString() = x.ToString()
+        override x.Empty typ = memoryRegion<'key, 'reg>.Empty() typ
+
+    override x.Equals(other : obj) =
+        match other with
+        | :? memoryRegionId<'id, 'key, 'reg> as other ->
+            x.id = other.id && x.sort = other.sort
+        | _ -> false
+    override x.GetHashCode() =
+        HashCode.Combine(x.id, x.sort)
+
+type stackBuffersId = memoryRegionId<stackKey, stackBufferIndexKey, int points>
+type classFieldsId = memoryRegionId<fieldId, heapAddressKey, vectorTime intervals>
+type staticFieldsId = memoryRegionId<fieldId, symbolicTypeKey, freeRegion<typeWrapper>>
+type boxedLocationsId = memoryRegionId<Type, heapAddressKey, vectorTime intervals>
+type arraysId = memoryRegionId<arrayType, heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+type arrayLengthsId = memoryRegionId<arrayType, heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
+type arrayLowerBoundsId = memoryRegionId<arrayType, heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
+
+type dictionariesId<'key when 'key : equality> = memoryRegionId<dictionaryType, heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+type boolDictionariesId = dictionariesId<bool>
+type byteDictionariesId = dictionariesId<byte>
+type sbyteDictionariesId = dictionariesId<sbyte>
+type charDictionariesId = dictionariesId<char>
+type decimalDictionariesId = dictionariesId<decimal>
+type doubleDictionariesId = dictionariesId<double>
+type intDictionariesId = dictionariesId<int>
+type uintDictionariesId = dictionariesId<uint>
+type longDictionariesId = dictionariesId<int64>
+type ulongDictionariesId = dictionariesId<uint64>
+type shortDictionariesId = dictionariesId<int16>
+type ushortDictionariesId = dictionariesId<uint16>
+type addrDictionariesId = memoryRegionId<dictionaryType, addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+
+type dictionaryKeysId<'key when 'key : equality> = memoryRegionId<dictionaryType, heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+type boolDictionaryKeysId = dictionaryKeysId<bool>
+type byteDictionaryKeysId = dictionaryKeysId<byte>
+type sbyteDictionaryKeysId = dictionaryKeysId<sbyte>
+type charDictionaryKeysId = dictionaryKeysId<char>
+type decimalDictionaryKeysId = dictionaryKeysId<decimal>
+type doubleDictionaryKeysId = dictionaryKeysId<double>
+type intDictionaryKeysId = dictionaryKeysId<int>
+type uintDictionaryKeysId = dictionaryKeysId<uint>
+type longDictionaryKeysId = dictionaryKeysId<int64>
+type ulongDictionaryKeysId = dictionaryKeysId<uint64>
+type shortDictionaryKeysId = dictionaryKeysId<int16>
+type ushortDictionaryKeysId = dictionaryKeysId<uint16>
+type addrDictionaryKeysId = memoryRegionId<dictionaryType, addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+type dictionaryCountsId = memoryRegionId<dictionaryType, heapAddressKey, vectorTime intervals>
+
+type setsId<'key when 'key : equality> = memoryRegionId<setType, heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+type boolSetsId = setsId<bool>
+type byteSetsId = setsId<byte>
+type sbyteSetsId = setsId<sbyte>
+type charSetsId = setsId<char>
+type decimalSetsId = setsId<decimal>
+type doubleSetsId = setsId<double>
+type intSetsId = setsId<int>
+type uintSetsId = setsId<uint>
+type longSetsId = setsId<int64>
+type ulongSetsId = setsId<uint64>
+type shortSetsId = setsId<int16>
+type ushortSetsId = setsId<uint16>
+type addrSetsId = memoryRegionId<setType, addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+type setCountsId = memoryRegionId<setType, heapAddressKey, vectorTime intervals>
+
+type listsId = memoryRegionId<listType, heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+type listCountsId = memoryRegionId<listType, heapAddressKey, vectorTime intervals>
+
+module MemoryRegionId =
+    let createStackBuffersId id : stackBuffersId = { id = id; sort = StackBuffersSort }
+    let createClassFieldsId id : classFieldsId = { id = id; sort = ClassFieldsSort }
+    let createStaticFieldsId id : staticFieldsId = { id = id; sort = StaticFieldsSort }
+    let createBoxedLocationsId id : boxedLocationsId = { id = id; sort = BoxedLocationsSort}
+    let createArraysId id : arraysId = { id = id; sort = ArraysSort }
+    let createArrayLengthsId id : arrayLengthsId = { id = id; sort = ArrayLengthsSort }
+    let createArrayLowerBoundsId id : arrayLowerBoundsId = { id = id; sort = ArrayLowerBoundsSort }
+    let createDictionariesId = function
+        | BoolDictionary dt -> ({ id = dt; sort = BoolDictionariesSort } : dictionaryKeysId<bool>) :> IMemoryRegionId
+        | ByteDictionary dt -> ({ id = dt; sort = ByteDictionariesSort } : dictionaryKeysId<byte>) :> IMemoryRegionId
+        | SByteDictionary dt -> ({ id = dt; sort = SByteDictionariesSort } : dictionaryKeysId<sbyte>) :> IMemoryRegionId
+        | CharDictionary dt -> ({ id = dt; sort = CharDictionariesSort } : dictionaryKeysId<char>) :> IMemoryRegionId
+        | DecimalDictionary dt -> ({ id = dt; sort = DecimalDictionariesSort } : dictionaryKeysId<decimal>) :> IMemoryRegionId
+        | DoubleDictionary dt -> ({ id = dt; sort = DoubleDictionariesSort } : dictionaryKeysId<double>) :> IMemoryRegionId
+        | IntDictionary dt -> ({ id = dt; sort = IntDictionariesSort } : dictionaryKeysId<int>) :> IMemoryRegionId
+        | UIntDictionary dt -> ({ id = dt; sort = UIntDictionariesSort } : dictionaryKeysId<uint>) :> IMemoryRegionId
+        | LongDictionary dt -> ({ id = dt; sort = LongDictionariesSort } : dictionaryKeysId<int64>) :> IMemoryRegionId
+        | ULongDictionary dt -> ({ id = dt; sort = ULongDictionariesSort } : dictionaryKeysId<uint64>) :> IMemoryRegionId
+        | ShortDictionary dt -> ({ id = dt; sort = ShortDictionariesSort } : dictionaryKeysId<int16>) :> IMemoryRegionId
+        | UShortDictionary dt -> ({ id = dt; sort = UShortDictionariesSort } : dictionaryKeysId<uint16>) :> IMemoryRegionId
+        | AddrDictionary dt -> ({ id = dt; sort = AddrDictionariesSort } : addrDictionariesId) :> IMemoryRegionId
+        | dt -> internalfail $"Create dictionaries id: unexpected key type {dt.keyType}"
+    let createDictionaryKeysId = function
+        | BoolDictionary dt -> ({ id = dt; sort = BoolDictionaryKeysSort } : dictionaryKeysId<bool>) :> IMemoryRegionId
+        | ByteDictionary dt -> ({ id = dt; sort = ByteDictionaryKeysSort } : dictionaryKeysId<byte>) :> IMemoryRegionId
+        | SByteDictionary dt -> ({ id = dt; sort = SByteDictionaryKeysSort } : dictionaryKeysId<sbyte>) :> IMemoryRegionId
+        | CharDictionary dt -> ({ id = dt; sort = CharDictionaryKeysSort } : dictionaryKeysId<char>) :> IMemoryRegionId
+        | DecimalDictionary dt -> ({ id = dt; sort = DecimalDictionaryKeysSort } : dictionaryKeysId<decimal>) :> IMemoryRegionId
+        | DoubleDictionary dt -> ({ id = dt; sort = DoubleDictionaryKeysSort } : dictionaryKeysId<double>) :> IMemoryRegionId
+        | IntDictionary dt -> ({ id = dt; sort = IntDictionaryKeysSort } : dictionaryKeysId<int>) :> IMemoryRegionId
+        | UIntDictionary dt -> ({ id = dt; sort = UIntDictionaryKeysSort } : dictionaryKeysId<uint>) :> IMemoryRegionId
+        | LongDictionary dt -> ({ id = dt; sort = LongDictionaryKeysSort } : dictionaryKeysId<int64>) :> IMemoryRegionId
+        | ULongDictionary dt -> ({ id = dt; sort = ULongDictionaryKeysSort } : dictionaryKeysId<uint64>) :> IMemoryRegionId
+        | ShortDictionary dt -> ({ id = dt; sort = ShortDictionaryKeysSort } : dictionaryKeysId<int16>) :> IMemoryRegionId
+        | UShortDictionary dt -> ({ id = dt; sort = UShortDictionaryKeysSort } : dictionaryKeysId<uint16>) :> IMemoryRegionId
+        | AddrDictionary dt -> ({ id = dt; sort = AddrDictionaryKeysSort } : addrDictionaryKeysId) :> IMemoryRegionId
+        | dt -> internalfail $"Create DictionaryKeys id: unexpected key type {dt.keyType}"
+    let createDictionaryCountsId id : dictionaryCountsId = { id = id; sort = DictionaryCountsSort }
+    let createSetsId = function
+        | BoolSet st -> ({ id = st; sort = BoolSetsSort } : setsId<bool>):> IMemoryRegionId
+        | ByteSet st -> ({ id = st; sort = ByteSetsSort } : setsId<byte>):> IMemoryRegionId
+        | SByteSet st -> ({ id = st; sort = SByteSetsSort } : setsId<sbyte>):> IMemoryRegionId
+        | CharSet st -> ({ id = st; sort = CharSetsSort } : setsId<char>):> IMemoryRegionId
+        | DecimalSet st -> ({ id = st; sort = DecimalSetsSort } : setsId<decimal>):> IMemoryRegionId
+        | DoubleSet st ->({ id = st; sort = DoubleSetsSort } : setsId<double>):> IMemoryRegionId
+        | IntSet st -> ({ id = st; sort = IntSetsSort } : setsId<int>):> IMemoryRegionId
+        | UIntSet st -> ({ id = st; sort = UIntSetsSort } : setsId<uint>):> IMemoryRegionId
+        | LongSet st -> ({ id = st; sort = LongSetsSort } : setsId<int64>):> IMemoryRegionId
+        | ULongSet st -> ({ id = st; sort = ULongSetsSort } : setsId<uint64>):> IMemoryRegionId
+        | ShortSet st -> ({ id = st; sort = ShortSetsSort } : setsId<int16>):> IMemoryRegionId
+        | UShortSet st -> ({ id = st; sort = UShortSetsSort } : setsId<uint16>):> IMemoryRegionId
+        | AddrSet st -> ({ id = st; sort = AddrSetsSort } : addrSetsId ):> IMemoryRegionId
+        | st -> internalfail $"Create Sets id: unexpected key type {st.setValueType}"
+    let createSetCountsId id : setCountsId = { id = id; sort = SetCountsSort }
+    let createListsId id : listsId = { id = id; sort = ListsSort }
+    let createListCountsId id : listCountsId = { id = id; sort = ListCountsSort }
+
 type setKeyWrapper<'key when 'key : equality> =
     {key : 'key}
     interface IRegionTreeKey<setKeyWrapper<'key>> with
@@ -806,9 +1115,62 @@ module SymbolicSet =
         let sb = s |> RegionTree.foldl (fun (sb : StringBuilder) _ -> toString >> sprintf "%s, " >> sb.Append) (StringBuilder().Append "{ ")
         (if sb.Length > 2 then sb.Remove(sb.Length - 2, 2) else sb).Append(" }").ToString()
 
-type heapRegion = memoryRegion<heapAddressKey, vectorTime intervals>
-type arrayRegion = memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
-type vectorRegion = memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
-type stackBufferRegion = memoryRegion<stackBufferIndexKey, int points>
-type staticsRegion = memoryRegion<symbolicTypeKey, freeRegion<typeWrapper>>
 type symbolicTypeSet = symbolicSet<symbolicTypeKey, freeRegion<typeWrapper>>
+
+type stackBuffersRegion = memoryRegion<stackBufferIndexKey, int points>
+type classFieldsRegion = memoryRegion<heapAddressKey, vectorTime intervals>
+type staticFieldsRegion = memoryRegion<symbolicTypeKey, freeRegion<typeWrapper>>
+type boxedLocationsRegion = memoryRegion<heapAddressKey, vectorTime intervals>
+type arraysRegion = memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+type arrayLengthsRegion = memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
+type arrayLowerBoundsRegion = memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
+
+type dictionariesRegion<'key when 'key : equality> = memoryRegion<heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+type boolDictionariesRegion = dictionariesRegion<bool>
+type byteDictionariesRegion = dictionariesRegion<byte>
+type sbyteDictionariesRegion = dictionariesRegion<sbyte>
+type charDictionariesRegion = dictionariesRegion<char>
+type decimalDictionariesRegion = dictionariesRegion<decimal>
+type doubleDictionariesRegion = dictionariesRegion<double>
+type intDictionariesRegion = dictionariesRegion<int>
+type uintDictionariesRegion = dictionariesRegion<uint>
+type longDictionariesRegion = dictionariesRegion<int64>
+type ulongDictionariesRegion = dictionariesRegion<uint64>
+type shortDictionariesRegion = dictionariesRegion<int16>
+type ushortDictionariesRegion = dictionariesRegion<uint16>
+type addrDictionariesRegion = memoryRegion<addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+type boolDictionaryKeysRegion = dictionariesRegion<bool>
+type byteDictionaryKeysRegion = dictionariesRegion<byte>
+type sbyteDictionaryKeysRegion = dictionariesRegion<sbyte>
+type charDictionaryKeysRegion = dictionariesRegion<char>
+type decimalDictionaryKeysRegion = dictionariesRegion<decimal>
+type doubleDictionaryKeysRegion = dictionariesRegion<double>
+type intDictionaryKeysRegion = dictionariesRegion<int>
+type uintDictionaryKeysRegion = dictionariesRegion<uint>
+type longDictionaryKeysRegion = dictionariesRegion<int64>
+type ulongDictionaryKeysRegion = dictionariesRegion<uint64>
+type shortDictionaryKeysRegion = dictionariesRegion<int16>
+type ushortDictionaryKeysRegion = dictionariesRegion<uint16>
+type addrDictionaryKeysRegion = memoryRegion<addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+
+type dictionaryCountsRegion = memoryRegion<heapAddressKey, vectorTime intervals>
+
+type setsRegion<'key when 'key : equality> = memoryRegion<heapCollectionKey<'key>, productRegion<vectorTime intervals, 'key points>>
+type boolSetsRegion = setsRegion<bool>
+type byteSetsRegion = setsRegion<byte>
+type sbyteSetsRegion = setsRegion<sbyte>
+type charSetsRegion = setsRegion<char>
+type decimalSetsRegion = setsRegion<decimal>
+type doubleSetsRegion = setsRegion<double>
+type intSetsRegion = setsRegion<int>
+type uintSetsRegion = setsRegion<uint>
+type longSetsRegion = setsRegion<int64>
+type ulongSetsRegion = setsRegion<uint64>
+type shortSetsRegion = setsRegion<int16>
+type ushortSetsRegion = setsRegion<uint16>
+type addrSetsRegion = memoryRegion<addrCollectionKey, productRegion<vectorTime intervals, vectorTime intervals>>
+
+type setCountsRegion = memoryRegion<heapAddressKey, vectorTime intervals>
+
+type listsRegion = memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+type listCountsRegion = memoryRegion<heapAddressKey, vectorTime intervals>

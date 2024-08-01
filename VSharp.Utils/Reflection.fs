@@ -1,6 +1,7 @@
 namespace VSharp
 
 open System
+open System.Collections
 open System.Collections.Generic
 open System.Reflection
 open System.Reflection.Emit
@@ -617,6 +618,16 @@ module public Reflection =
             let size = byteSize / elemSize
             reinterpretValueTypeAsArray fieldValue elemType size
 
+    // TODO: optimize
+    let keyAndValueSeqFromDictionaryObj (dict : IDictionary) =
+        seq {
+            for obj in dict ->
+                let typ = obj.GetType()
+                let k = typ.GetProperty("Key").GetValue(obj)
+                let v = typ.GetProperty("Value").GetValue(obj)
+                (k, v)
+            }
+
     // ------------------------------ Layout Utils ------------------------------
 
     let getFieldOffset field =
@@ -988,3 +999,7 @@ module public Reflection =
 
         let t = typeBuilder.CreateType()
         t.GetMethod(methodName, staticBindingFlags)
+
+    let getCountByReflection obj =
+        let method = obj.GetType().GetMethod("get_Count")
+        method.Invoke(obj, [| |]) :?> int

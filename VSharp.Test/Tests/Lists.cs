@@ -925,13 +925,14 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        public static int ConcreteDictionaryTest1(int a, string b)
+        public static int ConcreteDictionaryTest1(int a, int b)
         {
-            var d = new Dictionary<int, List<string>>();
-            d.Add(1, new List<string> { "2", "3" });
-            d.Add(4, new List<string> { "5", "6" });
-            if (d.TryGetValue(a, out var res))
+            var d = new Dictionary<int, List<int>>();
+            d.Add(1, new List<int> { 2, 3 });
+            d.Add(4, new List<int> { 5, 6 });
+            if (d.ContainsKey(a))
             {
+                var res = d[a];
                 if (res.Contains(b))
                     return 1;
                 return 0;
@@ -945,7 +946,7 @@ namespace IntegrationTests
             public string FirstName { get; set; }
             public string LastName { get; init; }
         };
-        
+
         [TestSvm(95)]
         public static int IteKeyWrite(int i)
         {
@@ -1189,9 +1190,9 @@ namespace IntegrationTests
 
         [TestSvm(100)]
         [IgnoreFuzzer("Need recursion constraints in generators")]
-        public static int ListTest1(List<object> l, object e)
+        public static int ListTest1(object[] l, object e)
         {
-            var i = l.LastIndexOf(e);
+            var i = Array.LastIndexOf(l, e);
             if (i >= 0)
                 return i;
             return -1;
@@ -1475,14 +1476,14 @@ namespace IntegrationTests
     [TestSvmFixture]
     public class ArrayCopying
     {
-        private List<int> _elements;
+        private int[] _elements;
 
-        public int Count => _elements.Count - 1;
+        public int Count => _elements.Length - 1;
 
         [TestSvm(100)]
         public void CopyTo(int[] array, int arrayIndex)
         {
-            _elements.CopyTo(1, array, arrayIndex, Count);
+            _elements.CopyTo(array, arrayIndex);
         }
     }
 

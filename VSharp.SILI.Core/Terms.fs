@@ -88,6 +88,21 @@ type stackKey =
 
 type concreteHeapAddress = vectorTime
 
+type collectionKey =
+    | CKBool of bool
+    | CKByte of byte
+    | CKSByte of sbyte
+    | CKChar of char
+    | CKDecimal of decimal
+    | CKDouble of double // float = double
+    | CKInt of int
+    | CKUInt of uint
+    | CKLong of int64
+    | CKULong of uint64
+    | CKShort of int16
+    | CKUShort of uint16
+    | CKAddr of concreteHeapAddress
+
 type arrayType =
     { elemType : Type; dimension : int; isVector : bool }
     with
@@ -99,6 +114,120 @@ type arrayType =
     member x.IsVector = x.isVector && (assert(x.dimension = 1); true)
 
     member x.IsCharVector = x.IsVector && x.elemType = typeof<char>
+
+type dictionaryType =
+    { keyType : Type; valueType : Type }
+    with
+    static member CreateDictionary keyType valueType =
+        { keyType = keyType; valueType = valueType }
+
+module DictionaryType =
+    let (|BoolDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<bool> -> Some dt
+        | _ -> None
+    let (|ByteDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<byte> -> Some dt
+        | _ -> None
+    let (|SByteDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<sbyte> -> Some dt
+        | _ -> None
+    let (|CharDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<char> -> Some dt
+        | _ -> None
+    let (|DecimalDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<decimal> -> Some dt
+        | _ -> None
+    let (|DoubleDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<double> -> Some dt
+        | _ -> None
+    let (|IntDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<int> -> Some dt
+        | _ -> None
+    let (|UIntDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<uint> -> Some dt
+        | _ -> None
+    let (|LongDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<int64> -> Some dt
+        | _ -> None
+    let (|ULongDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<uint64> -> Some dt
+        | _ -> None
+    let (|ShortDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<int16> -> Some dt
+        | _ -> None
+    let (|UShortDictionary|_|) = function
+        | (dt : dictionaryType) when dt.keyType = typeof<uint16> -> Some dt
+        | _ -> None
+    let (|AddrDictionary|_|) (dt : dictionaryType) =
+        match dt.keyType with
+        | ReferenceType -> Some dt
+        | _ -> None
+
+type setType =
+    { setValueType : Type }
+    with
+    static member CreateSet valueType =
+        { setValueType = valueType }
+
+module SetType =
+    let (|BoolSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<bool> -> Some st
+        | _ -> None
+
+    let (|ByteSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<byte> -> Some st
+        | _ -> None
+
+    let (|SByteSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<sbyte> -> Some st
+        | _ -> None
+
+    let (|CharSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<char> -> Some st
+        | _ -> None
+
+    let (|DecimalSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<decimal> -> Some st
+        | _ -> None
+
+    let (|DoubleSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<double> -> Some st
+        | _ -> None
+
+    let (|IntSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<int> -> Some st
+        | _ -> None
+
+    let (|UIntSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<uint> -> Some st
+        | _ -> None
+
+    let (|LongSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<int64> -> Some st
+        | _ -> None
+
+    let (|ULongSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<uint64> -> Some st
+        | _ -> None
+
+    let (|ShortSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<int16> -> Some st
+        | _ -> None
+
+    let (|UShortSet|_|) = function
+        | (st : setType) when st.setValueType = typeof<uint16> -> Some st
+        | _ -> None
+
+    let (|AddrSet|_|) (st : setType) =
+        match st.setValueType with
+        | ReferenceType -> Some st
+        | _ -> None
+
+type listType =
+    { listValueType : Type }
+    with
+    static member CreateList valueType =
+        { listValueType = valueType }
 
 [<StructuralEquality;NoComparison>]
 type operation =
@@ -256,6 +385,13 @@ and address =
     | ArrayIndex of heapAddress * term list * arrayType
     | ArrayLowerBound of heapAddress * term * arrayType
     | ArrayLength of heapAddress * term * arrayType
+    | DictionaryKey of heapAddress * term * dictionaryType
+    | DictionaryCount of heapAddress * dictionaryType
+    | DictionaryHasKey of heapAddress * term * dictionaryType
+    | SetKey of heapAddress * term * setType
+    | SetCount of heapAddress * setType
+    | ListIndex of heapAddress * term * listType
+    | ListCount of heapAddress * listType
     | StaticField of Type * fieldId
     override x.ToString() =
         match x with
@@ -268,6 +404,13 @@ and address =
         | BoxedLocation(addr, typ) -> $"{typ}^{addr}"
         | StackBufferIndex(key, idx) -> $"{key}[{idx}]"
         | ArrayLowerBound(addr, dim, _) -> $"LowerBound({addr}, {dim})"
+        | DictionaryKey (addr, key, typ) -> $"{addr}<{typ.keyType},{typ.valueType}>[{key}]"
+        | DictionaryCount (addr, typ) -> $"Length({addr}<{typ.keyType},{typ.valueType}>)"
+        | DictionaryHasKey(addr, key, typ) -> $"HasKey({addr}<{typ.keyType},{typ.valueType}>[{key}])"
+        | SetKey(addr, item, typ) -> $"{addr}<{typ.setValueType}>[{item}]"
+        | SetCount(addr, typ) -> $"Length({addr}<{typ.setValueType}>)"
+        | ListIndex(addr, idx, typ) -> $"{addr}<{typ.listValueType}[{idx}]"
+        | ListCount(addr, typ) -> $"Length({addr}<{typ.listValueType}>)"
     member x.Zone() =
         match x with
         | PrimitiveStackLocation _
@@ -276,7 +419,14 @@ and address =
         | ArrayIndex _
         | ArrayLength _
         | BoxedLocation _
-        | ArrayLowerBound  _ -> "Heap"
+        | ArrayLowerBound  _
+        | DictionaryKey _
+        | DictionaryCount _
+        | DictionaryHasKey _
+        | SetKey _
+        | SetCount _
+        | ListIndex _
+        | ListCount _ -> "Heap"
         | StaticField _ -> "Statics"
         | StructField(addr, _) -> addr.Zone()
     member x.TypeOfLocation with get() =
@@ -285,9 +435,16 @@ and address =
         | StructField(_, field)
         | StaticField(_, field) -> field.typ
         | ArrayIndex(_, _, { elemType = elementType }) -> elementType
+        | DictionaryKey(_, _, typ) -> typ.valueType
+        | ListIndex(_, _, typ) -> typ.listValueType
+        | DictionaryHasKey _
+        | SetKey _ -> typeof<bool>
         | BoxedLocation(_, typ) -> typ
         | ArrayLength _
-        | ArrayLowerBound  _ -> lengthType
+        | ArrayLowerBound  _
+        | DictionaryCount _
+        | ListCount _
+        | SetCount _ -> lengthType
         | StackBufferIndex _ -> typeof<int8>
         | PrimitiveStackLocation loc -> loc.TypeOfLocation
 
@@ -346,7 +503,10 @@ module internal Terms =
 // --------------------------------------- Primitives ---------------------------------------
 
     let Nop() = HashMap.addTerm Nop
-    let Concrete obj typ = HashMap.addTerm (Concrete(obj, typ))
+    let Concrete (obj : obj) typ =
+        assert (not <| obj :? term)
+        HashMap.addTerm (Concrete(obj, typ))
+
     let Constant name source typ = HashMap.addTerm (Constant({v=name}, source, typ))
     let Expression op args typ = HashMap.addTerm (Expression(op, args, typ))
     let Struct fields typ = HashMap.addTerm (Struct(fields, typ))
@@ -371,7 +531,7 @@ module internal Terms =
 
     let makeNullPtr typ =
         Ptr (HeapLocation(zeroAddress(), typ)) typ (makeNumber 0)
-        
+
     let True() =
         Concrete (box true) typeof<bool>
     let IteAsGvs iteType = iteType.branches @ [(True(), iteType.elseValue)]
@@ -435,7 +595,7 @@ module internal Terms =
         | term -> internalfail $"struct or class expected, {term} received"
 
     let private typeOfIte (getType : 'a -> Type) (iteType : iteType) =
-        let types = iteType.mapValues getType 
+        let types = iteType.mapValues getType
         match types with
         | {branches = []; elseValue = _} -> __unreachable__()
         | {branches = branches; elseValue = elset} ->
@@ -488,6 +648,21 @@ module internal Terms =
             | ConcreteDimension d -> { elemType = elementType; dimension = d; isVector = false }
             | SymbolicDimension -> __insufficientInformation__ "Cannot process array of unknown dimension!"
         | typ -> internalfail $"symbolicTypeToArrayType: expected array type, but got {typ}"
+
+    let symbolicTypeToDictionaryType = function
+        | DictionaryType(keyType, valueType) ->
+            { keyType = keyType; valueType = valueType }
+        | typ -> internalfail $"symbolicTypeToDictionaryType: expected dictionary type, but got {typ}"
+
+    let symbolicTypeToSetType = function
+        | SetType(valueType) ->
+            { setValueType = valueType }
+        | typ -> internalfail $"symbolicTypeToSetType: expected set type, but got {typ}"
+
+    let symbolicTypeToListType = function
+        | ListType(valueType) ->
+            { listValueType = valueType }
+        | typ -> internalfail $"symbolicTypeToListType: expected list type, but got {typ}"
 
     let arrayTypeToSymbolicType arrayType =
         if arrayType.isVector then arrayType.elemType.MakeArrayType()
@@ -769,6 +944,49 @@ module internal Terms =
             | Concrete(:? uint64 as i, _) -> int i :: concreteList |> k
             | _ -> None
         Cps.List.foldrk addElement List.empty termList Some
+
+    and tryIntFromTerm (term : term) =
+        match term.term with
+        | Concrete(:? int16 as i, _) -> Some <| int i
+        | Concrete(:? uint16 as i, _) -> Some <| int i
+        | Concrete(:? char as i, _) -> Some <| int i
+        | Concrete(:? int as i, _) -> Some i
+        | Concrete(:? uint as i, _) -> Some <| int i
+        | Concrete(:? int64 as i, _) -> Some <| int i
+        | Concrete(:? uint64 as i, _) -> Some <| int i
+        | _ -> None
+
+    and tryCollectionKeyFromTerm (term : term) =
+        match term.term with
+        | Concrete(:? bool as value, _) -> Some <| CKBool value
+        | Concrete(:? byte as value, _) -> Some <| CKByte value
+        | Concrete(:? sbyte as value, _) -> Some <| CKSByte value
+        | Concrete(:? char as value, _) -> Some <| CKChar value
+        | Concrete(:? decimal as value, _) -> Some <| CKDecimal value
+        | Concrete(:? double as value, _) -> Some <| CKDouble value
+        | Concrete(:? int as value, _) -> Some <| CKInt value
+        | Concrete(:? uint as value, _) -> Some <| CKUInt value
+        | Concrete(:? int64 as value, _) -> Some <| CKLong value
+        | Concrete(:? uint64 as value, _) -> Some <| CKULong value
+        | Concrete(:? int16 as value, _) -> Some <| CKShort value
+        | Concrete(:? uint16 as value, _) -> Some <| CKUShort value
+        | Concrete(:? concreteHeapAddress as value, _) -> Some <| CKAddr value
+        | _ -> None
+
+    and collectionKeyValueToObj = function
+    | CKBool value -> value :> obj
+    | CKByte value -> value :> obj
+    | CKSByte value -> value :> obj
+    | CKChar value -> value :> obj
+    | CKDecimal value -> value :> obj
+    | CKDouble value -> value :> obj
+    | CKInt value -> value :> obj
+    | CKUInt value -> value :> obj
+    | CKLong value -> value :> obj
+    | CKULong value -> value :> obj
+    | CKShort value -> value :> obj
+    | CKUShort value -> value :> obj
+    | CKAddr value -> value :> obj
 
     and isConcreteHeapAddress term =
         match term.term with
@@ -1096,11 +1314,25 @@ module internal Terms =
         | ArrayIndex(addr, indices, _) ->
             doFold folder state addr (fun state ->
             foldList folder indices state k)
+        | DictionaryKey(addr, key, _) ->
+            doFold folder state addr (fun state ->
+            doFold folder state key k)
+        | ListIndex(addr, idx, _) ->
+            doFold folder state addr (fun state ->
+            doFold folder state idx k)
+        | DictionaryHasKey(addr, item, _)
+        | SetKey(addr, item, _) ->
+            doFold folder state addr (fun state ->
+            doFold folder state item k)
         | StructField(addr, _) -> foldAddress folder state addr k
         | ArrayLength(addr, idx, _)
         | ArrayLowerBound(addr, idx, _) ->
             doFold folder state addr (fun state ->
             doFold folder state idx k)
+        | DictionaryCount(addr, _)
+        | SetCount(addr, _)
+        | ListCount(addr, _) ->
+            doFold folder state addr k
         | StackBufferIndex(_, idx) -> doFold folder state idx k
 
     and foldPointerBase folder state pointerBase k =

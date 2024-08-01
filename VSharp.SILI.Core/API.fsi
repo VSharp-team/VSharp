@@ -21,6 +21,7 @@ module API =
     val BranchExpressions : ((term -> 'a) -> 'b) -> ((term -> 'a) -> 'a) -> ((term -> 'a) -> 'a) -> (term -> 'a) -> 'b
     val StatedConditionalExecution : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> ('item -> 'a) -> 'a) -> (state -> ('item -> 'a) -> 'a) -> ('item -> 'item -> 'item list) -> ('item  list -> 'a) -> 'b)
     val StatedConditionalExecutionAppend : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> ('c list -> 'a) -> 'a) -> (state -> ('c list -> 'a) -> 'a) -> ('c list -> 'a) -> 'b)
+    val AssumeStatedConditionalExecution : state -> term -> unit
 
     val GuardedApplyExpression : term -> (term -> term) -> term
     val GuardedApplyExpressionWithPC : pathCondition -> term -> (term -> term) -> term
@@ -97,6 +98,9 @@ module API =
         val (|CombinedDelegate|_|) : term -> term list option
         val (|ConcreteDelegate|_|) : term -> delegateInfo option
 
+        val IsTrue : term -> bool
+        val IsFalse : term -> bool
+
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
         val (|Negation|_|) : term -> term option
@@ -112,6 +116,32 @@ module API =
         val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
         val (|ArrayRangeReading|_|) : ISymbolicConstantSource -> option<unit>
         val (|ArrayIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapArrayKey * memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>>
+        val (|BoolDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<bool> * boolDictionariesRegion>
+        val (|ByteDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<byte> * byteDictionariesRegion>
+        val (|SByteDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<sbyte> * sbyteDictionariesRegion>
+        val (|CharDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<char> * charDictionariesRegion>
+        val (|DecimalDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<decimal> * decimalDictionariesRegion>
+        val (|DoubleDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<double> * doubleDictionariesRegion>
+        val (|IntDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<int> * intDictionariesRegion>
+        val (|UIntDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<uint> * uintDictionariesRegion>
+        val (|LongDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<int64> * longDictionariesRegion>
+        val (|ULongDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<uint64> * ulongDictionariesRegion>
+        val (|ShortDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<int16> * shortDictionariesRegion>
+        val (|UShortDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<uint16> * ushortDictionariesRegion>
+        val (|AddrDictionaryReading|_|) : ISymbolicConstantSource -> option<bool * addrCollectionKey * addrDictionariesRegion>
+        val (|BoolSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<bool> * boolSetsRegion>
+        val (|ByteSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<byte> * byteSetsRegion>
+        val (|SByteSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<sbyte> * sbyteSetsRegion>
+        val (|CharSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<char> * charSetsRegion>
+        val (|DecimalSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<decimal> * decimalSetsRegion>
+        val (|DoubleSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<double> * doubleSetsRegion>
+        val (|IntSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<int> * intSetsRegion>
+        val (|UIntSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<uint> * uintSetsRegion>
+        val (|LongSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<int64> * longSetsRegion>
+        val (|ULongSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<uint64> * ulongSetsRegion>
+        val (|ShortSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<int16> * shortSetsRegion>
+        val (|UShortSetReading|_|) : ISymbolicConstantSource -> option<bool * heapCollectionKey<uint16> * ushortSetsRegion>
+        val (|AddrSetReading|_|) : ISymbolicConstantSource -> option<bool * addrCollectionKey * addrSetsRegion>
         val (|VectorIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
         val (|StackBufferReading|_|) : ISymbolicConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
         val (|StaticsReading|_|) : ISymbolicConstantSource -> option<symbolicTypeKey * memoryRegion<symbolicTypeKey, freeRegion<typeWrapper>>>
@@ -175,6 +205,9 @@ module API =
         val ElementType : Type -> Type
         val ArrayTypeToSymbolicType : arrayType -> Type
         val SymbolicTypeToArrayType : Type -> arrayType
+
+        val SymbolicTypeToDictionaryType : Type -> dictionaryType
+        val SymbolicTypeToSetType : Type -> setType
 
         val TypeIsType : Type -> Type -> term
         val IsNullable : Type -> bool
@@ -288,6 +321,19 @@ module API =
         val ReadStringChar : state -> term -> term -> term
         val ReadStaticField : state -> Type -> fieldId -> term
         val ReadDelegate : state -> term -> term option
+        val ReadDictionaryKey : state -> term -> term -> term
+        val ContainsKey : state -> term -> term -> term
+        val GetDictionaryCount : state -> term -> term
+        val AddToSet : state -> term -> term -> term
+        val RemoveFromSet : state -> term -> term -> term
+        val IsSetContains : state -> term -> term -> term
+        val GetSetCount : state -> term -> term
+        val ReadListIndex : state -> term -> term -> term
+        val GetListCount : state -> term -> term
+        val WriteListKey : state -> term -> term -> term -> unit
+        val RemoveListAtIndex : state -> term -> term -> unit
+        val InsertListIndex : state -> term -> term -> term -> unit
+        val ListCopyToRange : state -> term -> term -> term -> term -> term -> unit
 
         val CombineDelegates : state -> term list -> Type -> term
         val RemoveDelegate : state -> term -> term -> Type -> term
@@ -303,6 +349,7 @@ module API =
         val WriteClassField : state -> term -> fieldId -> term -> unit
         val WriteArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> term -> Type option -> unit
         val WriteStaticField : state -> Type -> fieldId -> term -> unit
+        val WriteDictionaryKey : state -> term -> term -> term -> unit
 
         val DefaultOf : Type -> term
 
@@ -373,7 +420,17 @@ module API =
         val FillClassFieldsRegion : state -> fieldId -> term -> unit
         val FillStaticsRegion : state -> fieldId -> term -> unit
         val FillArrayRegion : state -> arrayType -> term -> unit
+        val FillDictionaryRegion : state -> dictionaryType -> term -> unit
+        val FillAddrDictionaryRegion : state -> dictionaryType -> term -> unit
+        val FillDictionaryKeysRegion : state -> dictionaryType -> term -> unit
+        val FillAddrDictionaryKeysRegion : state -> dictionaryType -> term -> unit
+        val FillSetRegion : state -> setType -> term -> unit
+        val FillAddrSetRegion : state -> setType -> term -> unit
+        val FillListRegion : state -> listType -> term -> unit
         val FillLengthRegion : state -> arrayType -> term -> unit
+        val FillDictionaryCountRegion : state -> dictionaryType -> term -> unit
+        val FillSetCountRegion : state -> setType -> term -> unit
+        val FillListCountRegion : state -> listType -> term -> unit
         val FillLowerBoundRegion : state -> arrayType -> term -> unit
         val FillStackBufferRegion : state -> stackKey -> term -> unit
         val FillBoxedRegion : state -> Type -> term -> unit

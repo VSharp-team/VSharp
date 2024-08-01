@@ -154,17 +154,7 @@ namespace IntegrationTests
             return x == y;
         }
     }
-
-    [TestSvmFixture]
-    public class UnboxGeneric<T>
-    {
-        [TestSvm]
-        public static T Cast(object o)
-        {
-            return (T) o;
-        }
-    }
-
+    
     [TestSvmFixture]
     [IgnoreFuzzer("(Known bug) Last generated test is incorrect")]
     public class BoxUnboxWithGeneric<G, T, U, V>

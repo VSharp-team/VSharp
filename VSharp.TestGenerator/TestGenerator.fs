@@ -7,6 +7,11 @@ open VSharp
 open VSharp.Core
 open System.Linq
 
+// TODO: Count of collection cases (like set.Count < 42 && ...) may generate incorrect tests,
+// where count = 1, but set = { 1, 2, ... }. Its necessary to recognize them and generate them in a special way
+
+// TODO: Generate sets and dictionaries from model like objects
+
 type public testSuite =
     | Test
     | Error of string * bool
@@ -143,9 +148,9 @@ module TestGenerator =
             let arrays =
                 if isModelArray then
                     match model with
-                    | StateModel modelState -> modelState.memory.Arrays
+                    | StateModel modelState -> modelState.memory.MemoryRegions
                     | _ -> __unreachable__()
-                else state.memory.Arrays
+                else state.memory.MemoryRegions
             let elemType = arrayType.elemType
             let checkElem value =
                 match value.term, model with
@@ -158,8 +163,10 @@ module TestGenerator =
                 if isModelArray && not elemType.IsValueType then checkElem
                 else fun _ -> true
             let defaultValue, indices, values =
-                match PersistentDict.tryFind arrays arrayType with
+                let key = MemoryRegionId.createArraysId arrayType
+                match PersistentDict.tryFind arrays key with
                 | Some region ->
+                    let region = region :?> arraysRegion
                     let defaultValue =
                         match region.defaultValue with
                         | Some defaultValue -> encode defaultValue

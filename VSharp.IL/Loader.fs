@@ -49,6 +49,8 @@ module Loader =
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.DebugProviderUtils")
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.EnvironmentUtils")
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.JetBrainsDiagnosticsUtils")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.ListUtils")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.ListEnumerator`1")
         ]
         |> collectImplementations
 

@@ -539,6 +539,7 @@ type IInterpreter =
     abstract Raise : (cilState -> unit) -> cilState -> (cilState list -> 'a) -> 'a
     abstract NpeOrInvoke : cilState -> term -> (cilState -> (cilState list -> 'a) -> 'a) -> (cilState list -> 'a) -> 'a
     abstract InvalidProgramException : cilState -> unit
+    abstract InvalidOperationException : cilState -> unit
     abstract NullReferenceException : cilState -> unit
     abstract ArgumentException : cilState -> unit
     abstract ArgumentNullException : cilState -> unit
@@ -1881,6 +1882,8 @@ type ILInterpreter() as this =
 
     member x.InvalidProgramException cilState =
         x.CreateException typeof<InvalidProgramException> [] cilState
+    member x.InvalidOperationException cilState =
+        x.CreateException typeof<InvalidOperationException> [] cilState
     member x.NullReferenceException cilState =
         x.CreateException typeof<NullReferenceException> [] cilState
     member x.ArgumentException cilState =
@@ -2395,6 +2398,7 @@ type ILInterpreter() as this =
         override x.NpeOrInvoke cilState ref statement k =
             x.NpeOrInvokeStatementCIL cilState ref statement k
         override x.InvalidProgramException cilState = x.InvalidProgramException cilState
+        override x.InvalidOperationException cilState = x.InvalidOperationException cilState
         override x.NullReferenceException cilState = x.NullReferenceException cilState
         override x.ArgumentException cilState = x.ArgumentException cilState
         override x.ArgumentNullException cilState = x.ArgumentNullException cilState
