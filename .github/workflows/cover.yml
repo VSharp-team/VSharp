@@ -44,12 +44,12 @@ jobs:
         repository: VSharp-team/VSharp-bench
         path: ./benchmarks
     - name: Download VSharp.Runner binaries
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4.1.7
       with:
         name: runner
         path: ./runner
     - name: Download VSharp.TestRunner binaries
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4.1.7
       with:
         name: test_runner
         path: ./test_runner
