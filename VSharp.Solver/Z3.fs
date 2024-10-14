@@ -806,10 +806,8 @@ module internal Z3 =
             | _ -> x.EncodeTerm slice, List.empty
 
         member private x.EncodeCombine slices typ =
-            let size = x.SizeOfBV typ
-            let res = ctx.MkBV(0, size)
-            let window = res.SortSize
-            let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
+            let window = x.SizeOfBV typ
+            let res = ctx.MkBV(0, window)
             let addOneSlice (res, assumptions) slice =
                 let term, cuts = x.EncodeSlice slice
                 let t =
@@ -831,25 +829,23 @@ module internal Z3 =
                 let sliceSize = x.MkBVSub(rBit, lBit)
                 let zero = ctx.MkBV(0, termSize)
                 let intersects = x.MkBVSGT(sliceSize, zero)
-                let term = x.ReverseBytes t
+                let term = t
                 let left = x.ExtractOrExtend lBit termSize
-                let term = x.MkBVShl(term, left)
-                let cutRight = x.ExtractOrExtend (x.MkBVSub(sizeExpr, rBit)) termSize
+                let right = x.ExtractOrExtend rBit termSize
+                let cutRight = x.MkBVSub(sizeExpr, right)
+                let term = x.MkBVShl(term, cutRight)
                 let term = x.MkBVLShr(term, x.MkBVAdd(left, cutRight))
                 let term =
                     if termSize > window then ctx.MkExtract(window - 1u, 0u, term)
                     else ctx.MkZeroExt(window - termSize, term)
                 let changedTermSize = term.SortSize
-                let w = x.ExtractOrExtend windowExpr changedTermSize
                 let pos = x.ExtractOrExtend posBit changedTermSize
-                let sliceSize = x.ExtractOrExtend sliceSize changedTermSize
-                let shift = x.MkBVSub(w, x.MkBVAdd(pos, sliceSize))
-                let part = x.MkBVShl(term, shift)
+                let part = x.MkBVShl(term, pos)
                 let res = x.MkITE(intersects, x.MkBVOr(res, part), res) :?> BitVecExpr
                 res, assumptions
             let result, assumptions = List.fold addOneSlice (res, List.empty) slices
-            let result = x.ReverseBytes result
-            let result = x.CreateCombineResult result typ size
+            // let result = x.ReverseBytes result
+            let result = x.CreateCombineResult result typ window
             {expr = result; assumptions = assumptions}
 
         member private x.EncodeApplication sf typ (args : Expr array) =
