@@ -808,6 +808,22 @@ namespace IntegrationTests
             *ptr = v;
             return *(int*)((byte*)ptr + j);
         }
+        
+        [TestSvm(100)]
+        public static bool DoubleReinterpretation4(long a, int i, int j)
+        {
+            var b = a;
+            var p = &a;
+            var ptr = (int*)((byte*)p + i);
+            var v = *ptr;
+            ptr = (int*)((byte *)p + i);
+            *ptr = v;
+            var p2 = &b;
+            var ptr2 = (int*)((byte *)p2 + i);
+            if (*(int*)((byte*)ptr + j) == *(int*)((byte*)ptr2 + j))
+                return true;
+            return false;
+        }
 
         [TestSvm(100)]
         public static int DoubleReinterpretation1(int[] arr, int i, int j)
