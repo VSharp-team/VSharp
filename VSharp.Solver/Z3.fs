@@ -722,12 +722,6 @@ module internal Z3 =
             elif exprSize > size then ctx.MkExtract(size - 1u, 0u, expr)
             else ctx.MkSignExt(size - exprSize, expr)
 
-        member private x.ReverseBytes (expr : BitVecExpr) =
-            let size = int expr.SortSize
-            assert(size % 8 = 0)
-            let bytes = List.init (size / 8) (fun byte -> ctx.MkExtract(uint ((byte + 1) * 8) - 1u, uint (byte * 8), expr))
-            List.reduce (fun x y -> ctx.MkConcat(x, y)) bytes
-
         member private x.ComputeSliceBounds assumptions cuts termSortSize =
             assert(termSortSize % 8u = 0u && termSortSize > 0u)
             let zero = ctx.MkBV(0, termSortSize)
@@ -829,11 +823,10 @@ module internal Z3 =
                 let sliceSize = x.MkBVSub(rBit, lBit)
                 let zero = ctx.MkBV(0, termSize)
                 let intersects = x.MkBVSGT(sliceSize, zero)
-                let term = t
                 let left = x.ExtractOrExtend lBit termSize
                 let right = x.ExtractOrExtend rBit termSize
                 let cutRight = x.MkBVSub(sizeExpr, right)
-                let term = x.MkBVShl(term, cutRight)
+                let term = x.MkBVShl(t, cutRight)
                 let term = x.MkBVLShr(term, x.MkBVAdd(left, cutRight))
                 let term =
                     if termSize > window then ctx.MkExtract(window - 1u, 0u, term)
@@ -844,7 +837,6 @@ module internal Z3 =
                 let res = x.MkITE(intersects, x.MkBVOr(res, part), res) :?> BitVecExpr
                 res, assumptions
             let result, assumptions = List.fold addOneSlice (res, List.empty) slices
-            // let result = x.ReverseBytes result
             let result = x.CreateCombineResult result typ window
             {expr = result; assumptions = assumptions}
 
