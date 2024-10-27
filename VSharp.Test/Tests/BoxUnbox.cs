@@ -17,11 +17,11 @@ namespace IntegrationTests
             }
         }
 
-        public struct B
+        public struct B<T>
         {
-            private double x;
+            private T x;
 
-            public B(double z)
+            public B(T z)
             {
                 x = z;
             }
@@ -45,14 +45,14 @@ namespace IntegrationTests
         [TestSvm]
         public static B UnboxAny1()
         {
-            var b = new B(5);
+            var b = new B<int>(5);
             return Cast<B>(b);
         }
 
         [TestSvm]
         public static object UnboxAny2()
         {
-            var b = new B(5);
+            var b = new B<double>(5);
             return Cast<A>(b);
         }
 
