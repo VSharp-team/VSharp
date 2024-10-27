@@ -335,6 +335,89 @@ namespace IntegrationTests
             else
                 return true;
         }
+        
+        [TestSvm(95)]
+        public static bool ArraySymbolicUnsafeWrite11(int i, int j)
+        {
+            var array = new long[] {1, 2, 3, 4, 5};
+            fixed (long* ptr = &array[0])
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = ptr2 + i;
+                *ptr3 = 67;
+                var ptr4 = (int*)(ptr2 + j);
+                *ptr4 = 23181328;
+            }
+
+            if (i == 1 && j == 2 && array[0] != 1519211528961L)
+                return false;
+
+            return true;
+        }
+        
+        [TestSvm(95)]
+        public static bool ArraySymbolicUnsafeWrite12(int i, int j)
+        {
+            var array = new long[] { 1, 2, 3, 4, 5 };
+            fixed (long* ptr = &array[0])
+            {
+                var ptr1 = (byte*) ptr;
+                var ptr3 = (int*)(ptr1 + i);
+                *ptr3 = 67;
+                var ptr4 = (byte*)(ptr1 + i);
+                *ptr4 = 87;   
+            }
+
+            if (i == 2 && array[0] != 5701633)
+                return false;
+
+            return true;
+        }
+        
+        [TestSvm(94)]
+        public static bool ArrayWriteTargetingTwoElements(int i, int j)
+        {
+            var array = new long[] { 1, 2, 3, 4, 5 };
+            fixed (long* ptr = &array[0])
+            {
+                var ptr1 = (byte*) ptr;
+                var ptr3 = (short*)(ptr1 + i);
+                *ptr3 = 67;
+            }
+
+            if (i == 7 && array[1] == 2)
+                return false;
+
+            return true;
+        }
+
+        struct SomeStruct
+        {
+            public int x1;
+            public int x2;
+            public int x3;
+            public int x4;
+            public int x5;
+        }
+        
+        [TestSvm(96)]
+        public static bool ArrayWriteTargetingThreeElements(int i, int j)
+        {
+            var array = new long[] { 1, 2, 3, 4, 5 };
+            fixed (long* ptr = &array[0])
+            {
+                var ptr1 = (byte*) ptr;
+                var ptr3 = (SomeStruct*)(ptr1 + i);
+                var value = new SomeStruct() {x1 = 4455, x2 = 4143, x3 = 31323, x4 = 44, x5 = 3243};
+                *ptr3 = value;
+            }
+
+            // array[3] is affected by writing struct
+            if (i == 6 && array[3] == 4)
+                return false;
+
+            return true;
+        }
 
         [TestSvm(97)]
         public static bool ArraySymbolicUnsafeWrite2(int i)
@@ -807,6 +890,22 @@ namespace IntegrationTests
             ptr = (int*)((byte *)p + i);
             *ptr = v;
             return *(int*)((byte*)ptr + j);
+        }
+        
+        [TestSvm(94)]
+        public static bool DoubleReinterpretation4(long a, int i, int j)
+        {
+            var b = a;
+            var p = &a;
+            var ptr = (int*)((byte*)p + i);
+            var v = *ptr;
+            ptr = (int*)((byte *)p + i);
+            *ptr = v;
+            var p2 = &b;
+            var ptr2 = (int*)((byte*)p2 + i);
+            if (*(int*)((byte*)ptr + j) == *(int*)((byte*)ptr2 + j))
+                return true;
+            return false;
         }
 
         [TestSvm(100)]
