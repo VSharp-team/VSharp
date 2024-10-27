@@ -12,7 +12,6 @@ module IntPtr =
         let ptr = MakeIntPtr term
         Memory.Write state this ptr
         Nop()
-        
 
     let internal intPtrCtorFromInt (state : state) (args : term list) : term =
         assert(List.length args = 2)

@@ -280,7 +280,8 @@ type heapArrayKey =
                         let! gu, u = Merging.unguardGvs ub
                         return (g &&& gl &&& gu, l::accLbs, u::accUbs)
                     }
-                let boundsPairs = List.foldBack2 unGuard lowerBounds upperBounds [True(), [], []]
+                let initialState = List.singleton (True(), List.empty, List.empty)
+                let boundsPairs = List.foldBack2 unGuard lowerBounds upperBounds initialState
                 let addresses = Merging.unguardGvs address
                 list {
                     let! gAddr, addr = addresses
@@ -716,6 +717,7 @@ module MemoryRegion =
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
+
     let read mr key isDefault instantiate specializedReading =
         let makeSymbolic tree = instantiate mr.typ {mr with updates = tree}
         let makeDefault () =

@@ -1491,7 +1491,6 @@ module internal Z3 =
                 StateModel state
             with e -> internalfail $"MkModel: caught exception {e}"
 
-
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
 
