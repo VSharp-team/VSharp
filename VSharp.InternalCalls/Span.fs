@@ -137,6 +137,7 @@ module internal ReadOnlySpan =
         let span = cilState.Read this
         let initializedSpan = InitSpanStruct cilState span refToFirst length
         cilState.Write this initializedSpan
+        List.singleton cilState
 
     let CtorFromPtr (i : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
         assert(List.length args = 4)
@@ -237,8 +238,7 @@ module internal ReadOnlySpan =
             let arrayRef = Memory.AllocateConcreteObject state rawData arrayType
             let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None
             let count = MakeNumber rawData.Length
-            let cilStates = cilState.Write countRef count
-            assert(List.length cilStates = 1 && cilStates[0] = cilState)
+            cilState.Write countRef count
             cilState.Push refToFirstElement
             List.singleton cilState
         | _ -> internalfail $"GetSpanDataFrom: unexpected field handle {fieldHandleTerm} or type handle {typeHandleTerm}"

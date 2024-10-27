@@ -16,7 +16,6 @@ open VSharp.Interpreter.IL
 open VSharp.Utils
 
 open CilState
-open IpOperations
 open CodeLocation
 
 type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}

@@ -92,14 +92,16 @@ module internal Unsafe =
         let typ = Helpers.unwrapType typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
         let writeByPtr (cilState : cilState) k =
-            cilState.Write castedPtr value |> k
+            cilState.Write castedPtr value
+            List.singleton cilState |> k
         i.NpeOrInvoke cilState castedPtr writeByPtr id
 
     let WriteUnaligned (i : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 2)
         let ref, value = args[0], args[1]
         let writeByPtr (cilState : cilState) k =
-            cilState.Write ref value |> k
+            cilState.Write ref value
+            List.singleton cilState |> k
         i.NpeOrInvoke cilState ref writeByPtr id
 
     let SizeOf (_ : state) (args : term list) : term =

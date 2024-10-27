@@ -30,18 +30,6 @@ type private ChildLocation =
         assert x.Type.IsValueType
         { x with structFields = fieldId :: x.structFields }
 
-    member x.Includes(childKind : ChildKind) = x.childKind = childKind
-
-    member x.Includes(childLoc : ChildLocation) =
-        x.childKind = childLoc.childKind
-        &&
-        let structFields = x.structFields
-        let otherStructFields = childLoc.structFields
-        let length = List.length structFields
-        let otherLength = List.length otherStructFields
-        length = otherLength && otherStructFields = structFields
-        || length > otherLength && otherStructFields = List.skip (length - otherLength) structFields
-
 type private Cell =
     | Concrete of physicalAddress
     | Symbolic
@@ -122,17 +110,15 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
             assert(parent.object <> null)
             let childObj = child.object
             let childIsNull = childObj = null
+            let childType = childLoc.Type
             if childIsNull && update then
+                assert(not childType.IsValueType || TypeUtils.isNullable childType)
                 let exists, childDict = children.TryGetValue parent
-                if exists then
-                    for KeyValue(childLoc, _) in childDict do
-                        if childLoc.Includes childLoc then
-                            childDict.Remove childLoc |> ignore
+                if exists then childDict.Remove childLoc |> ignore
             elif not childIsNull then
-                let t = childLoc.Type
-                if t.IsValueType then
+                if childType.IsValueType then
                     assert(childObj :? ValueType)
-                    let fields = Reflection.fieldsOf false t
+                    let fields = Reflection.fieldsOf false childType
                     for fieldId, fieldInfo in fields do
                         if Reflection.isReferenceOrContainsReferences fieldId.typ then
                             let child = { object = fieldInfo.GetValue childObj }
@@ -531,6 +517,13 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
         let removed = virtToPhys.Remove address
         assert removed
         x.RemoveFromFullyConcretesRec phys
+        x.MarkSymbolic phys
+
+    member private x.MarkSymbolic phys =
+        let exists, parentDict = parents.TryGetValue phys
+        if exists then
+            for KeyValue(parent, childKind) in parentDict do
+                children[parent][childKind] <- Symbolic
 
     member private x.RemoveFromFullyConcretesRec phys =
         let removed = HashSet<physicalAddress>()
@@ -543,6 +536,5 @@ type public ConcreteMemory private (physToVirt, virtToPhys, children, parents, c
                 fullyConcretes.Remove child |> ignore
                 let exists, parentDict = parents.TryGetValue child
                 if exists then
-                    for KeyValue(parent, childKind) in parentDict do
-                        children[parent][childKind] <- Symbolic
+                    for KeyValue(parent, _) in parentDict do
                         queue.Enqueue parent

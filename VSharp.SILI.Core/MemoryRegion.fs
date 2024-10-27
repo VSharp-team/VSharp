@@ -251,29 +251,37 @@ type heapArrayKey =
                 let address' = mapTerm address
                 let lowerBounds' = List.map mapTerm lowerBounds
                 let upperBounds' = List.map mapTerm upperBounds
-                let y = if lowerBounds' = upperBounds' then OneArrayIndexKey(address', lowerBounds')
-                        else RangeArrayIndexKey(address', lowerBounds', upperBounds')
-                reg', y
+                let key =
+                    if lowerBounds' = upperBounds' then OneArrayIndexKey(address', lowerBounds')
+                    else RangeArrayIndexKey(address', lowerBounds', upperBounds')
+                reg', key
         override x.IsUnion = isUnion x.Address
         override x.Unguard =
             match x with
             | OneArrayIndexKey(address, indices) ->
-                (address::indices, [True(), []]) ||> List.foldBack (fun index accTerms ->
+                let unGuard index accTerms =
                     list {
                         let! gt, terms = accTerms
                         let! gi, i = Merging.unguardGvs index
                         return (gi &&& gt, i::terms)
-                    })
-                |> List.map (fun (g, address::indices) -> (g, OneArrayIndexKey(address, indices)))
+                    }
+                let createKey (g, addressWithIndices) =
+                    match addressWithIndices with
+                    | address::indices -> g, OneArrayIndexKey(address, indices)
+                    | _ -> __unreachable__()
+                List.foldBack unGuard (address::indices) [True(), List.empty]
+                |> List.map createKey
                // TODO: if indices are unions of concrete values, then unguard them as well
             | RangeArrayIndexKey(address, lowerBounds, upperBounds) ->
-                let boundsPairs = (lowerBounds, upperBounds, [True(), [], []]) |||> List.foldBack2 (fun lb ub acc ->
+                let unGuard lb ub acc =
                     list {
                         let! g, accLbs, accUbs = acc
                         let! gl, l = Merging.unguardGvs lb
                         let! gu, u = Merging.unguardGvs ub
                         return (g &&& gl &&& gu, l::accLbs, u::accUbs)
-                    })
+                    }
+                let initialState = List.singleton (True(), List.empty, List.empty)
+                let boundsPairs = List.foldBack2 unGuard lowerBounds upperBounds initialState
                 let addresses = Merging.unguardGvs address
                 list {
                     let! gAddr, addr = addresses
@@ -420,7 +428,7 @@ type stackBufferIndexKey =
         override x.Map mapTerm _ _ reg =
             reg, {index = mapTerm x.index}
         override x.IsUnion =
-            match x.index.term with
+            match x.index.term with // TODO: #Roma
             | Ite {branches = branches; elseValue = e} -> List.forall (fst >> isConcrete) branches
             | _ -> false
         override x.Unguard =
@@ -631,14 +639,13 @@ module private UpdateTree =
                     PersistentDict.append modifiedTree disjoint |> Node
             List.foldBack writeOneKey disjointUnguardedKey tree
 
- 
-    let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue (tree : updateTree<'key, 'value, 'reg>) predicate =
+    let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue (tree : updateTree<'key, term, 'reg>) predicate =
         let mapper reg {key=k; value=v; guard = g; time = t} =
             let reg', k' = mapKey reg k
             let g' = Option.map mapValue g
             match g' with
             | Some g when g = False() -> None
-            | _ -> Some(reg', k'.Region, {key=k'; value=mapValue v; guard=g'; time=t})
+            | _ -> Some(reg', k'.Region, {key = k'; value = mapValue v; guard = g'; time = t})
         let splitWrite reg key tree = write reg key tree predicate
         RegionTree.choose mapper tree splitWrite
 
@@ -710,6 +717,7 @@ module MemoryRegion =
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
+
     let read mr key isDefault instantiate specializedReading =
         let makeSymbolic tree = instantiate mr.typ {mr with updates = tree}
         let makeDefault () =

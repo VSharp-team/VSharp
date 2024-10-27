@@ -16,8 +16,8 @@ type IMethod =
     abstract ReturnType : Type
     abstract DeclaringType : Type
     abstract ReflectedType : Type
-    abstract Parameters : Reflection.ParameterInfo[]
-    abstract LocalVariables : IList<Reflection.LocalVariableInfo>
+    abstract Parameters : ParameterInfo[]
+    abstract LocalVariables : IList<LocalVariableInfo>
     abstract HasThis : bool
     abstract HasParameterOnStack : bool
     abstract IsConstructor : bool
@@ -29,13 +29,13 @@ type IMethod =
     abstract ResolveOverrideInType : Type -> IMethod
     abstract CanBeOverriddenInType : Type -> bool
     abstract IsImplementedInType : Type -> bool
-    abstract MethodBase : System.Reflection.MethodBase
+    abstract MethodBase : MethodBase
 
 [<CustomEquality;CustomComparison>]
 type stackKey =
     | ThisKey of IMethod
-    | ParameterKey of Reflection.ParameterInfo
-    | LocalVariableKey of Reflection.LocalVariableInfo * IMethod
+    | ParameterKey of ParameterInfo
+    | LocalVariableKey of LocalVariableInfo * IMethod
     | TemporaryLocalVariableKey of Type * int
     override x.ToString() =
         match x with
@@ -125,7 +125,7 @@ type termNode =
     | Ref of address
     // NOTE: use ptr only in case of reinterpretation: changed sight type or address arithmetic, otherwise use ref instead
     | Ptr of pointerBase * Type * term // base address * sight type * offset (in bytes)
-    | Slice of term * list<term * term * term> // what term to slice * list of slices (start byte * end byte * position inside combine)
+    | Slice of term * list<term * term * term * bool> // what term to slice * list of slices (start byte * end byte * position inside combine * is write)
     | Ite of iteType
 
     override x.ToString() =
@@ -204,7 +204,7 @@ type termNode =
             | Ptr(StaticLocation t, typ, shift) ->
                 $"(StaticsPtr {t} as {typ}, offset = {shift})" |> k
             | Slice(term, slices) ->
-                let slices = List.map (fun (s, e, _) -> $"[{s} .. {e}]") slices |> join ", "
+                let slices = List.map (fun (s, e, _, _) -> $"[{s} .. {e}]") slices |> join ", "
                 $"Slice({term}, {slices})" |> k
 
         and fieldsToString indent fields =
@@ -310,7 +310,7 @@ and
 
 and delegateInfo =
     {
-        methodInfo : System.Reflection.MethodInfo
+        methodInfo : MethodInfo
         target : term
         delegateType : Type
     }
@@ -371,7 +371,7 @@ module internal Terms =
 
     let makeNullPtr typ =
         Ptr (HeapLocation(zeroAddress(), typ)) typ (makeNumber 0)
-        
+
     let True() =
         Concrete (box true) typeof<bool>
     let IteAsGvs iteType = iteType.branches @ [(True(), iteType.elseValue)]
@@ -434,8 +434,8 @@ module internal Terms =
         | Struct(fields, _) -> fields
         | term -> internalfail $"struct or class expected, {term} received"
 
-    let private typeOfIte (getType : 'a -> Type) (iteType : iteType) =
-        let types = iteType.mapValues getType 
+    let private typeOfIte (getType : term -> Type) (iteType : iteType) =
+        let types = iteType.mapValues getType
         match types with
         | {branches = []; elseValue = _} -> __unreachable__()
         | {branches = branches; elseValue = elset} ->
@@ -443,7 +443,7 @@ module internal Terms =
                 List.forall (snd >> (=) elset) branches
             if allSame then elset
             else
-                branches |> List.fold (fun acc (g, t) -> if t.IsAssignableTo acc then acc else t) elset
+                branches |> List.fold (fun acc (_, t) -> if t.IsAssignableTo acc then acc else t) elset
 
     let commonTypeOf getType term =
         match term.term with
@@ -536,7 +536,7 @@ module internal Terms =
     let castConcrete (concrete : obj) (t : Type) =
         let actualType = getTypeOfConcrete concrete
         let functionIsCastedToMethodPointer () =
-            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
+            typedefof<MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
         if actualType = t then
             Concrete concrete t
         elif actualType = typeof<int> && t = typeof<IntPtr> then
@@ -910,7 +910,7 @@ module internal Terms =
         let mutable solidPartSize = 0
         for slice in sliceTerms do
             match slice.term with
-            | Slice(term, [{term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)}]) ->
+            | Slice(term, [{term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)}, _]) ->
                 let o = slicingTerm term
                 let sliceBytes = concreteToBytes o
                 let sliceLength = Array.length sliceBytes
@@ -945,7 +945,7 @@ module internal Terms =
     and private allSlicesAreConcrete slices =
         let rec sliceIsConcrete t =
             match t.term with
-            | Slice({term = Concrete _}, [({term = Concrete _}, {term = Concrete _}, {term = Concrete _})])
+            | Slice({term = Concrete _}, [{term = Concrete _}, {term = Concrete _}, {term = Concrete _}, _])
             | Concrete _ -> true
             | Combined(slices, _) -> allSlicesAreConcrete slices
             | _ -> false
@@ -963,10 +963,11 @@ module internal Terms =
         let mutable left = 0
         let mutable right = termSize
         let mutable position = 0
+        let mutable resultIsWrite = false
         let mutable isValid = true
         let narrowed () =
             left > 0 || right < termSize || position <> 0
-        let narrow (l, r, p as current) _ =
+        let narrow (l, r, p, isWrite as current) _ =
             let wereConcrete = List.isEmpty cuts
             match l.term, r.term, p.term with
             // TODO: need to simplify after symbolic elements?
@@ -980,7 +981,8 @@ module internal Terms =
                 let sliceRight = min (r - position) right
                 let sliceSize = sliceRight - sliceLeft
                 right <- min (left + sliceSize) right
-                position <- max p 0
+                position <- if isWrite then max p position else max (position + p) 0
+                resultIsWrite <- isWrite
                 if right - left > 0 then
                     assert(left >= 0 && left < termSize)
                     assert(right > 0 && right <= termSize)
@@ -989,7 +991,7 @@ module internal Terms =
                     isValid <- false
             // Case, when concrete cut is not whole term
             | _ when wereConcrete && narrowed() ->
-                let cut = (makeNumber left, makeNumber right, makeNumber position)
+                let cut = (makeNumber left, makeNumber right, makeNumber position, resultIsWrite)
                 cuts <- current :: List.singleton cut
             | _ ->
                 cuts <- current :: cuts
@@ -997,7 +999,7 @@ module internal Terms =
         match cuts with
         | _ when not isValid -> Slice term List.empty
         | [] when narrowed() ->
-            let cut = (makeNumber left, makeNumber right, makeNumber position)
+            let cut = (makeNumber left, makeNumber right, makeNumber position, resultIsWrite)
             Slice term (List.singleton cut)
         | [] ->
             assert(left = 0 && right = termSize && position = 0)
@@ -1030,7 +1032,7 @@ module internal Terms =
             valueTypeToTerm obj t
         | [{term = Slice(p, cuts)}] ->
             match cuts with
-            | [({term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)})] ->
+            | [{term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)}, _] ->
                 let s = convert s typeof<int> :?> int
                 let e = convert e typeof<int> :?> int
                 let pos = convert pos typeof<int> :?> int
@@ -1075,7 +1077,7 @@ module internal Terms =
             foldList folder gs state (fun state ->
             foldList folder vs state k)
         | Slice(t, slices) ->
-            let foldSlice state (s, e, pos) k =
+            let foldSlice state (s, e, pos, _) k =
                 doFold folder state s (fun state ->
                 doFold folder state e (fun state ->
                 doFold folder state pos k))
@@ -1132,7 +1134,7 @@ module internal Terms =
 
     and private foldFields isStatic folder acc typ =
         let fields = Reflection.fieldsOf isStatic typ
-        let addField heap (fieldId, fieldInfo : Reflection.FieldInfo) =
+        let addField heap (fieldId, fieldInfo : FieldInfo) =
             folder heap fieldInfo fieldId fieldInfo.FieldType
         FSharp.Collections.Array.fold addField acc fields
 

@@ -47,11 +47,9 @@ module internal String =
             (length >>= zero)
             &&& (startIndex >>= zero)
         let copy (cilState : cilState) k =
-            let cilStates = cilState.WriteClassField this Reflection.stringLengthField length
+            cilState.WriteClassField this Reflection.stringLengthField length
             let bytesCount = Mul length (MakeNumber sizeof<char>)
-            let memMove cilState =
-                Buffer.CommonMemmove cilState this None ptr (Some startIndex) bytesCount
-            List.collect memMove cilStates |> k
+            Buffer.CommonMemmove cilState this None ptr (Some startIndex) bytesCount |> k
         let checkPtr (cilState : cilState) k =
             cilState.StatedConditionalExecutionCIL
                 (fun state k -> k (!!(IsBadRef ptr), state))
@@ -59,7 +57,8 @@ module internal String =
                 (i.Raise i.ArgumentOutOfRangeException)
                 k
         let emptyStringCase (cilState : cilState) k =
-            cilState.WriteClassField this Reflection.stringLengthField zero |> k
+            cilState.WriteClassField this Reflection.stringLengthField zero
+            List.singleton cilState |> k
         let checkLength (cilState : cilState) k =
             cilState.StatedConditionalExecutionCIL
                 (fun state k -> k (length === zero, state))

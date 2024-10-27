@@ -33,7 +33,8 @@ module Thread =
         assert(List.length args = 2)
         let obj, resultRef = args[0], args[1]
         let success (cilState : cilState) k =
-            cilState.Write resultRef (True()) |> k
+            cilState.Write resultRef (True())
+            List.singleton cilState |> k
         cilState.BranchOnNullCIL obj
             (interpreter.Raise interpreter.ArgumentNullException)
             success

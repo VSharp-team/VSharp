@@ -325,7 +325,7 @@ module internal Memory =
 
     let writeStruct structTerm field value = commonWriteStruct None structTerm field value
     let guardedWriteStruct guard structTerm field value = commonWriteStruct guard structTerm field value
-    
+
     let isSafeContextWrite actualType neededType =
         assert(neededType <> typeof<Void>)
         neededType = actualType
@@ -972,44 +972,32 @@ module internal Memory =
                 if isAlive then List.singleton address
                 else List.empty
 
-        member private self.SliceTerm term startByte endByte pos stablePos =
-            match term.term with
-            | Slice(term, cuts) when stablePos ->
-                assert(List.isEmpty cuts |> not)
-                let _, _, p = List.head cuts
-                createSlice term ((startByte, endByte, p) :: cuts)
-            | Slice(term, cuts) ->
-                assert(List.isEmpty cuts |> not)
-                let _, _, p = List.head cuts
-                createSlice term ((startByte, endByte, add pos p) :: cuts)
-            | _ -> createSlice term (List.singleton (startByte, endByte, pos))
-
         // NOTE: returns list of slices
         // TODO: return empty if every slice is invalid
-        member private self.CommonReadTermUnsafe (reporter : IErrorReporter) term startByte endByte pos stablePos sightType =
+        member private self.CommonReadTermUnsafe (reporter : IErrorReporter) term startByte endByte pos isWrite sightType =
             match term.term, sightType with
-            | Slice _, _ ->
-                self.SliceTerm term startByte endByte pos stablePos |> List.singleton
+            | Slice(term, cuts), _ ->
+                createSlice term ((startByte, endByte, pos, isWrite) :: cuts) |> List.singleton
             | _, Some sightType when
                 startByte = makeNumber 0 &&
                 let typ = typeOf term
                 let size = internalSizeOf typ
                 endByte = makeNumber size && typ = sightType ->
                     List.singleton term
-            | Struct(fields, t), _ -> self.CommonReadStructUnsafe reporter fields t startByte endByte pos stablePos sightType
+            | Struct(fields, t), _ -> self.CommonReadStructUnsafe reporter fields t startByte endByte pos isWrite sightType
             | HeapRef _, _
             | Ref _, _
             | Ptr _, _ -> self.ReadAddressUnsafe reporter term startByte endByte
-            | Combined([t], _), _ -> self.CommonReadTermUnsafe reporter t startByte endByte pos stablePos sightType
+            | Combined([t], _), _ -> self.CommonReadTermUnsafe reporter t startByte endByte pos isWrite sightType
             | Combined(slices, _), _ ->
-                let readSlice part = self.CommonReadTermUnsafe reporter part startByte endByte pos stablePos sightType
+                let readSlice part = self.CommonReadTermUnsafe reporter part startByte endByte pos isWrite sightType
                 List.collect readSlice slices
             | Concrete _, _
             | Constant _, _
             | Expression _, _ ->
-                self.SliceTerm term startByte endByte pos stablePos |> List.singleton
+                createSlice term (List.singleton (startByte, endByte, pos, isWrite)) |> List.singleton
             | Ite iteType, _ ->
-                let mapper term = self.CommonReadTermUnsafe reporter term startByte endByte pos stablePos sightType
+                let mapper term = self.CommonReadTermUnsafe reporter term startByte endByte pos isWrite sightType
                 let mappedIte = iteType.mapValues mapper
                 assert(List.forall (fun (_, list) -> List.length list = 1) mappedIte.branches && List.length mappedIte.elseValue = 1)
                 mappedIte.mapValues List.head |> Merging.merge |> List.singleton
@@ -1021,9 +1009,9 @@ module internal Memory =
         member private self.ReadTermPartUnsafe reporter term startByte endByte sightType =
             self.CommonReadTermUnsafe reporter term startByte endByte startByte true sightType
 
-        member private self.CommonReadStructUnsafe reporter fields structType startByte endByte pos stablePos sightType =
+        member private self.CommonReadStructUnsafe reporter fields structType startByte endByte pos isWrite sightType =
             let readField fieldId = fields[fieldId]
-            self.CommonReadFieldsUnsafe reporter readField false structType startByte endByte pos stablePos sightType
+            self.CommonReadFieldsUnsafe reporter readField false structType startByte endByte pos isWrite sightType
 
         member private self.ReadStructUnsafe reporter fields structType startByte endByte sightType =
             self.CommonReadStructUnsafe reporter fields structType startByte endByte (neg startByte) false sightType
@@ -1069,10 +1057,10 @@ module internal Memory =
                 | _ -> List.map getField allFields
             else List.empty
 
-        member private self.CommonReadFieldsUnsafe reporter readField isStatic (blockType : Type) startByte endByte pos stablePos sightType =
+        member private self.CommonReadFieldsUnsafe reporter readField isStatic (blockType : Type) startByte endByte pos isWrite sightType =
             let affectedFields = self.GetAffectedFields reporter readField isStatic blockType startByte endByte
             let readField (_, o, v, s, e) =
-                self.CommonReadTermUnsafe reporter v s e (add pos o) stablePos sightType
+                self.CommonReadTermUnsafe reporter v s e (add pos o) isWrite sightType
             List.collect readField affectedFields
 
         member private self.ReadFieldsUnsafe reporter readField isStatic (blockType : Type) startByte endByte sightType =
