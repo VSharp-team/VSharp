@@ -1089,7 +1089,12 @@ module internal Memory =
                     match elementOffset.term with
                     | Concrete(:? int as i, _) when (i + viewSize) % concreteElementSize = 0 -> (i + viewSize) / concreteElementSize
                     // NOTE: if offset inside element > 0 then one more element is needed
-                    | _ -> (viewSize / concreteElementSize) + 1
+                    | _ ->
+                        let count = (viewSize / concreteElementSize) + 1
+                        // it is possible that two elements are affected, so we add 1, otherwise reading result will be
+                        // an empty slice
+                        if viewSize % concreteElementSize >= 2 then count + 1
+                        else count
                 let getElement currentOffset i =
                     let linearIndex = makeNumber i |> add firstElement
                     let indices = delinearizeArrayIndex linearIndex lens lbs
