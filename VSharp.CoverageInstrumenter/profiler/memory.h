@@ -22,6 +22,7 @@ namespace vsharp {
 
 #define OFFSET UINT32
 extern std::atomic<int> shutdownBlockingRequestsCount;
+extern std::atomic_bool shutdownInOrder;
 }
 
 #endif // MEMORY_H_

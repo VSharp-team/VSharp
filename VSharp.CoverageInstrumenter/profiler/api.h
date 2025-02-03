@@ -12,5 +12,8 @@
 extern "C" IMAGEHANDLER_API void SetEntryMain(char* assemblyName, int assemblyNameLength, char* moduleName, int moduleNameLength, int methodToken);
 extern "C" IMAGEHANDLER_API void GetHistory(UINT_PTR size, UINT_PTR bytes);
 extern "C" IMAGEHANDLER_API void SetCurrentThreadId(int mapId);
+extern "C" IMAGEHANDLER_API void ClearHistory();
+
+static char* historyBuffer = nullptr;
 
 #endif //VSHARP_COVERAGEINSTRUMENTER_API_H

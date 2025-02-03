@@ -53,9 +53,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
     // TMP Windows fix
     #undef IfFailRet
-    #define IfFailRet(EXPR) do { HRESULT hr = (EXPR); if(FAILED(hr)) { return (hr); } } while (0)
+    #define IfFailRet(EXPR) do { if (std::atomic_load(&shutdownInOrder)) return S_OK; HRESULT hr = (EXPR); if(FAILED(hr)) { return (hr); } } while (0)
     IfFailRet(this->corProfilerInfo->SetEventMask(eventMask));
-
 
     profilerState = new ProfilerState((ICorProfilerInfo8*)this);
 
@@ -65,26 +64,29 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
 {
-    profilerState->isFinished = true;
+    std::atomic_store(&shutdownInOrder, true);
 
     // waiting until all current requests are resolved
     while (std::atomic_load(&shutdownBlockingRequestsCount) > 0) {}
 
     LOG(tout << "SHUTDOWN");
     if (profilerState->isPassiveRun) {
-
         size_t tmpSize;
-        auto tmpBytes = profilerState->coverageTracker->serializeCoverageReport(&tmpSize);;
+        auto tmpBytes = profilerState->coverageTracker->serializeCoverageReport(&tmpSize);
 
         std::ofstream fout;
         fout.open(profilerState->passiveResultPath, std::ios::out|std::ios::binary);
         fout.write(tmpBytes, static_cast<long>(tmpSize));
         fout.close();
+
+        delete tmpBytes;
     }
 
 #ifdef _LOGGING
     close_log();
 #endif
+
+    delete profilerState;
 
     if (this->corProfilerInfo != nullptr)
     {
@@ -215,13 +217,14 @@ HRESULT STDMETHODCALLTYPE CorProfiler::FunctionUnloadStarted(FunctionID function
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock)
 {
     // the process was finished, ignoring all firther requests
-    if (profilerState->isFinished) return S_OK;
+    if (std::atomic_load(&shutdownInOrder)) return S_OK;
 
     std::atomic_fetch_add(&shutdownBlockingRequestsCount, 1);
 
     UNUSED(fIsSafeToBlock);
     auto instrument = new Instrumenter(*corProfilerInfo);
-    HRESULT hr = instrument->instrument(functionId);
+    auto methodName = GetFunctionName(functionId);
+    HRESULT hr = instrument->instrument(functionId, methodName);
     delete instrument;
 
     std::atomic_fetch_sub(&shutdownBlockingRequestsCount, 1);
@@ -421,6 +424,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::RootReferences(ULONG cRootRefs, ObjectID 
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionThrown(ObjectID thrownObjectId)
 {
+    if (std::atomic_load(&shutdownInOrder)) return S_OK;
     auto exceptionName = GetObjectTypeName(thrownObjectId);
     LOG(
         if(profilerState->threadTracker->hasMapping()) {
@@ -454,7 +458,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionLeave()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterEnter(FunctionID functionId)
 {
-    if (profilerState->isFinished || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
+    if (std::atomic_load(&shutdownInOrder) || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
     LOG(tout << "EXCEPTION Search filter enter");
     profilerState->threadTracker->filterEnter();
     UNUSED(functionId);
@@ -463,7 +467,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterEnter(FunctionID fun
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterLeave()
 {
-    if (profilerState->isFinished || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
+    if (std::atomic_load(&shutdownInOrder) || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
     LOG(tout << "EXCEPTION Search filter leave");
     profilerState->threadTracker->filterLeave();
     return S_OK;
@@ -502,7 +506,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionLeave()
 {
     LOG(tout << "EXCEPTION UNWIND FUNCTION LEAVE");
     // the process was finished, ignoring all further requests
-    if (profilerState->isFinished || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
+    if (std::atomic_load(&shutdownInOrder)
+        || !profilerState->threadTracker->isCurrentThreadTracked()) return S_OK;
     profilerState->threadTracker->unwindFunctionLeave();
     return S_OK;
 }
@@ -719,6 +724,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::DynamicMethodJITCompilationFinished(Funct
 }
 
 std::string CorProfiler::GetObjectTypeName(ObjectID objectId) {
+    if (std::atomic_load(&shutdownInOrder)) return "";
     ClassID classId;
     corProfilerInfo->GetClassFromObject(objectId, &classId);
 
@@ -739,6 +745,7 @@ std::string CorProfiler::GetObjectTypeName(ObjectID objectId) {
 }
 
 std::string CorProfiler::GetFunctionName(FunctionID functionId) {
+    if (std::atomic_load(&shutdownInOrder)) return "";
     ClassID classId;
     ModuleID moduleId;
     mdToken token;

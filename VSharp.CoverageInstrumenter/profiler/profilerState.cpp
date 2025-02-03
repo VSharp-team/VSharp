@@ -13,31 +13,58 @@ void ConvertToWCHAR(const char *str, std::u16string &result) {
     result = conv16.from_bytes(str);
 }
 
+bool IsEnvVarEnabled(const char *name) {
+    auto value = std::getenv(name);
+    return value != nullptr && value[0] == '1';
+}
+
+char *RetrieveEnvVarOrFail(const char *name) {
+    auto str = std::getenv(name);
+    profiler_assert(str);
+    return str;
+}
+
 bool ProfilerState::isCorrectFunctionId(FunctionID id) {
     return incorrectFunctionId != id;
 }
 
 ProfilerState::ProfilerState(ICorProfilerInfo8 *corProfilerInfo) {
-    const char* isPassive = std::getenv("COVERAGE_TOOL_ENABLE_PASSIVE");
+    isPassiveRun = IsEnvVarEnabled("COVERAGE_TOOL_ENABLE_PASSIVE");
+    isTestExpected = IsEnvVarEnabled("COVERAGE_TOOL_EXPECT_TEST_SUITE");
+    collectMainOnly = IsEnvVarEnabled("COVERAGE_TOOL_INSTRUMENT_MAIN_ONLY");
+
+    // mainMethod is not yet specified
+    mainMethodInfo.moduleName = nullptr;
+    mainMethodInfo.assemblyName = nullptr;
+
+    std::atomic_store(&shutdownInOrder, false);
 
 #ifdef _LOGGING
-    const char* name = isPassive == nullptr ? "lastrun.log" : "lastcoverage.log";
+    static const char *name = isPassiveRun ? "lastrun.log" : "lastcoverage.log";
     open_log(name);
 #endif
 
     InitializeProbes();
-    if (isPassive != nullptr) {
+
+    if (isPassiveRun) {
         LOG(tout << "WORKING IN PASSIVE MODE" << std::endl);
+        passiveResultPath = RetrieveEnvVarOrFail("COVERAGE_TOOL_RESULT_NAME");
+    }
 
-        isPassiveRun = true;
-        collectMainOnly = true;
+    if (isTestExpected) {
+        ReadAssembliesFile(RetrieveEnvVarOrFail("COVERAGE_TOOL_ASSEMBLY_PATHS_FILE"), &approvedAssemblies);
+        ReadAssembliesFile(RetrieveEnvVarOrFail("COVERAGE_TOOL_MAIN_ASSEMBLY_PATHS_FILE"), &testAssemblies);
+        LOG(tout << "RECEIVED ASSEMBLIES TO INSTRUMENT" << std::endl);
+    }
+    LOG(tout << approvedAssemblies.size() << " " << testAssemblies.size() << std::endl);
 
+    if (IsEnvVarEnabled("COVERAGE_TOOL_SPECIFY_MAIN_METHOD")) {
         std::u16string assemblyNameU16;
         std::u16string moduleNameU16;
 
-        ConvertToWCHAR(std::getenv("COVERAGE_TOOL_METHOD_ASSEMBLY_NAME"), assemblyNameU16);
-        ConvertToWCHAR(std::getenv("COVERAGE_TOOL_METHOD_MODULE_NAME"), moduleNameU16);
-        int mainToken = std::stoi(std::getenv("COVERAGE_TOOL_METHOD_TOKEN"));
+        ConvertToWCHAR(RetrieveEnvVarOrFail("COVERAGE_TOOL_METHOD_ASSEMBLY_NAME"), assemblyNameU16);
+        ConvertToWCHAR(RetrieveEnvVarOrFail("COVERAGE_TOOL_METHOD_MODULE_NAME"), moduleNameU16);
+        int mainToken = std::stoi(RetrieveEnvVarOrFail("COVERAGE_TOOL_METHOD_TOKEN"));
 
         size_t mainAssemblyNameLength = assemblyNameU16.size();
         auto* mainAssemblyName = new WCHAR[mainAssemblyNameLength];
@@ -54,17 +81,36 @@ ProfilerState::ProfilerState(ICorProfilerInfo8 *corProfilerInfo) {
                 (ULONG) mainModuleNameLength,
                 mainModuleName
         };
-        passiveResultPath = std::getenv("COVERAGE_TOOL_RESULT_NAME");
-    }
-
-    if (std::getenv("COVERAGE_TOOL_INSTRUMENT_MAIN_ONLY")) {
-        collectMainOnly = true;
     }
 
     mainFunctionId = -1;
     threadInfo = new ThreadInfo(corProfilerInfo);
     threadTracker = new ThreadTracker(threadInfo);
     coverageTracker = new CoverageTracker(threadTracker, threadInfo, collectMainOnly);
+}
+
+ProfilerState::~ProfilerState() {
+    delete threadInfo;
+    delete threadTracker;
+    delete coverageTracker;
+    DestroyProbes();
+}
+
+void vsharp::ProfilerState::ReadAssembliesFile(const char *path, std::vector<std::string> *assemblyList)
+{
+    std::ifstream assembliesFile;
+
+    assembliesFile.open(path, std::ios_base::in);
+    std::string assembly;
+    profiler_assert(assembliesFile.good());
+
+    while (getline(assembliesFile, assembly)) {
+        assemblyList->push_back(assembly);
+        LOG(tout << assembly << std::endl);
+    }
+
+    assembliesFile.close();
+    LOG(tout << std::endl);
 }
 
 void vsharp::ProfilerState::setEntryMain(char *assemblyName, int assemblyNameLength, char *moduleName, int moduleNameLength, int methodToken) {
@@ -74,6 +120,7 @@ void vsharp::ProfilerState::setEntryMain(char *assemblyName, int assemblyNameLen
     auto* wcharModuleName = new WCHAR[moduleNameLength];
     memcpy(wcharModuleName, moduleName, moduleNameLength * sizeof(WCHAR));
 
+    mainMethodInfo.Dispose(); // deleting previously allocated names
     mainMethodInfo = {
             (mdMethodDef) methodToken,
             (ULONG) assemblyNameLength,
@@ -81,4 +128,11 @@ void vsharp::ProfilerState::setEntryMain(char *assemblyName, int assemblyNameLen
             (ULONG) moduleNameLength,
             wcharModuleName
     };
+}
+
+void vsharp::ProfilerState::printMethod(std::string message, int methodId) {
+    LOG(
+        tout << message;
+        coverageTracker->printMethodDebug(methodId);
+    );
 }

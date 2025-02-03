@@ -63,5 +63,6 @@ extern CoverageProbes coverageProbes;
 
 CoverageProbes* getProbes();
 void InitializeProbes();
+void DestroyProbes();
 }
 #endif // PROBES_H_

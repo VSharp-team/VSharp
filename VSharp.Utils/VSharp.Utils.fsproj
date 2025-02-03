@@ -48,6 +48,7 @@
         <Compile Include="NumericUtils.fs" />
         <Compile Include="CoverageDeserializer.fs" />
         <Compile Include="EnvironmentUtils.fs" />
+        <Compile Include="CoverageToolInfo.fs" />
     </ItemGroup>
 
     <ItemGroup>

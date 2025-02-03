@@ -6,7 +6,7 @@ std::ofstream tout;
 std::recursive_mutex logMutex;
 
 void open_log(const char *&logName) {
-    tout.open(logName, std::ios_base::app);
+    tout.open(logName, std::ios_base::trunc);
 }
 
 void close_log() {

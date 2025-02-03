@@ -38,6 +38,7 @@ public:
     bool isPossibleStackOverflow();
 
     explicit ThreadTracker(ThreadInfo* threadInfo);
+    ~ThreadTracker();
 };
 
 }
