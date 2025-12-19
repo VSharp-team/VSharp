@@ -153,7 +153,7 @@ type StateHistoryElem =
 type State =
     val Id: uint<stateId>
     val Position: uint<byte_offset> // to basic block id
-    val PathCondition: PathConditionVertex
+    val PathCondition: uint<pathConditionVertexId> array
     val VisitedAgainVertices: uint
     val VisitedNotCoveredVerticesInZone: uint
     val VisitedNotCoveredVerticesOutOfZone: uint

@@ -495,20 +495,22 @@ let collectGameState (basicBlocks: ResizeArray<BasicBlock>) filterStates process
                 for term in pathCondition do
                     pathConditionDelta.AddRange(collectPathCondition term termsWithId processedPathConditionVertices)
 
-                let pathConditionRoot =
-                    PathConditionVertex(
-                        id = getFirstFreePathConditionVertexId (),
-                        pathConditionVertexType = pathConditionVertexType.PathConditionRoot,
-                        children = [| for p in pathCondition -> termsWithId.[p] |]
-                    )
+                // let pathConditionRoot =
+                //     PathConditionVertex(
+                //         id = getFirstFreePathConditionVertexId (),
+                //         pathConditionVertexType = pathConditionVertexType.PathConditionRoot,
+                //         children = [| for p in pathCondition -> termsWithId.[p] |]
+                //     )
 
-                pathConditionDelta.Add pathConditionRoot
+                // pathConditionDelta.Add pathConditionRoot
+
+                let children = [| for p in pathCondition -> termsWithId.[p] |]
 
                 State(
                     s.Id,
                     (uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<byte_offset>)
                     * 1u<byte_offset>,
-                    pathConditionRoot,
+                    children,
                     s.VisitedAgainVertices,
                     s.VisitedNotCoveredVerticesInZone,
                     s.VisitedNotCoveredVerticesOutOfZone,
