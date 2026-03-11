@@ -13,6 +13,7 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
+open VSharp.ML.GameServer.Messages
 open VSharp.Utils
 
 open CilState
@@ -159,6 +160,7 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
 
     member x.TrackStepForward (s : cilState) (ip : instructionPointer) (stackSize : int) =
         stepsCount <- stepsCount + 1u
+        s.stepWhenMovedLastTime <- stepsCount * 1u<step>
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.internalId}"
 
         let setCoveredIfNeeded (loc : codeLocation) =
@@ -227,6 +229,8 @@ type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage 
         let mutable hasNewCoverage = false
         let blocks = Seq.distinct blocks
         for block in blocks do
+            block.BasicBlock.IsCovered <- true
+            let added = Application.applicationGraphDelta.TouchedBasicBlocks.Add block.BasicBlock 
             let generalizedMethod = generalizeIfNeeded block.method
             let method = block.method
             let mutable isNewBlock = false

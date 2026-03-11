@@ -1,4 +1,6 @@
 using System.IO;
+using Microsoft.FSharp.Core;
+using VSharp.Explorer;
 
 namespace VSharp;
 
@@ -38,7 +40,8 @@ public enum SearchStrategy
     /// <summary>
     /// Interleaves <see cref="ShortestDistance"/> and <see cref="ContributedCoverage"/> strategies.
     /// </summary>
-    Interleaved
+    Interleaved,
+    AI
 }
 
 /// <summary>
@@ -96,6 +99,7 @@ public readonly record struct VSharpOptions
     private const bool DefaultReleaseBranches = true;
     private const int DefaultRandomSeed = -1;
     private const uint DefaultStepsLimit = 0;
+    private const string DefaultPathToModel = "models/model.onnx";
 
     public readonly int Timeout = DefaultTimeout;
     public readonly int SolverTimeout = DefaultSolverTimeout;
@@ -109,6 +113,10 @@ public readonly record struct VSharpOptions
     public readonly bool ReleaseBranches = DefaultReleaseBranches;
     public readonly int RandomSeed = DefaultRandomSeed;
     public readonly uint StepsLimit = DefaultStepsLimit;
+    public readonly AIOptions? AIOptions = null;
+    public readonly string PathToModel = DefaultPathToModel;
+    public readonly bool UseGPU = false;
+    public readonly bool Optimize = false;
 
     /// <summary>
     /// Symbolic virtual machine options.
@@ -125,6 +133,10 @@ public readonly record struct VSharpOptions
     /// <param name="releaseBranches">If true and timeout is specified, a part of allotted time in the end is given to execute remaining states without branching.</param>
     /// <param name="randomSeed">Fixed seed for random operations. Used if greater than or equal to zero.</param>
     /// <param name="stepsLimit">Number of symbolic machine steps to stop execution after. Zero value means no limit.</param>
+    /// <param name="aiOptions">Settings for AI searcher training.</param>
+    /// <param name="pathToModel">Path to ONNX file with model to use in AI searcher.</param>
+    /// <param name="useGPU">Specifies whether the ONNX execution session should use a CUDA-enabled GPU.</param>
+    /// <param name="optimize">Enabling options like parallel execution and various graph transformations to enhance performance of ONNX.</param>
     public VSharpOptions(
         int timeout = DefaultTimeout,
         int solverTimeout = DefaultSolverTimeout,
@@ -137,7 +149,11 @@ public readonly record struct VSharpOptions
         ExplorationMode explorationMode = DefaultExplorationMode,
         bool releaseBranches = DefaultReleaseBranches,
         int randomSeed = DefaultRandomSeed,
-        uint stepsLimit = DefaultStepsLimit)
+        uint stepsLimit = DefaultStepsLimit,
+        AIOptions? aiOptions = null,
+        string pathToModel = DefaultPathToModel,
+        bool useGPU = false,
+        bool optimize = false)
     {
         Timeout = timeout;
         SolverTimeout = solverTimeout;
@@ -151,6 +167,10 @@ public readonly record struct VSharpOptions
         ReleaseBranches = releaseBranches;
         RandomSeed = randomSeed;
         StepsLimit = stepsLimit;
+        AIOptions = aiOptions;
+        PathToModel = pathToModel;
+        UseGPU = useGPU;
+        Optimize = optimize;
     }
 
     /// <summary>
@@ -158,4 +178,9 @@ public readonly record struct VSharpOptions
     /// </summary>
     public DirectoryInfo RenderedTestsDirectoryInfo =>
         Directory.Exists(RenderedTestsDirectory) ? new DirectoryInfo(RenderedTestsDirectory) : null;
+
+    public string GetDefaultPathToModel()
+    {
+        return DefaultPathToModel;
+    }
 }

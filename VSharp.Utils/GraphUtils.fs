@@ -5,6 +5,12 @@ open System.Collections.Generic
 module GraphUtils =
     type graph<'a> = Dictionary<'a, HashSet<'a>>
     type distanceCache<'a> = Dictionary<'a, Dictionary<'a, uint>>
+                
+    type ICallGraphNode =
+        abstract OutgoingEdges : seq<ICallGraphNode> with get
+        
+    type IReversedCallGraphNode =
+        abstract OutgoingEdges : seq<IReversedCallGraphNode> with get
 
     type IGraphNode<'t> =
         abstract OutgoingEdges : seq<'t> with get

@@ -1,31 +1,39 @@
 name: 'Build VSharp'
 
 on:
-  workflow_call
+  [workflow_call, pull_request, push]
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '7.0.x'
+
     - name: Checkout VSharp
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: false
-    - uses: actions/cache@v3
+
+    - uses: actions/cache@v4
       id: nuget-cache
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.fsproj') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
+  
     - name: Build VSharp
       run:
-        dotnet build -c DebugTailRec
-    - uses: actions/upload-artifact@v3
+        dotnet build -c Release
+
+    - uses: actions/upload-artifact@v4
       with:
         name: runner
         path: ./VSharp.Runner/bin/DebugTailRec/net7.0
-    - uses: actions/upload-artifact@v3
+
+    - uses: actions/upload-artifact@v4
       with:
         name: test_runner
         path: ./VSharp.TestRunner/bin/DebugTailRec/net7.0

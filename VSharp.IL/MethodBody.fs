@@ -389,10 +389,10 @@ module MethodBody =
 
     let private operandType2operandSize =
         [|
-            4<offsets>; 4<offsets>; 4<offsets>; 8<offsets>; 4<offsets>
-            0<offsets>; -1<offsets>; 8<offsets>; 4<offsets>; 4<offsets>
-            4<offsets>; 4<offsets>; 4<offsets>; 4<offsets>; 2<offsets>
-            1<offsets>; 1<offsets>; 4<offsets>; 1<offsets>
+            4<byte_offset>; 4<byte_offset>; 4<byte_offset>; 8<byte_offset>; 4<byte_offset>
+            0<byte_offset>; -1<byte_offset>; 8<byte_offset>; 4<byte_offset>; 4<byte_offset>
+            4<byte_offset>; 4<byte_offset>; 4<byte_offset>; 4<byte_offset>; 2<byte_offset>
+            1<byte_offset>; 1<byte_offset>; 4<byte_offset>; 1<byte_offset>
         |]
 
     let private jumpTargetsForNext (opCode : OpCode) _ (pos : offset) =
@@ -420,9 +420,9 @@ module MethodBody =
     let private inlineSwitch (opCode : OpCode) ilBytes (pos : offset) =
         let opcodeSize = Offset.from opCode.Size
         let n = NumberCreator.extractUnsignedInt32 ilBytes (pos + opcodeSize) |> int
-        let nextInstruction = pos + opcodeSize + 4<offsets> * n + 4<offsets>
+        let nextInstruction = pos + opcodeSize + 4<byte_offset> * n + 4<byte_offset>
         let nextOffsets =
-            List.init n (fun x -> nextInstruction + Offset.from (NumberCreator.extractInt32 ilBytes (pos + opcodeSize + 4<offsets> * (x + 1))))
+            List.init n (fun x -> nextInstruction + Offset.from (NumberCreator.extractInt32 ilBytes (pos + opcodeSize + 4<byte_offset> * (x + 1))))
         ConditionalBranch(nextInstruction, nextOffsets)
 
     let private jumpTargetsForReturn _ _ _ = Return

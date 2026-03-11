@@ -35,7 +35,7 @@ internal static class Benchmarks
         return process.IsSuccess();
     }
 
-    private class Reporter: IReporter
+    private class Reporter : IReporter
     {
         private readonly UnitTests _unitTests;
 
@@ -92,7 +92,11 @@ internal static class Benchmarks
             checkAttributes: false,
             stopOnCoverageAchieved: -1,
             randomSeed: randomSeed,
-            stepsLimit: stepsLimit
+            stepsLimit: stepsLimit,
+            aiOptions: null,
+            pathToModel: null,
+            useGPU: false,
+            optimize: false
         );
 
         var fuzzerOptions = new FuzzerOptions(
@@ -111,7 +115,7 @@ internal static class Benchmarks
         using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
 
         explorer.StartExploration(
-            new[] {exploredMethodInfo},
+            new[] { exploredMethodInfo },
             global::System.Array.Empty<Tuple<MethodBase, EntryPointConfiguration>>()
         );
 

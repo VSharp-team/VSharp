@@ -13,7 +13,9 @@ type InsufficientInformationException(msg : string) =
 
 [<AutoOpen>]
 module public Prelude =
-
+    
+    type [<Measure>] byte_offset
+    
     let public internalfail message = raise (InternalException message)
     let public internalfailf format = Printf.ksprintf internalfail format
     let undefinedBehaviour reason = internalfail $"Undefined behaviour: %s{reason}"

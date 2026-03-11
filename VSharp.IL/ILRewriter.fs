@@ -817,7 +817,7 @@ module internal ILRewriter =
             offsetToInstr[codeSize] <- il
 
             let mutable branch = false
-            let mutable offset = 0<offsets>
+            let mutable offset = 0<byte_offset>
             let codeSize : offset = Offset.from codeSize
             while offset < codeSize do
                 let startOffset = offset
@@ -827,11 +827,11 @@ module internal ILRewriter =
                 let size =
                     match op.OperandType with
                     | OperandType.InlineNone
-                    | OperandType.InlineSwitch -> 0<offsets>
+                    | OperandType.InlineSwitch -> 0<byte_offset>
                     | OperandType.ShortInlineVar
                     | OperandType.ShortInlineI
-                    | OperandType.ShortInlineBrTarget -> 1<offsets>
-                    | OperandType.InlineVar -> 2<offsets>
+                    | OperandType.ShortInlineBrTarget -> 1<byte_offset>
+                    | OperandType.InlineVar -> 2<byte_offset>
                     | OperandType.InlineI
                     | OperandType.InlineMethod
                     | OperandType.InlineType
@@ -840,9 +840,9 @@ module internal ILRewriter =
                     | OperandType.InlineTok
                     | OperandType.ShortInlineR
                     | OperandType.InlineField
-                    | OperandType.InlineBrTarget -> 4<offsets>
+                    | OperandType.InlineBrTarget -> 4<byte_offset>
                     | OperandType.InlineI8
-                    | OperandType.InlineR -> 8<offsets>
+                    | OperandType.InlineR -> 8<byte_offset>
                     | _ -> __unreachable__()
 
                 if offset + size > codeSize then invalidProgram "IL stream unexpectedly ended!"

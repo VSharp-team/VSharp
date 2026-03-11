@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <OutputType>Exe</OutputType>
         <RootNamespace>VSharp.Runner</RootNamespace>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
@@ -21,6 +21,7 @@
     <ItemGroup>
       <ProjectReference Include="..\VSharp.API\VSharp.API.csproj" />
       <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj" />
+      <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
       <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
     </ItemGroup>
 

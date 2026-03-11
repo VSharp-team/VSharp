@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
@@ -20,15 +20,18 @@
       <Compile Include="MethodBody.fs" />
       <Compile Include="CFG.fs" />
       <Compile Include="DotVisualizer.fs" />
+      <Compile Include="Serializer.fs" />
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\VSharp.ML.GameServer\VSharp.ML.GameServer.fsproj" />
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
       <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Update="FSharp.Core" Version="7.0.*" />
+      <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
+      <PackageReference Update="FSharp.Core" Version="8.0.*" />
     </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -27,7 +27,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="7.0.*" />
+        <PackageReference Update="FSharp.Core" Version="8.0.*" />
         <PackageReference Include="VSTeam.Z3" Version="4.11.2-alpha" />
     </ItemGroup>
 

@@ -14,7 +14,7 @@ namespace VSharp.Runner
     public static class RunnerProgram
     {
 
-        private static Assembly? TryLoadAssembly(FileInfo assemblyPath)
+        public static Assembly? TryLoadAssembly(FileInfo assemblyPath)
         {
             try
             {
@@ -26,6 +26,93 @@ namespace VSharp.Runner
                 Console.Error.WriteLine(ex.StackTrace);
                 return null;
             }
+        }
+
+        public static Type? ResolveType(Assembly assembly, string? classArgumentValue)
+        {
+            if (classArgumentValue == null)
+            {
+                Console.Error.WriteLine("Specified class can not be null");
+                return null;
+            }
+
+            var specificClass =
+                assembly.GetType(classArgumentValue) ??
+                assembly.GetTypes()
+                    .Where(t => (t.FullName ?? t.Name).Contains(classArgumentValue))
+                    .MinBy(t => t.FullName?.Length ?? t.Name.Length);
+            if (specificClass == null)
+            {
+                Console.Error.WriteLine("I did not found type you specified {0} in assembly {1}", classArgumentValue,
+                    assembly.Location);
+                return null;
+            }
+
+            return specificClass;
+        }
+
+        public static MethodBase? ResolveMethod(Assembly assembly, string? methodArgumentValue)
+        {
+            if (methodArgumentValue == null)
+            {
+                Console.Error.WriteLine("Specified method can not be null");
+                return null;
+            }
+
+            MethodBase? method = null;
+            if (Int32.TryParse(methodArgumentValue, out var metadataToken))
+            {
+                foreach (var module in assembly.GetModules())
+                {
+                    try
+                    {
+                        method = module.ResolveMethod(metadataToken);
+                        if (method != null) break;
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                }
+
+                if (method == null)
+                {
+                    Console.Error.WriteLine("I did not found method you specified by token {0} in assembly {1}",
+                        metadataToken, assembly.Location);
+                    return null;
+                }
+            }
+            else
+            {
+                foreach (var type in assembly.GetTypes())
+                {
+                    try
+                    {
+                        var t = methodArgumentValue.Split('.');
+                        var className = t.Length == 1 ? "" : t[t.Length - 2];
+                        var methodName = t.Last();
+                        var x = type.GetMethods(Reflection.allBindingFlags);
+                        method ??= x
+                            .Where(m => type.FullName.Split('.').Last().Contains(className) && m.Name.Contains(methodName))
+                            .MinBy(m => m.Name.Length);
+                        if (method != null)
+                            break;
+                    }
+                    catch (Exception)
+                    {
+                        // ignored
+                    }
+                }
+
+                if (method == null)
+                {
+                    Console.Error.WriteLine("I did not found method you specified by name {0} in assembly {1}",
+                        methodArgumentValue, assembly.Location);
+                    return null;
+                }
+            }
+
+            return method;
         }
 
         private static void PostProcess(Statistics statistics)
@@ -44,7 +131,11 @@ namespace VSharp.Runner
             SearchStrategy strat,
             Verbosity verbosity,
             uint recursionThreshold,
-            ExplorationMode explorationMode)
+            ExplorationMode explorationMode,
+            string pathToModel,
+            bool useGPU,
+            bool optimize
+            )
         {
             var assembly = TryLoadAssembly(assemblyPath);
             var options =
@@ -56,7 +147,10 @@ namespace VSharp.Runner
                     searchStrategy: strat,
                     verbosity: verbosity,
                     recursionThreshold: recursionThreshold,
-                    explorationMode: explorationMode);
+                    explorationMode: explorationMode,
+                    pathToModel: pathToModel,
+                    useGPU: useGPU,
+                    optimize: optimize);
 
             if (assembly == null) return;
 
@@ -149,7 +243,10 @@ namespace VSharp.Runner
             SearchStrategy strat,
             Verbosity verbosity,
             uint recursionThreshold,
-            ExplorationMode explorationMode)
+            ExplorationMode explorationMode,
+            string pathToModel,
+            bool useGPU,
+            bool optimize)
         {
             var assembly = TryLoadAssembly(assemblyPath);
             var options =
@@ -161,7 +258,10 @@ namespace VSharp.Runner
                     searchStrategy: strat,
                     verbosity: verbosity,
                     recursionThreshold: recursionThreshold,
-                    explorationMode: explorationMode);
+                    explorationMode: explorationMode,
+                    pathToModel: pathToModel,
+                    useGPU: useGPU,
+                    optimize: optimize);
 
             if (assembly == null) return;
 
@@ -184,7 +284,10 @@ namespace VSharp.Runner
             SearchStrategy strat,
             Verbosity verbosity,
             uint recursionThreshold,
-            ExplorationMode explorationMode)
+            ExplorationMode explorationMode,
+            string pathToModel,
+            bool useGPU,
+            bool optimize)
         {
             var assembly = TryLoadAssembly(assemblyPath);
             if (assembly == null) return;
@@ -205,7 +308,10 @@ namespace VSharp.Runner
                     searchStrategy: strat,
                     verbosity: verbosity,
                     recursionThreshold: recursionThreshold,
-                    explorationMode: explorationMode);
+                    explorationMode: explorationMode,
+                    pathToModel: pathToModel,
+                    useGPU: useGPU,
+                    optimize: optimize);
 
             Statistics statistics;
             if (runTests)
@@ -227,7 +333,10 @@ namespace VSharp.Runner
             SearchStrategy strat,
             Verbosity verbosity,
             uint recursionThreshold,
-            ExplorationMode explorationMode)
+            ExplorationMode explorationMode,
+            string pathToModel,
+            bool useGPU,
+            bool optimize)
         {
             var assembly = TryLoadAssembly(assemblyPath);
             if (assembly == null) return;
@@ -264,7 +373,10 @@ namespace VSharp.Runner
                     searchStrategy: strat,
                     verbosity: verbosity,
                     recursionThreshold: recursionThreshold,
-                    explorationMode: explorationMode);
+                    explorationMode: explorationMode,
+                    pathToModel: pathToModel,
+                    useGPU: useGPU,
+                    optimize: optimize);
 
             Statistics statistics;
             if (runTests || checkCoverage)
@@ -285,7 +397,10 @@ namespace VSharp.Runner
             SearchStrategy strat,
             Verbosity verbosity,
             uint recursionThreshold,
-            ExplorationMode explorationMode)
+            ExplorationMode explorationMode,
+            string pathToModel,
+            bool useGPU,
+            bool optimize)
         {
             var assembly = TryLoadAssembly(assemblyPath);
             if (assembly == null) return;
@@ -306,7 +421,10 @@ namespace VSharp.Runner
                     searchStrategy: strat,
                     verbosity: verbosity,
                     recursionThreshold: recursionThreshold,
-                    explorationMode: explorationMode);
+                    explorationMode: explorationMode,
+                    pathToModel: pathToModel,
+                    useGPU: useGPU,
+                    optimize: optimize);
 
             Statistics statistics;
             if (runTests)
@@ -326,6 +444,18 @@ namespace VSharp.Runner
                 aliases: new[] { "--timeout", "-t" },
                 () => -1,
                 "Time for test generation in seconds. Negative value means no timeout.");
+            var pathToModelOption = new Option<string>(
+                aliases: new[] { "--model", "-m" },
+                () => defaultOptions.GetDefaultPathToModel(),
+                "Path to ONNX file with model for AI searcher.");
+            var useGPUOption = new Option<bool>(
+                aliases: new[] { "--gpu" },
+                () => false,
+                "Enables GPU processing.");
+            var optimizeOption = new Option<bool>(
+                aliases: new[] { "--optimize" },
+                () => false,
+                "Optimize option.");
             var solverTimeoutOption = new Option<int>(
                 aliases: new[] { "--solver-timeout", "-st" },
                 () => -1,
@@ -371,6 +501,9 @@ namespace VSharp.Runner
             rootCommand.AddGlobalOption(verbosityOption);
             rootCommand.AddGlobalOption(recursionThresholdOption);
             rootCommand.AddGlobalOption(explorationModeOption);
+            rootCommand.AddGlobalOption(pathToModelOption);
+            rootCommand.AddGlobalOption(useGPUOption);
+            rootCommand.AddGlobalOption(optimizeOption);
 
             var entryPointCommand =
                 new Command("--entry-point", "Generate test coverage from the entry point of assembly (assembly must contain Main method)");
@@ -396,7 +529,10 @@ namespace VSharp.Runner
                     parseResult.GetValueForOption(searchStrategyOption),
                     parseResult.GetValueForOption(verbosityOption),
                     parseResult.GetValueForOption(recursionThresholdOption),
-                    parseResult.GetValueForOption(explorationModeOption)
+                    parseResult.GetValueForOption(explorationModeOption),
+                    parseResult.GetValueForOption(pathToModelOption),
+                    parseResult.GetValueForOption(useGPUOption),
+                    parseResult.GetValueForOption(optimizeOption)
                 );
             });
 
@@ -457,7 +593,10 @@ namespace VSharp.Runner
                     parseResult.GetValueForOption(searchStrategyOption),
                     parseResult.GetValueForOption(verbosityOption),
                     parseResult.GetValueForOption(recursionThresholdOption),
-                    parseResult.GetValueForOption(explorationModeOption)
+                    parseResult.GetValueForOption(explorationModeOption),
+                    parseResult.GetValueForOption(pathToModelOption),
+                    parseResult.GetValueForOption(useGPUOption),
+                    parseResult.GetValueForOption(optimizeOption)
                 );
             });
 
@@ -484,7 +623,10 @@ namespace VSharp.Runner
                     parseResult.GetValueForOption(searchStrategyOption),
                     parseResult.GetValueForOption(verbosityOption),
                     parseResult.GetValueForOption(recursionThresholdOption),
-                    parseResult.GetValueForOption(explorationModeOption)
+                    parseResult.GetValueForOption(explorationModeOption),
+                    parseResult.GetValueForOption(pathToModelOption),
+                    parseResult.GetValueForOption(useGPUOption),
+                    parseResult.GetValueForOption(optimizeOption)
                 );
             });
 
@@ -499,6 +641,7 @@ namespace VSharp.Runner
             specificMethodCommand.SetHandler(context =>
             {
                 var parseResult = context.ParseResult;
+                var pathToModel = parseResult.GetValueForOption(pathToModelOption);
                 var output = parseResult.GetValueForOption(outputOption);
                 Debug.Assert(output is not null);
                 SpecificMethodHandler(
@@ -513,7 +656,10 @@ namespace VSharp.Runner
                     parseResult.GetValueForOption(searchStrategyOption),
                     parseResult.GetValueForOption(verbosityOption),
                     parseResult.GetValueForOption(recursionThresholdOption),
-                    parseResult.GetValueForOption(explorationModeOption)
+                    parseResult.GetValueForOption(explorationModeOption),
+                    pathToModel,
+                    parseResult.GetValueForOption(useGPUOption),
+                    parseResult.GetValueForOption(optimizeOption)
                 );
             });
 
@@ -528,6 +674,7 @@ namespace VSharp.Runner
             {
                 var parseResult = context.ParseResult;
                 var output = parseResult.GetValueForOption(outputOption);
+                var pathToModel = parseResult.GetValueForOption(pathToModelOption);
                 Debug.Assert(output is not null);
                 NamespaceHandler(
                     parseResult.GetValueForArgument(assemblyPathArgument),
@@ -540,7 +687,10 @@ namespace VSharp.Runner
                     parseResult.GetValueForOption(searchStrategyOption),
                     parseResult.GetValueForOption(verbosityOption),
                     parseResult.GetValueForOption(recursionThresholdOption),
-                    parseResult.GetValueForOption(explorationModeOption)
+                    parseResult.GetValueForOption(explorationModeOption),
+                    pathToModel,
+                    parseResult.GetValueForOption(useGPUOption),
+                    parseResult.GetValueForOption(optimizeOption)
                 );
             });
 

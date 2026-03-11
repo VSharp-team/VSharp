@@ -32,11 +32,11 @@ type UnitTests(outputDir : string) =
 
     member x.GenerateTest (test : UnitTest) =
         testNumber <- testNumber + 1u
-        generateTest test ("test" + testNumber.ToString())
+        generateTest test (test.Method.Name + ".test" + testNumber.ToString())
 
     member x.GenerateError (test : UnitTest) =
         errorNumber <- errorNumber + 1u
-        generateTest test ("error" + errorNumber.ToString())
+        generateTest test (test.Method.Name + ".error" + errorNumber.ToString())
 
     member x.WriteReport (reporter : Action<TextWriter>) =
         let reportFileName = $"%s{currentDir.FullName}%c{Path.DirectorySeparatorChar}report.txt"

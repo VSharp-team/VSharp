@@ -661,7 +661,7 @@ type ILInterpreter() as this =
 
     static member InitFunctionFrameCIL (cilState : cilState) (method : Method) this paramValues =
         Memory.InitFunctionFrame cilState.state method this (paramValues |> Option.bind (List.map Some >> Some))
-        Instruction(0<offsets>, method) |> cilState.PushToIp
+        Instruction(0<byte_offset>, method) |> cilState.PushToIp
 
     static member CheckDisallowNullAttribute (method : Method) (argumentsOpt : term list option) (cilState : cilState) shouldReportError k =
         if not <| method.CheckAttributes then
@@ -869,7 +869,7 @@ type ILInterpreter() as this =
             | _ -> __unreachable__()
         let bodyForModel = Memory.AllocateString " " modelState
         let modelStates = Memory.Write modelState bodyArgRef bodyForModel
-        Instruction(0<offsets>, method) |> cilState.PushToIp
+        Instruction(0<byte_offset>, method) |> cilState.PushToIp
         List.singleton cilState
 
     member private x.ConfigureAspNet (cilState : cilState) thisOption =
@@ -884,7 +884,7 @@ type ILInterpreter() as this =
         let contentRootPath = Memory.AllocateString webConfig.contentRootPath.FullName cilState.state
         let parameters = Some [Some webAppOptions; Some environmentName; Some applicationName; Some contentRootPath]
         Memory.InitFunctionFrame cilState.state method None parameters
-        Instruction(0<offsets>, method) |> cilState.PushToIp
+        Instruction(0<byte_offset>, method) |> cilState.PushToIp
         List.singleton cilState
 
     member private x.ExecutorExecute (cilState : cilState) thisOption args =
@@ -904,7 +904,7 @@ type ILInterpreter() as this =
                 |> Application.getMethod
             let args = Some (List.map Some args)
             Memory.InitFunctionFrame cilState.state invokeMethod None args
-            Instruction(0<offsets>, invokeMethod) |> cilState.PushToIp
+            Instruction(0<byte_offset>, invokeMethod) |> cilState.PushToIp
             List.singleton cilState
         | _ -> internalfail $"ExecutorExecute: unexpected 'this' {thisOption}"
 
@@ -1944,11 +1944,11 @@ type ILInterpreter() as this =
         executeAllInstructions ([],[],[]) cilState id
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
-        if offset = 0<offsets> || m.CFG.IsLoopEntry offset then
+        if offset = 0<byte_offset> || m.CFG.IsLoopEntry offset then
             cilState.IncrementLevel {offset = offset; method = m}
 
     member private x.DecrementMethodLevel (cilState : cilState) method =
-        let key = {offset = 0<offsets>; method = method}
+        let key = {offset = 0<byte_offset>; method = method}
         cilState.DecrementLevel key
 
     member private x.InTryBlock offset (clause : exceptionHandlingClause) =
@@ -2001,7 +2001,7 @@ type ILInterpreter() as this =
             // Normal execution
             // Also on entering try block we push new exception register
             | Instruction(offset, m) ->
-                if offset = 0<offsets> then Logger.info $"Starting to explore method {m}"
+                if offset = 0<byte_offset> then Logger.info $"Starting to explore method {m}"
                 x.PushExceptionRegisterIfNeeded cilState m offset
                 x.ExecuteInstruction m offset cilState |> k
             // Exiting method

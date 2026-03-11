@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using VSharp.Test;
 
 namespace IntegrationTests;

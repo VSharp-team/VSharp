@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Microsoft.FSharp.Core;
 using VSharp.CoverageTool;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
@@ -110,7 +111,7 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private class Reporter: IReporter
+        private class Reporter : IReporter
         {
             private readonly UnitTests _unitTests;
             private readonly bool _isQuiet;
@@ -123,7 +124,7 @@ namespace VSharp
 
             public void ReportFinished(UnitTest unitTest) => _unitTests.GenerateTest(unitTest);
             public void ReportException(UnitTest unitTest) => _unitTests.GenerateError(unitTest);
-            public void ReportIIE(InsufficientInformationException iie) {}
+            public void ReportIIE(InsufficientInformationException iie) { }
 
             public void ReportInternalFail(Method? method, Exception exn)
             {
@@ -178,6 +179,7 @@ namespace VSharp
                     explorationMode: explorationMode.NewTestCoverageMode(
                         coverageZone,
                         options.Timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
+
                     ),
                     recThreshold: options.RecursionThreshold,
                     solverTimeout: options.SolverTimeout,
@@ -188,8 +190,12 @@ namespace VSharp
                     checkAttributes: true,
                     stopOnCoverageAchieved: 100,
                     randomSeed: options.RandomSeed,
-                    stepsLimit: options.StepsLimit
-                );
+                    stepsLimit: options.StepsLimit,
+                    aiOptions: options.AIOptions == null ? FSharpOption<AIOptions>.None : FSharpOption<AIOptions>.Some(options.AIOptions),
+                    pathToModel: options.PathToModel == null ? FSharpOption<string>.None : FSharpOption<string>.Some(options.PathToModel),
+                    useGPU: options.UseGPU,
+                    optimize: options.Optimize
+                    );
 
             var fuzzerOptions =
                 new FuzzerOptions(
@@ -279,6 +285,7 @@ namespace VSharp
                 SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
                 SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                 SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
+                SearchStrategy.AI => searchMode.AIMode,
                 _ => throw new UnreachableException("Unknown search strategy")
             };
         }
@@ -322,7 +329,7 @@ namespace VSharp
         public static Statistics Cover(MethodBase method, VSharpOptions options = new())
         {
             AssemblyManager.LoadCopy(method.Module.Assembly);
-            var methods = new List<MethodBase> {method};
+            var methods = new List<MethodBase> { method };
             var statistics = StartExploration(methods, coverageZone.MethodZone, options);
 
             if (options.RenderTests)

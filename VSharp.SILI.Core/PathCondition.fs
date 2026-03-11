@@ -7,7 +7,7 @@ type pathCondition = pset<term>
 // - PC does not contain True
 // - if PC contains False then False is the only element in PC
 
-module internal PC =
+module PC =
 
     let public empty : pathCondition = PersistentSet.empty<term>
     let public isEmpty pc = PersistentSet.isEmpty pc
